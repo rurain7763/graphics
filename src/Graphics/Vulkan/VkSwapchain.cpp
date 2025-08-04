@@ -1,0 +1,293 @@
+#include "pch.h"
+#include "VkSwapchain.h"
+
+#ifdef SUPPORT_VULKAN
+
+#include "VkContext.h"
+#include "Log/Log.h"
+
+namespace flaw {
+    VkSwapchain::VkSwapchain(VkContext& context)
+        : _context(context)
+    {
+    }
+
+    VkSwapchain::~VkSwapchain() {
+        Destroy();
+    }
+
+    int32_t VkSwapchain::Create(uint32_t width, uint32_t height) {
+        auto surfaceDetails = GetVkSurfaceDetails(_context.GetVkPhysicalDevice(), _context.GetVkSurface());
+
+        _surfaceFormat = ChooseSurfaceFormat(surfaceDetails.formats);
+        _presentMode = ChoosePresentMode(surfaceDetails.presentModes);
+        _extent = ChooseExtent(surfaceDetails.capabilities, width, height);
+        _transform = surfaceDetails.capabilities.currentTransform;
+
+        vk::Format vkDSFormat = ChooseDepthFormat({ vk::Format::eD24UnormS8Uint, vk::Format::eD32SfloatS8Uint, vk::Format::eD32Sfloat });
+        _depthStencilFormat = ConvertToPixelFormat(vkDSFormat);
+
+        uint32_t renderTexCount = std::max(surfaceDetails.capabilities.minImageCount + 1, surfaceDetails.capabilities.maxImageCount);
+
+        if (!CreateSwapchain(renderTexCount, width, height)) {
+            Log::Error("Failed to create Vulkan swapchain.");
+            return -1;
+        }
+
+        if (!CreateRenderTextures()) {
+            Log::Error("Failed to create Vulkan swapchain render textures.");
+            return -1;
+        }
+
+        if (!CreateDepthStencilTextures()) {
+            Log::Error("Failed to create Vulkan swapchain depth stencil textures.");
+            return -1;
+        }
+
+        if (!CreateRenderPasses()) {
+            Log::Error("Failed to create Vulkan swapchain render pass.");
+            return -1;
+        }
+
+        if (!CreateFramebuffers()) {
+            Log::Error("Failed to create Vulkan swapchain framebuffer.");
+            return -1;
+        }
+
+        Log::Info("Vulkan swapchain created successfully");
+
+        return 0;
+    }
+
+    int32_t VkSwapchain::Resize(uint32_t width, uint32_t height) {
+        _context.GetVkDevice().waitIdle();
+
+        if(_swapchain) {
+            _frameBuffers.clear();
+            _renderTextures.clear();
+            _depthStencilTextures.clear();
+            _context.GetVkDevice().destroySwapchainKHR(_swapchain, nullptr, _context.GetVkDispatchLoader());
+        }
+
+        auto surfaceDetails = GetVkSurfaceDetails(_context.GetVkPhysicalDevice(), _context.GetVkSurface());
+
+        _extent = ChooseExtent(surfaceDetails.capabilities, width, height);
+        _transform = surfaceDetails.capabilities.currentTransform;
+
+        uint32_t renderTexCount = std::max(surfaceDetails.capabilities.minImageCount + 1, surfaceDetails.capabilities.maxImageCount);
+
+        if (!CreateSwapchain(renderTexCount, width, height)) {
+            Log::Error("Failed to create Vulkan swapchain.");
+            return -1;
+        }
+
+        if (!CreateRenderTextures()) {
+            Log::Error("Failed to create Vulkan swapchain render textures.");
+            return -1;
+        }
+
+        if (!CreateDepthStencilTextures()) {
+            Log::Error("Failed to create Vulkan swapchain depth stencil textures.");
+            return -1;
+        }
+
+        if (!CreateFramebuffers()) {
+            Log::Error("Failed to create Vulkan swapchain framebuffer.");
+            return -1;
+        }
+
+        Log::Info("Vulkan swapchain resized successfully to %dx%d", width, height);
+
+        return 0;
+    }
+
+    bool VkSwapchain::CreateSwapchain(uint32_t renderTexCount, uint32_t width, uint32_t height) {
+        vk::SwapchainCreateInfoKHR createInfo;
+        createInfo.surface = _context.GetVkSurface();
+        createInfo.minImageCount = renderTexCount;
+        createInfo.imageFormat = _surfaceFormat.format;
+        createInfo.imageColorSpace = _surfaceFormat.colorSpace;
+        createInfo.imageExtent = _extent;
+        createInfo.imageArrayLayers = 1;
+        createInfo.imageUsage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferDst;
+        createInfo.preTransform = _transform;
+        createInfo.compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque;
+        createInfo.presentMode = _presentMode;
+        createInfo.clipped = VK_TRUE;
+        createInfo.oldSwapchain = vk::SwapchainKHR();
+
+        std::array<uint32_t, 2> queueFamilyIndices = {
+            _context.GetGraphicsQueueFamilyIndex(),
+            _context.GetPresentQueueFamilyIndex()
+        };
+
+        if (queueFamilyIndices[0] != queueFamilyIndices[1]) {
+            createInfo.imageSharingMode = vk::SharingMode::eConcurrent;
+            createInfo.queueFamilyIndexCount = queueFamilyIndices.size();
+            createInfo.pQueueFamilyIndices = queueFamilyIndices.data();
+        } else {
+            createInfo.imageSharingMode = vk::SharingMode::eExclusive;
+            createInfo.queueFamilyIndexCount = 0;
+        }
+
+        auto swapchainWrapper = _context.GetVkDevice().createSwapchainKHR(createInfo);
+        if (swapchainWrapper.result != vk::Result::eSuccess) {
+            Log::Error("Failed to create Vulkan swapchain: %s", vk::to_string(swapchainWrapper.result).c_str());
+            return false;
+        }
+
+        _swapchain = swapchainWrapper.value;
+
+        return true;
+    }
+
+    vk::SurfaceFormatKHR VkSwapchain::ChooseSurfaceFormat(const std::vector<vk::SurfaceFormatKHR>& formats) const {
+        for (const auto& format : formats) {
+            if (format.format == vk::Format::eB8G8R8A8Unorm && format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear) {
+                return format; // Prefer sRGB format
+            }
+        }
+        return formats[0]; // Fallback to the first available format
+    }
+
+    vk::PresentModeKHR VkSwapchain::ChoosePresentMode(const std::vector<vk::PresentModeKHR>& presentModes) const {
+        for (const auto& mode : presentModes) {
+            if (mode == vk::PresentModeKHR::eMailbox) {
+                return mode; // Prefer mailbox for lower latency
+            }
+        }
+        return vk::PresentModeKHR::eFifo; // Fallback to FIFO
+    }
+
+    vk::Extent2D VkSwapchain::ChooseExtent(const vk::SurfaceCapabilitiesKHR& capabilities, uint32_t width, uint32_t height) const {
+        if (capabilities.currentExtent.width != UINT32_MAX) {
+            return capabilities.currentExtent;
+        } 
+
+        vk::Extent2D extent;
+        extent.width = std::max(capabilities.minImageExtent.width, std::min(capabilities.maxImageExtent.width, extent.width));
+        extent.height = std::max(capabilities.minImageExtent.height, std::min(capabilities.maxImageExtent.height, extent.height));
+        return extent;
+    }
+
+    vk::Format VkSwapchain::ChooseDepthFormat(const std::vector<vk::Format>& candidates) const {
+        for (const auto& format : candidates) {
+            vk::FormatProperties props = _context.GetVkPhysicalDevice().getFormatProperties(format);
+
+            if ((props.optimalTilingFeatures & vk::FormatFeatureFlagBits::eDepthStencilAttachment) == vk::FormatFeatureFlagBits::eDepthStencilAttachment) {
+                return format;
+            }
+
+            if ((props.linearTilingFeatures & vk::FormatFeatureFlagBits::eDepthStencilAttachment) == vk::FormatFeatureFlagBits::eDepthStencilAttachment) {
+                return format;
+            }
+        }
+
+        throw std::runtime_error("No suitable depth format found");
+    }
+
+    bool VkSwapchain::CreateRenderTextures() {
+        auto images = _context.GetVkDevice().getSwapchainImagesKHR(_swapchain).value;
+
+        _renderTextures.resize(images.size());
+        for (uint32_t i = 0; i < images.size(); ++i) {
+            vk::Image image = images[i];
+
+            uint32_t bindFlags = BindFlag::RenderTarget | BindFlag::ShaderResource;
+
+            _renderTextures[i] = CreateRef<VkTexture2D>(_context, image, PixelFormat::BGRA8, bindFlags);
+        }
+
+        return true;
+    }
+
+    bool VkSwapchain::CreateDepthStencilTextures() {
+        uint32_t renderTexCount = _renderTextures.size();
+
+        Texture2D::Descriptor desc;
+        desc.width = _extent.width;
+        desc.height = _extent.height;
+        desc.format = _depthStencilFormat;
+        desc.data = nullptr;
+        desc.usage = UsageFlag::Static;
+        desc.bindFlags = BindFlag::DepthStencil;
+
+        _depthStencilTextures.resize(renderTexCount);
+        for (size_t i = 0; i < renderTexCount; ++i) {
+            _depthStencilTextures[i] = CreateRef<VkTexture2D>(_context, desc); 
+        }
+
+        return true;
+    }
+
+    bool VkSwapchain::CreateRenderPasses() {
+        GraphicsRenderPassLayout::Descriptor renderPassLayoutDesc;
+        renderPassLayoutDesc.type = PipelineType::Graphics;
+        renderPassLayoutDesc.colorAttachments = {
+            { PixelFormat::BGRA8, BlendMode::Default, false }
+        };
+        renderPassLayoutDesc.depthStencilAttachment = { _depthStencilFormat };
+
+        _renderPassLayout = CreateRef<VkRenderPassLayout>(_context, renderPassLayoutDesc);
+
+        GraphicsRenderPass::Descriptor renderPassDesc;
+        renderPassDesc.layout = _renderPassLayout;
+        renderPassDesc.colorAttachmentOperations = {
+            { TextureLayout::Undefined, TextureLayout::Present, AttachmentLoadOp::Clear, AttachmentStoreOp::Store }
+        };
+        renderPassDesc.depthStencilAttachmentOperation = {
+            { TextureLayout::Undefined, TextureLayout::DepthStencil, AttachmentLoadOp::Clear, AttachmentStoreOp::Store, AttachmentLoadOp::DontCare, AttachmentStoreOp::DontCare }
+        };
+
+        _clearOpRenderPass = CreateRef<VkRenderPass>(_context, renderPassDesc);
+
+        renderPassDesc.colorAttachmentOperations = {
+            { TextureLayout::Present, TextureLayout::Present, AttachmentLoadOp::Load, AttachmentStoreOp::Store }
+        };
+
+        renderPassDesc.depthStencilAttachmentOperation = {
+            { TextureLayout::DepthStencil, TextureLayout::DepthStencil, AttachmentLoadOp::Load, AttachmentStoreOp::Store, AttachmentLoadOp::DontCare, AttachmentStoreOp::DontCare }
+        };
+
+        _loadOpRenderPass = CreateRef<VkRenderPass>(_context, renderPassDesc);
+
+        return true;
+    }
+
+    bool VkSwapchain::CreateFramebuffers() {
+        uint32_t renderTexCount = _renderTextures.size();
+
+        for (uint32_t i = 0; i < renderTexCount; ++i) {
+            auto renderTexture = _renderTextures[i];
+            auto depthTexture = _depthStencilTextures[i];
+
+            GraphicsFramebuffer::Descriptor desc;
+            desc.width = _extent.width;
+            desc.height = _extent.height;
+            desc.renderPassLayout = _renderPassLayout;
+            desc.colorAttachments.push_back(renderTexture);
+            desc.depthStencilAttachment = depthTexture;
+
+            _frameBuffers.push_back(CreateRef<VkFramebuffer>(_context, desc));
+        }
+
+        return true;
+    }
+
+    void VkSwapchain::Destroy() {
+        if(!_swapchain) {
+            return;
+        }
+
+        _clearOpRenderPass.reset();
+        _loadOpRenderPass.reset();
+        _renderPassLayout.reset();
+        _frameBuffers.clear();
+        _renderTextures.clear();
+        _depthStencilTextures.clear();
+        _context.GetVkDevice().destroySwapchainKHR(_swapchain, nullptr, _context.GetVkDispatchLoader());
+        _swapchain = vk::SwapchainKHR();
+    }
+}
+
+#endif

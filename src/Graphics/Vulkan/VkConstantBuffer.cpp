@@ -1,0 +1,110 @@
+#include "pch.h"
+#include "VkBuffers.h"
+
+#ifdef SUPPORT_VULKAN
+
+#include "VkContext.h"
+#include "Log/Log.h"
+
+namespace flaw {
+	VkConstantBuffer::VkConstantBuffer(VkContext& context, uint32_t size)
+		: _context(context)
+        , _size(size) 
+    {
+        if (!CreateBuffer()) {
+            return;
+        }
+
+        if (!AllocateMemory()) {
+            return;
+        }
+
+        _bufferInfo.buffer = _buffer;
+        _bufferInfo.offset = 0;
+        _bufferInfo.range = size;
+
+        auto mappedDataWrapper = _context.GetVkDevice().mapMemory(_memory, 0, size, vk::MemoryMapFlags(), _context.GetVkDispatchLoader());
+        if (mappedDataWrapper.result != vk::Result::eSuccess) {
+            Log::Error("Failed to map constant buffer memory.");
+            return;
+        }
+
+        _mappedData = mappedDataWrapper.value;
+	}
+
+	VkConstantBuffer::~VkConstantBuffer() {
+        if (_mappedData) {
+            _context.GetVkDevice().unmapMemory(_memory, _context.GetVkDispatchLoader());
+            _mappedData = nullptr;
+        }
+
+        _context.AddDelayedDeletionTasks([&context = _context, buffer = _buffer, memory = _memory]() {
+            context.GetVkDevice().destroyBuffer(buffer, nullptr, context.GetVkDispatchLoader());
+            context.GetVkDevice().freeMemory(memory, nullptr, context.GetVkDispatchLoader());
+        });
+	}
+
+	void VkConstantBuffer::Update(const void* data, int32_t size) {
+		if (size > _size) {
+            Log::Error("Data size exceeds constant buffer size.");
+            return;
+        }
+
+        if (_mappedData) {
+            std::memcpy(_mappedData, data, size);
+        } else {
+            Log::Error("Constant buffer memory is not mapped.");
+        }
+	}
+
+	void VkConstantBuffer::BindToGraphicsShader(const uint32_t slot) {
+		
+	}
+
+	void VkConstantBuffer::BindToComputeShader(const uint32_t slot) {
+		
+	}
+
+	void VkConstantBuffer::Unbind() {
+		
+	}
+
+    bool VkConstantBuffer::CreateBuffer() {
+        vk::BufferCreateInfo bufferInfo;
+        bufferInfo.size = _size;
+        bufferInfo.usage = vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eTransferDst;
+        bufferInfo.sharingMode = vk::SharingMode::eExclusive;
+
+        auto bufferWrapper = _context.GetVkDevice().createBuffer(bufferInfo, nullptr, _context.GetVkDispatchLoader());
+        if (bufferWrapper.result != vk::Result::eSuccess) {
+            Log::Error("Failed to create vertex buffer: %s", vk::to_string(bufferWrapper.result).c_str());
+            return false;
+        }
+
+        _buffer = bufferWrapper.value;
+
+        return true;
+    }
+
+    bool VkConstantBuffer::AllocateMemory() {
+        vk::MemoryRequirements memRequirements = _context.GetVkDevice().getBufferMemoryRequirements(_buffer, _context.GetVkDispatchLoader());
+
+        vk::MemoryAllocateInfo allocInfo;
+        allocInfo.allocationSize = memRequirements.size;
+        allocInfo.memoryTypeIndex = GetMemoryTypeIndex(_context.GetVkPhysicalDevice(), memRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+
+        auto memoryWrapper = _context.GetVkDevice().allocateMemory(allocInfo, nullptr, _context.GetVkDispatchLoader());
+        if (memoryWrapper.result != vk::Result::eSuccess) {
+            Log::Error("Failed to allocate vertex buffer memory: %s", vk::to_string(memoryWrapper.result).c_str());
+            return false;
+        }
+
+        _memory = memoryWrapper.value;
+
+        _context.GetVkDevice().bindBufferMemory(_buffer, _memory, 0, _context.GetVkDispatchLoader());
+
+        return true;
+    }
+} // namespace flaw
+
+#endif

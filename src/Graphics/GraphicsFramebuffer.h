@@ -1,0 +1,32 @@
+#pragma once
+
+#include "Core.h"
+#include "GraphicsRenderPass.h"
+#include "GraphicsTextures.h"
+
+namespace flaw {
+	class GraphicsFramebuffer {
+	public:
+        struct Descriptor {
+            uint32_t width;
+            uint32_t height;
+            std::vector<Ref<Texture>> colorAttachments;
+            std::function<Ref<Texture>(uint32_t index, uint32_t width, uint32_t height)> colorResizeHandler;
+            std::optional<Ref<Texture>> depthStencilAttachment;
+            std::function<Ref<Texture>(uint32_t width, uint32_t height)> depthStencilResizeHandler;
+            Ref<GraphicsRenderPassLayout> renderPassLayout;
+        };
+
+		GraphicsFramebuffer() = default;
+		virtual ~GraphicsFramebuffer() = default;
+
+        virtual void Resize(uint32_t width, uint32_t height) = 0;
+
+        virtual Ref<Texture> GetAttachment(uint32_t index) const = 0;
+        virtual Ref<Texture> GetDepthStencilAttachment() const = 0;
+        virtual const Ref<GraphicsRenderPassLayout>& GetRenderPassLayout() const = 0;
+
+        virtual uint32_t GetWidth() const = 0;
+        virtual uint32_t GetHeight() const = 0;
+	};
+}

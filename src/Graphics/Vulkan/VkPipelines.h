@@ -1,0 +1,106 @@
+#pragma once
+
+#include "Core.h"
+
+#ifdef SUPPORT_VULKAN
+
+#include "VkCore.h"
+#include "Graphics/GraphicsPipeline.h"
+
+namespace flaw {
+	class VkContext;
+    class VkVertexInputLayout;
+    class VkShaderResourcesLayout;
+    class VkRenderPassLayout;
+    class VkRenderPass;
+
+	class VkGraphicsPipeline : public GraphicsPipeline {
+	public:
+        struct PushConstantRange {
+            uint32_t shaderStages;
+            uint32_t size;
+        };
+
+		VkGraphicsPipeline(VkContext& context);
+        ~VkGraphicsPipeline();
+
+        void SetVertexInputLayout(const Ref<GraphicsVertexInputLayout>& vertexInputLayout) override;
+
+        void SetPrimitiveTopology(PrimitiveTopology primitiveTopology) override;
+		void SetViewport(float x, float y, float width, float height) override;
+        void SetScissor(int32_t x, int32_t y, int32_t width, int32_t height) override;
+
+        void SetDepthTest(DepthTest depthTest, bool depthWrite = true) override;
+		void SetCullMode(CullMode cullMode) override;
+		void SetFillMode(FillMode fillMode) override;
+
+        void AddShaderResourcesLayout(const Ref<ShaderResourcesLayout>& shaderResourceLayout) override;
+        void SetShader(const Ref<GraphicsShader>& shader) override;
+
+        void SetRenderPassLayout(const Ref<GraphicsRenderPassLayout>& renderPassLayout) override;
+
+        void SetBehaviorStates(uint32_t flags) override;
+        uint32_t GetBehaviorStates() const override;
+
+		void Bind() override;
+
+        void AddPushConstantRange(const PushConstantRange& pushConstant);
+
+        vk::Pipeline GetNativeVkGraphicsPipeline();
+        inline vk::PipelineLayout GetVkPipelineLayout() const { return _pipelineLayout; }
+        inline const std::vector<vk::PushConstantRange>& GetVkPushConstantRanges() const { return _pushConstantRanges; }
+        inline Ref<VkVertexInputLayout> GetVkVertexInputLayout() const { return _vertexInputLayout; }
+        inline const std::vector<vk::DescriptorSetLayout>& GetVkDescriptorSetLayouts() const { return _descriptorSetLayouts; }
+        inline const vk::Viewport& GetVkViewport() const { return _viewport; }
+        inline const vk::Rect2D& GetVkScissor() const { return _scissor; }
+
+    private:
+        void CreatePipeline();
+        void DestroyPipeline();
+
+    private:
+        VkContext& _context;
+
+        bool _needRecreatePipeline;
+         
+        vk::Pipeline _pipeline;
+
+        Ref<VkVertexInputLayout> _vertexInputLayout;
+        vk::PipelineVertexInputStateCreateInfo _vertexInputState;
+
+        vk::PipelineInputAssemblyStateCreateInfo _inputAssemblyInfo;
+
+        vk::Viewport _viewport;
+        vk::Rect2D _scissor;
+        vk::PipelineViewportStateCreateInfo _viewportStateInfo;
+
+        vk::PipelineRasterizationStateCreateInfo _rasterizationInfo;
+
+        std::vector<Ref<VkShaderResourcesLayout>> _shaderResourceLayouts;
+        std::vector<vk::DescriptorSetLayout> _descriptorSetLayouts;
+
+        Ref<GraphicsShader> _shader;
+        std::vector<vk::PipelineShaderStageCreateInfo> _shaderStages;
+
+        vk::PipelineMultisampleStateCreateInfo _multisampleInfo;
+
+        std::vector<vk::PipelineColorBlendAttachmentState> _colorBlendAttachments;
+        vk::PipelineColorBlendStateCreateInfo _colorBlendStateInfo;
+
+        vk::PipelineDepthStencilStateCreateInfo _depthStencilInfo;
+
+        std::vector<vk::DynamicState> _dynamicStates;
+        vk::PipelineDynamicStateCreateInfo _dynamicStateInfo;
+
+        vk::PipelineLayout _pipelineLayout;
+        uint32_t _pushConstantOffset;
+        std::vector<vk::PushConstantRange> _pushConstantRanges;
+
+        Ref<VkRenderPassLayout> _renderPassLayout;
+        Ref<VkRenderPass> _renderPass;
+
+        uint32_t _behaviorFlags;
+	};
+}
+
+#endif
