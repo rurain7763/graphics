@@ -286,11 +286,7 @@ namespace flaw {
         _colorBlendStateInfo.attachmentCount = _colorBlendAttachments.size();
         _colorBlendStateInfo.pAttachments = _colorBlendAttachments.data();
 
-        if (vkRenderPassLayout->HasResolveAttachment()) {
-            _multisampleInfo.rasterizationSamples = ConvertToVkSampleCount(vkRenderPassLayout->GetResolveAttachment().sampleCount);
-        } else {
-            _multisampleInfo.rasterizationSamples = vk::SampleCountFlagBits::e1;
-        }
+        _multisampleInfo.rasterizationSamples = ConvertToVkSampleCount(vkRenderPassLayout->GetSampleCount());
     }
 
     void VkGraphicsPipeline::Bind() {

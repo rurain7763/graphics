@@ -211,10 +211,18 @@ namespace flaw {
         auto vkFramebuffer = _context.GetVkSwapchain().GetFramebuffer(_currentFrameIndex); 
         auto vkRenderPass = _context.GetVkSwapchain().GetClearOpRenderPass();
 
-        std::array<vk::ClearValue, 2> clearValues = {
-            vk::ClearColorValue(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f}),
-            vk::ClearDepthStencilValue(1.0f, 0)
-        };
+        std::vector<vk::ClearValue> clearValues;
+        for(uint32_t i = 0; i < vkRenderPass->GetColorAttachmentOpCount(); ++i) {
+            clearValues.push_back(vk::ClearColorValue(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f}));
+        }
+
+        if (vkRenderPass->HasDepthStencilAttachmentOp()) {
+            clearValues.push_back(vk::ClearDepthStencilValue(1.0f, 0));
+        }
+
+        if (vkRenderPass->HasResolveAttachmentOp()) {
+            clearValues.push_back(vk::ClearColorValue(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f}));
+        }
 
         vk::RenderPassBeginInfo renderPassInfo;
         renderPassInfo.renderPass = vkRenderPass->GetNativeVkRenderPass();
@@ -308,6 +316,14 @@ namespace flaw {
         if (vkRenderPass->HasDepthStencilAttachmentOp()) {
             if (vkRenderPass->GetDepthStencilAttachmentOp().loadOp == AttachmentLoadOp::Clear) {
                 clearValues.push_back(vk::ClearDepthStencilValue(1.0f, 0));
+            } else {
+                clearValues.push_back({});
+            }
+        }
+
+        if (vkRenderPass->HasResolveAttachmentOp()) {
+            if (vkRenderPass->GetResolveAttachmentOp().loadOp == AttachmentLoadOp::Clear) {
+                clearValues.push_back(vk::ClearColorValue(0.0f, 0.0f, 0.0f, 1.0f));
             } else {
                 clearValues.push_back({});
             }

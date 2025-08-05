@@ -44,8 +44,8 @@ namespace flaw {
             return -1;
         }
 
-        if (!CreateResolveTextures()) {
-            Log::Error("Failed to create Vulkan swapchain resolve textures.");
+        if (!CreateMSAAColorTextures()) {
+            Log::Error("Failed to create Vulkan swapchain MSAA color textures.");
             return -1;
         }
 
@@ -94,8 +94,8 @@ namespace flaw {
             return -1;
         }
 
-        if (!CreateResolveTextures()) {
-            Log::Error("Failed to create Vulkan swapchain resolve textures.");
+        if (!CreateMSAAColorTextures()) {
+            Log::Error("Failed to create Vulkan swapchain MSAA color textures.");
             return -1;
         }
 
@@ -237,14 +237,14 @@ namespace flaw {
         return true;
     }
 
-    bool VkSwapchain::CreateResolveTextures() {
+    bool VkSwapchain::CreateMSAAColorTextures() {
         if (!_context.GetMSAAState()) {
-            return true; // MSAA is not enabled, no resolve textures needed
+            return true;
         }
 
         uint32_t renderTexCount = _renderTextures.size();
-        
-        _resolveTextures.resize(renderTexCount);
+
+        _msaaColorTextures.resize(renderTexCount);
         for (uint32_t i = 0; i < renderTexCount; ++i) {
             Texture2D::Descriptor desc;
             desc.width = _extent.width;
@@ -254,8 +254,8 @@ namespace flaw {
             desc.bindFlags = BindFlag::RenderTarget;
             desc.sampleCount = _context.GetMsaaSampleCount();
 
-            _resolveTextures[i] = CreateRef<VkTexture2D>(_context, desc);
-        }       
+            _msaaColorTextures[i] = CreateRef<VkTexture2D>(_context, desc);
+        }
 
         return true;
     }
@@ -263,48 +263,56 @@ namespace flaw {
     bool VkSwapchain::CreateRenderPasses() {
         GraphicsRenderPassLayout::Descriptor renderPassLayoutDesc;
         renderPassLayoutDesc.type = PipelineType::Graphics;
-        renderPassLayoutDesc.colorAttachments = {
-            { PixelFormat::BGRA8, 1, BlendMode::Default, false }
-        };
-
+        
         if (!_context.GetMSAAState()) {
-            renderPassLayoutDesc.depthStencilAttachment = { _depthStencilFormat, 1 };
+            renderPassLayoutDesc.sampleCount = 1;
+            renderPassLayoutDesc.colorAttachments = { { PixelFormat::BGRA8, BlendMode::Default, false } };
+            renderPassLayoutDesc.depthStencilAttachment = { _depthStencilFormat };
         } else {
-            renderPassLayoutDesc.depthStencilAttachment = { _depthStencilFormat, _context.GetMsaaSampleCount() };
-            renderPassLayoutDesc.resolveAttachment = { PixelFormat::BGRA8, _context.GetMsaaSampleCount() };
+            renderPassLayoutDesc.sampleCount = _context.GetMsaaSampleCount();
+            renderPassLayoutDesc.colorAttachments = { { PixelFormat::BGRA8, BlendMode::Default, false } };
+            renderPassLayoutDesc.depthStencilAttachment = { _depthStencilFormat };
+            renderPassLayoutDesc.resolveAttachment = { PixelFormat::BGRA8 };
         }
 
         _renderPassLayout = CreateRef<VkRenderPassLayout>(_context, renderPassLayoutDesc);
 
         GraphicsRenderPass::Descriptor renderPassDesc;
         renderPassDesc.layout = _renderPassLayout;
-        renderPassDesc.colorAttachmentOperations = {
-            { TextureLayout::Undefined, TextureLayout::Present, AttachmentLoadOp::Clear, AttachmentStoreOp::Store }
-        };
 
         renderPassDesc.depthStencilAttachmentOperation = {
             { TextureLayout::Undefined, TextureLayout::DepthStencil, AttachmentLoadOp::Clear, AttachmentStoreOp::Store, AttachmentLoadOp::DontCare, AttachmentStoreOp::DontCare }
         };
 
         if (_context.GetMSAAState()) {
-            renderPassDesc.resolveAttachmentOperation = {
+            renderPassDesc.colorAttachmentOperations = {
                 { TextureLayout::Undefined, TextureLayout::Color, AttachmentLoadOp::Clear, AttachmentStoreOp::Store }
+            };
+            renderPassDesc.resolveAttachmentOperation = {
+                { TextureLayout::Undefined, TextureLayout::Present, AttachmentLoadOp::Clear, AttachmentStoreOp::Store }
+            };
+        } else {
+            renderPassDesc.colorAttachmentOperations = {
+                { TextureLayout::Undefined, TextureLayout::Present, AttachmentLoadOp::Clear, AttachmentStoreOp::Store }
             };
         }
 
         _clearOpRenderPass = CreateRef<VkRenderPass>(_context, renderPassDesc);
-
-        renderPassDesc.colorAttachmentOperations = {
-            { TextureLayout::Present, TextureLayout::Present, AttachmentLoadOp::Load, AttachmentStoreOp::Store }
-        };
 
         renderPassDesc.depthStencilAttachmentOperation = {
             { TextureLayout::DepthStencil, TextureLayout::DepthStencil, AttachmentLoadOp::Load, AttachmentStoreOp::Store, AttachmentLoadOp::DontCare, AttachmentStoreOp::DontCare }
         };
 
         if (_context.GetMSAAState()) {
-            renderPassDesc.resolveAttachmentOperation = {
+            renderPassDesc.colorAttachmentOperations = {
                 { TextureLayout::Color, TextureLayout::Color, AttachmentLoadOp::Load, AttachmentStoreOp::Store }
+            };
+            renderPassDesc.resolveAttachmentOperation = {
+                { TextureLayout::Color, TextureLayout::Present, AttachmentLoadOp::Load, AttachmentStoreOp::Store }
+            };
+        } else {
+            renderPassDesc.colorAttachmentOperations = {
+                { TextureLayout::Present, TextureLayout::Present, AttachmentLoadOp::Load, AttachmentStoreOp::Store }
             };
         }
 
@@ -324,11 +332,14 @@ namespace flaw {
             desc.width = _extent.width;
             desc.height = _extent.height;
             desc.renderPassLayout = _renderPassLayout;
-            desc.colorAttachments.push_back(renderTexture);
+
             desc.depthStencilAttachment = depthTexture;
 
             if (_context.GetMSAAState()) {
-                desc.resolveAttachment = _resolveTextures[i];
+                desc.colorAttachments.push_back(_msaaColorTextures[i]);
+                desc.resolveAttachment = renderTexture;
+            } else {
+                desc.colorAttachments.push_back(renderTexture);
             }
 
             _frameBuffers.push_back(CreateRef<VkFramebuffer>(_context, desc));
@@ -348,7 +359,7 @@ namespace flaw {
         _frameBuffers.clear();
         _renderTextures.clear();
         _depthStencilTextures.clear();
-        _resolveTextures.clear();
+        _msaaColorTextures.clear();
         _context.GetVkDevice().destroySwapchainKHR(_swapchain, nullptr);
         _swapchain = VK_NULL_HANDLE;
     }

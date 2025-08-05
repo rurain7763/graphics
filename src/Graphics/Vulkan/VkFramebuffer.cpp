@@ -131,10 +131,21 @@ namespace flaw {
         std::vector<vk::ImageView> attachmentViews(_colorAttachments.size());
         for (size_t i = 0; i < _colorAttachments.size(); ++i) {
             auto& colorAttachment = _colorAttachments[i];
+
+            if (colorAttachment->GetSampleCount() != _renderPassLayout->GetSampleCount()) {
+                Log::Fatal("Color attachment sample count does not match render pass layout sample count.");
+                return false;
+            }
+
             attachmentViews[i] = *static_cast<vk::ImageView*>(colorAttachment->GetRenderTargetView());
         }
 
         if (_depthStencilAttachment) {
+            if (_depthStencilAttachment->GetSampleCount() != _renderPassLayout->GetSampleCount()) {
+                Log::Fatal("Depth stencil attachment sample count does not match render pass layout sample count.");
+                return false;
+            }
+
             attachmentViews.push_back(*static_cast<vk::ImageView*>(_depthStencilAttachment->GetDepthStencilView()));
         }
 

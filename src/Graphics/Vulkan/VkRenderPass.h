@@ -24,6 +24,8 @@ namespace flaw {
         virtual bool HasResolveAttachment() const override;
         virtual const ResolveAttachment& GetResolveAttachment() const override;
 
+        virtual uint32_t GetSampleCount() const override;
+
         inline vk::PipelineBindPoint GetVkPipelineBindPoint() const { return _pipelineBindPoint; }
         inline std::vector<vk::AttachmentDescription> GetVkAttachments() { return _vkAttachments; }
         inline std::vector<vk::AttachmentReference> GetVkColorAttachmentRefs() { return _colorAttachmentRefs; }
@@ -34,16 +36,15 @@ namespace flaw {
         VkContext& _context;
 
         vk::PipelineBindPoint _pipelineBindPoint;
+
+        uint32_t _sampleCount;
         std::vector<ColorAttachment> _colorAttachments;
         std::optional<DepthStencilAttachment> _depthStencilAttachment;
         std::optional<ResolveAttachment> _resolveAttachment;
 
         std::vector<vk::AttachmentDescription> _vkAttachments;
-
         std::vector<vk::AttachmentReference> _colorAttachmentRefs;
-
         std::optional<vk::AttachmentReference> _depthAttachmentRef;
-
         std::optional<vk::AttachmentReference> _resolveAttachmentRef;
     };
     

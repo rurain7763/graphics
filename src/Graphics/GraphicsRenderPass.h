@@ -10,23 +10,21 @@ namespace flaw {
 	public:
 		struct ColorAttachment {
 			PixelFormat format = PixelFormat::UNDEFINED;
-			uint32_t sampleCount = 1;
 			BlendMode blendMode = BlendMode::Default;
 			bool alphaToCoverage = false;
 		};
 
 		struct DepthStencilAttachment {
 			PixelFormat format = PixelFormat::UNDEFINED;
-			uint32_t sampleCount = 1;
 		};
 
 		struct ResolveAttachment {
 			PixelFormat format = PixelFormat::UNDEFINED;
-			uint32_t sampleCount = 1;
 		};
 
 		struct Descriptor {
 			PipelineType type;
+			uint32_t sampleCount = 1;
 			std::vector<ColorAttachment> colorAttachments;
 			std::optional<DepthStencilAttachment> depthStencilAttachment;
 			std::optional<ResolveAttachment> resolveAttachment;
@@ -42,6 +40,8 @@ namespace flaw {
 
 		virtual bool HasResolveAttachment() const = 0;
 		virtual const ResolveAttachment& GetResolveAttachment() const = 0;
+
+		virtual uint32_t GetSampleCount() const = 0;
 	};
 
 	class GraphicsRenderPass {
