@@ -195,7 +195,15 @@ namespace flaw {
 
             uint32_t bindFlags = BindFlag::RenderTarget | BindFlag::ShaderResource;
 
-            _renderTextures[i] = CreateRef<VkTexture2D>(_context, image, PixelFormat::BGRA8, bindFlags);
+            _renderTextures[i] = CreateRef<VkTexture2D>(
+                _context, 
+                image, 
+                _extent.width, _extent.height, PixelFormat::BGRA8, 
+                UsageFlag::Static,
+                BindFlag::RenderTarget | BindFlag::ShaderResource,
+                0, 
+                1
+            );
         }
 
         return true;

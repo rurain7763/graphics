@@ -15,6 +15,7 @@ namespace flaw {
         , _usage(descriptor.usage)
         , _acessFlags(descriptor.access)
         , _bindFlags(descriptor.bindFlags)
+        , _mipLevels(descriptor.mipLevels)
         , _width(descriptor.width)
         , _height(descriptor.height)
     {
@@ -67,13 +68,13 @@ namespace flaw {
         imageInfo.extent.width = _width;
         imageInfo.extent.height = _height;
         imageInfo.extent.depth = 1;
-        imageInfo.mipLevels = 1; // Assuming no mipmaps for now
+        imageInfo.mipLevels = _mipLevels;
         imageInfo.arrayLayers = 6;
         imageInfo.samples = vk::SampleCountFlagBits::e1;
         imageInfo.tiling = vk::ImageTiling::eOptimal;
         imageInfo.usage = ConvertToVkImageUsageFlags(_bindFlags);
         if (hasData) {
-            imageInfo.usage |= vk::ImageUsageFlagBits::eTransferDst;
+            imageInfo.usage |= vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eTransferSrc;
         }
         imageInfo.sharingMode = vk::SharingMode::eExclusive;
         imageInfo.initialLayout = vk::ImageLayout::eUndefined;
@@ -115,7 +116,7 @@ namespace flaw {
     bool VkTextureCube::PullMemory(const uint8_t* data) {
         auto& vkCmdQueue = static_cast<VkCommandQueue&>(_context.GetCommandQueue());
         uint32_t bufferSizePerImage = _width * _height * GetSizePerPixel(_format);
-        uint32_t bufferSize = bufferSizePerImage * 6; // 6 faces for cube map
+        uint32_t bufferSize = bufferSizePerImage * 6;
 
         auto stagingBuffer = CreateVkBuffer(
             _context.GetVkPhysicalDevice(),
@@ -136,9 +137,9 @@ namespace flaw {
         memcpy(stagingBuffMapedDataWrapper.value, data, bufferSize);
         _context.GetVkDevice().unmapMemory(stagingBuffer.memory);
 
-        vkCmdQueue.TransitionImageLayout(_image, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal, 6);
-        vkCmdQueue.CopyBuffer(stagingBuffer.buffer, _image, _width, _height, 0, 0, 6); 
-        vkCmdQueue.TransitionImageLayout(_image, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal, 6);
+        vkCmdQueue.TransitionImageLayout(_image, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal, 6, _mipLevels);
+        vkCmdQueue.CopyBuffer(stagingBuffer.buffer, _image, _width, _height, 0, 0, 6);
+        vkCmdQueue.GenerateMipmaps(_image, ConvertToVkFormat(_format), _width, _height, 6, _mipLevels);
 
         _context.GetVkDevice().destroyBuffer(stagingBuffer.buffer);
         _context.GetVkDevice().freeMemory(stagingBuffer.memory);
@@ -153,7 +154,7 @@ namespace flaw {
         viewInfo.format = ConvertToVkFormat(_format);
         viewInfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
         viewInfo.subresourceRange.baseMipLevel = 0;
-        viewInfo.subresourceRange.levelCount = 1; // Assuming no mipmaps for now
+        viewInfo.subresourceRange.levelCount = _mipLevels;
         viewInfo.subresourceRange.baseArrayLayer = 0;
         viewInfo.subresourceRange.layerCount = 6;
 
@@ -180,7 +181,7 @@ namespace flaw {
         samplerInfo.maxAnisotropy = 1.0f; // No anisotropy
         samplerInfo.compareOp = vk::CompareOp::eNever; // No comparison
         samplerInfo.minLod = 0.0f;
-        samplerInfo.maxLod = 1.0f; // Assuming no mipmaps for now
+        samplerInfo.maxLod = static_cast<float>(_mipLevels);
         samplerInfo.borderColor = vk::BorderColor::eFloatOpaqueWhite;
 
         auto samplerWrapper = _context.GetVkDevice().createSampler(samplerInfo);

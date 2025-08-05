@@ -545,7 +545,7 @@ namespace flaw {
         CopyBuffer(vkSrcBuffer->GetVkBuffer(), vkDstBuffer->GetVkBuffer(), size, srcOffset, dstOffset);
     }
 
-    void VkCommandQueue::TransitionImageLayout(const vk::Image& image, vk::ImageLayout oldLayout, vk::ImageLayout newLayout, uint32_t arrayLayer) {
+    void VkCommandQueue::TransitionImageLayout(const vk::Image& image, vk::ImageLayout oldLayout, vk::ImageLayout newLayout, uint32_t arrayLayer, uint32_t mipLevel) {
         _graphicsMainCommandBuffer.reset(vk::CommandBufferResetFlagBits::eReleaseResources);
 
         vk::CommandBufferBeginInfo beginInfo;
@@ -561,7 +561,7 @@ namespace flaw {
         barrier.image = image;
         barrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
         barrier.subresourceRange.baseMipLevel = 0;
-        barrier.subresourceRange.levelCount = 1;
+        barrier.subresourceRange.levelCount = mipLevel;
         barrier.subresourceRange.baseArrayLayer = 0;
         barrier.subresourceRange.layerCount = arrayLayer;
 
@@ -593,6 +593,96 @@ namespace flaw {
             return;
         }
         
+        _graphicsQueue.waitIdle();
+    }
+
+    void VkCommandQueue::GenerateMipmaps(const vk::Image& image, vk::Format format, uint32_t width, uint32_t height, uint32_t arrayLayer, uint32_t mipLevels) {
+        vk::FormatProperties formatProperties;
+        _context.GetVkPhysicalDevice().getFormatProperties(format, &formatProperties);
+        if (!(formatProperties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eSampledImageFilterLinear)) {
+            std::runtime_error("Texture format does not support linear blitting for mipmap generation.");
+        }
+
+        _graphicsMainCommandBuffer.reset(vk::CommandBufferResetFlagBits::eReleaseResources);
+
+        vk::CommandBufferBeginInfo beginInfo;
+        beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
+
+        _graphicsMainCommandBuffer.begin(beginInfo);
+
+        vk::ImageMemoryBarrier barrier;
+        barrier.image = image;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+        barrier.subresourceRange.baseArrayLayer = 0;
+        barrier.subresourceRange.layerCount = arrayLayer;
+        barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+        barrier.dstAccessMask = vk::AccessFlagBits::eTransferRead;
+
+        // 초기 상태: 밉 레벨 0을 TRANSFER_DST_OPTIMAL에서 TRANSFER_SRC_OPTIMAL로 전환
+        // 이 상태는 밉 레벨 0이 첫 번째 블리팅의 소스가 되기 위함입니다.
+        barrier.subresourceRange.baseMipLevel = 0;
+        barrier.subresourceRange.levelCount = 1;
+        barrier.oldLayout = vk::ImageLayout::eTransferDstOptimal;
+        barrier.newLayout = vk::ImageLayout::eTransferSrcOptimal;
+        _graphicsMainCommandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, {}, nullptr, nullptr, barrier);
+
+        int32_t mipWidth = static_cast<int32_t>(width);
+        int32_t mipHeight = static_cast<int32_t>(height);
+
+        for (uint32_t i = 1; i < mipLevels; ++i) {
+            vk::ImageBlit blitRegion;
+            blitRegion.srcOffsets[0] = vk::Offset3D{ 0, 0, 0 };
+            blitRegion.srcOffsets[1] = vk::Offset3D{ mipWidth, mipHeight, 1 };
+            blitRegion.srcSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+            blitRegion.srcSubresource.mipLevel = i - 1;
+            blitRegion.srcSubresource.baseArrayLayer = 0;
+            blitRegion.srcSubresource.layerCount = arrayLayer;
+
+            // 다음 밉 레벨의 크기를 계산합니다.
+            mipWidth = (mipWidth > 1) ? mipWidth / 2 : 1;
+            mipHeight = (mipHeight > 1) ? mipHeight / 2 : 1;
+
+            blitRegion.dstOffsets[0] = vk::Offset3D{ 0, 0, 0 };
+            blitRegion.dstOffsets[1] = vk::Offset3D{ mipWidth, mipHeight, 1 };
+            blitRegion.dstSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+            blitRegion.dstSubresource.mipLevel = i;
+            blitRegion.dstSubresource.baseArrayLayer = 0;
+            blitRegion.dstSubresource.layerCount = arrayLayer;
+
+            _graphicsMainCommandBuffer.blitImage(image, vk::ImageLayout::eTransferSrcOptimal, image, vk::ImageLayout::eTransferDstOptimal, 1, &blitRegion, vk::Filter::eLinear);
+
+            // 현재 밉 레벨(i)을 다음 반복의 소스로 사용하기 위해 TRANSFER_SRC_OPTIMAL로 전환합니다.
+            barrier.subresourceRange.baseMipLevel = i;
+            barrier.subresourceRange.levelCount = 1;
+            barrier.oldLayout = vk::ImageLayout::eTransferDstOptimal;
+            barrier.newLayout = vk::ImageLayout::eTransferSrcOptimal;
+            _graphicsMainCommandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, {}, nullptr, nullptr, barrier);
+        }
+        
+        // 최종 상태: 모든 밉 레벨을 SHADER_READ_ONLY_OPTIMAL로 전환합니다.
+        // 모든 밉 레벨은 루프를 거치며 eTransferSrcOptimal 상태가 됩니다.
+        barrier.subresourceRange.baseMipLevel = 0;
+        barrier.subresourceRange.levelCount = mipLevels;
+        barrier.oldLayout = vk::ImageLayout::eTransferSrcOptimal;
+        barrier.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+        barrier.srcAccessMask = vk::AccessFlagBits::eTransferRead;
+        barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
+        _graphicsMainCommandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eFragmentShader, {}, nullptr, nullptr, barrier);
+
+        _graphicsMainCommandBuffer.end();
+
+        vk::SubmitInfo submitInfo;
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &_graphicsMainCommandBuffer;
+
+        auto result = _graphicsQueue.submit(1, &submitInfo, nullptr);
+        if (result != vk::Result::eSuccess) {
+            Log::Fatal("Failed to submit Vulkan command buffer for mipmap generation: %s", vk::to_string(result).c_str());
+            return;
+        }
+
         _graphicsQueue.waitIdle();
     }
 

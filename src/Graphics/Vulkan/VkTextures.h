@@ -15,10 +15,8 @@ namespace flaw {
 	class VkTexture2D : public Texture2D {
 	public:
 		VkTexture2D(VkContext& context, const Descriptor& descriptor);
-		VkTexture2D(VkContext& context, vk::Image image, PixelFormat format, uint32_t bindFlags);
+		VkTexture2D(VkContext& context, vk::Image image, uint32_t width, uint32_t height, PixelFormat format, UsageFlag usage, uint32_t bindFlags, uint32_t accessFlags, uint32_t mipLevels);
 		~VkTexture2D();
-
-		void GenerateMips(uint32_t level) override {}
 
 		void Fetch(void* outData, const uint32_t size) const override {}
 
@@ -74,8 +72,6 @@ namespace flaw {
 	public:
 		VkTextureCube(VkContext& context, const Descriptor& descriptor);
 		~VkTextureCube();
-
-		void GenerateMips(uint32_t level) override {} 
 
 		ShaderResourceView GetShaderResourceView() const override { return _imageView; }
 		UnorderedAccessView GetUnorderedAccessView() const override { return _imageView; }

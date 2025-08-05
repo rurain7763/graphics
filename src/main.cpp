@@ -10,6 +10,7 @@
 #include "Math/Math.h"
 #include "Image/Image.h"
 #include "Model/Model.h"
+#include "Graphics/GraphicsFunc.h"
 
 #include <filesystem>
 
@@ -135,6 +136,7 @@ int main() {
     hausDesc.usage = UsageFlag::Static;
     hausDesc.bindFlags = BindFlag::ShaderResource;
     hausDesc.format = PixelFormat::RGBA8;
+    hausDesc.mipLevels = GetMaxMipLevels(hausDesc.width, hausDesc.height);
 
     Ref<Texture2D> hausTexture = g_graphicsContext->CreateTexture2D(hausDesc);
 
@@ -178,7 +180,7 @@ int main() {
     Model sphereModel("./assets/models/sphere.obj");
     Model girlModel("./assets/models/girl.obj");
 
-    Model& currentModel = cubeModel; // Change to model you want to render
+    Model& currentModel = girlModel; // Change to model you want to render
 
     std::vector<TexturedVertex> modelVertices;
     for (const auto& vertex : currentModel.GetVertices()) {
@@ -333,9 +335,7 @@ int main() {
         cameraConstants.view_projection_matrix = cameraConstants.projection_matrix * cameraConstants.view_matrix;
         g_cameraConstants->Update(&cameraConstants, sizeof(CameraConstants));
 
-        modelRotation.x += Time::DeltaTime();
         modelRotation.y += Time::DeltaTime();
-        modelRotation.z += Time::DeltaTime();
 
         modelMatrices = ModelMatrix(modelPosition, modelRotation, modelScale);
         structuredBuffer->Update(&modelMatrices, sizeof(glm::mat4));
@@ -409,6 +409,7 @@ void MakeSkyboxResources() {
     skyboxDesc.usage = UsageFlag::Static;
     skyboxDesc.bindFlags = BindFlag::ShaderResource;
     skyboxDesc.layout = TextureCube::Layout::Horizontal;
+    skyboxDesc.mipLevels = GetMaxMipLevels(skyboxDesc.width, skyboxDesc.height);
 
     g_skybox = g_graphicsContext->CreateTextureCube(skyboxDesc);
 

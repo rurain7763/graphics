@@ -13,22 +13,22 @@
 namespace flaw {
     class ThreadPool {
     public:
-		ThreadPool(int32_t threadCount);
-		~ThreadPool();
+      ThreadPool(int32_t threadCount);
+      ~ThreadPool();
 
-        void EnqueueTask(std::function<void()> task);
+      void EnqueueTask(std::function<void()> task);
 		
     private:
-		static void WorkerThread(ThreadPool* pool);
+		  static void WorkerThread(ThreadPool* pool);
 
     private:
-		std::mutex _mutex;
-		std::condition_variable _conditionVariable;
-		std::vector<std::thread> _threads;
+      std::mutex _mutex;
+      std::condition_variable _conditionVariable;
+      std::vector<std::thread> _threads;
 
-		std::queue<std::function<void()>> _tasks;
+      std::queue<std::function<void()>> _tasks;
 
-        bool _stopSignal;
+      bool _stopSignal;
     };
 }
 

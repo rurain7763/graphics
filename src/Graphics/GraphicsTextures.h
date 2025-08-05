@@ -23,35 +23,18 @@ namespace flaw {
 
 	class Texture2D : public Texture {
 	public:
-		// TODO: remove
-		enum class Wrap {
-			Repeat,
-			MirroredRepeat,
-			ClampToEdge,
-			ClampToBorder
-		};
-
-		// TODO: remove
-		enum class Filter {
-			Nearest,
-			Linear
-		};
-
 		struct Descriptor {
 			const uint8_t* data;
 			PixelFormat format;
 			uint32_t width, height;
-
 			UsageFlag usage;
 			uint32_t access;
-
 			uint32_t bindFlags;
+			uint32_t mipLevels = 1;
 		};
 
 		Texture2D() = default;
 		virtual ~Texture2D() = default;
-
-		virtual void GenerateMips(uint32_t level) = 0;
 
 		virtual void Fetch(void* outData, uint32_t size) const = 0;
 
@@ -100,17 +83,14 @@ namespace flaw {
 			const uint8_t* data;
 			PixelFormat format;
 			uint32_t width, height;
-
 			UsageFlag usage;
 			uint32_t access;
-
 			uint32_t bindFlags;
+			uint32_t mipLevels = 1;
 		};
 
 		TextureCube() = default;
 		virtual ~TextureCube() = default;
-
-		virtual void GenerateMips(uint32_t level) = 0;
 	};
 }
 

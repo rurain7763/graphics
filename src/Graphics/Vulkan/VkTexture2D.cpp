@@ -16,6 +16,7 @@ namespace flaw {
         , _usage(descriptor.usage)
         , _acessFlags(descriptor.access)
         , _bindFlags(descriptor.bindFlags)
+        , _mipLevels(descriptor.mipLevels)
         , _width(descriptor.width)
         , _height(descriptor.height)
     {
@@ -51,12 +52,17 @@ namespace flaw {
         _imageInfo.sampler = _sampler;
     }
 
-    VkTexture2D::VkTexture2D(VkContext& context, vk::Image image, PixelFormat format, uint32_t bindFlags)
+    VkTexture2D::VkTexture2D(VkContext& context, vk::Image image, uint32_t width, uint32_t height, PixelFormat format, UsageFlag usage, uint32_t bindFlags, uint32_t accessFlags, uint32_t mipLevels)
         : _context(context)
         , _isExternalImage(true)
         , _image(image)
+        , _width(width)
+        , _height(height)
         , _format(format)
+        , _usage(usage)
+        , _acessFlags(accessFlags)
         , _bindFlags(bindFlags)
+        , _mipLevels(mipLevels)
     {
         if (!CreateImageView()) {
             Log::Fatal("Failed to create image view for texture");
@@ -87,13 +93,13 @@ namespace flaw {
         imageInfo.extent.width = _width;
         imageInfo.extent.height = _height;
         imageInfo.extent.depth = 1;
-        imageInfo.mipLevels = 1; // Assuming no mipmaps for now
+        imageInfo.mipLevels = _mipLevels;
         imageInfo.arrayLayers = 1;
         imageInfo.samples = vk::SampleCountFlagBits::e1;
         imageInfo.tiling = vk::ImageTiling::eOptimal;
         imageInfo.usage = ConvertToVkImageUsageFlags(_bindFlags);
         if (hasData) {
-            imageInfo.usage |= vk::ImageUsageFlagBits::eTransferDst;
+            imageInfo.usage |= vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eTransferSrc;
         }
         imageInfo.sharingMode = vk::SharingMode::eExclusive;
         imageInfo.initialLayout = vk::ImageLayout::eUndefined;
@@ -153,9 +159,9 @@ namespace flaw {
         memcpy(stagingBuffMapedDataWrapper.value, data, bufferSize);
         _context.GetVkDevice().unmapMemory(stagingBuffer.memory);
 
-        vkCmdQueue.TransitionImageLayout(_image, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
+        vkCmdQueue.TransitionImageLayout(_image, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal, 1, _mipLevels);
         vkCmdQueue.CopyBuffer(stagingBuffer.buffer, _image, _width, _height, 0, 0);
-        vkCmdQueue.TransitionImageLayout(_image, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal);
+        vkCmdQueue.GenerateMipmaps(_image, ConvertToVkFormat(_format), _width, _height, 1, _mipLevels);
 
         _context.GetVkDevice().freeMemory(stagingBuffer.memory, nullptr);
         _context.GetVkDevice().destroyBuffer(stagingBuffer.buffer, nullptr);
@@ -174,7 +180,7 @@ namespace flaw {
         createInfo.components.a = vk::ComponentSwizzle::eIdentity;
         createInfo.subresourceRange.aspectMask = ConvertToVkImageAspectFlags(_bindFlags);
         createInfo.subresourceRange.baseMipLevel = 0;
-        createInfo.subresourceRange.levelCount = 1; // Assuming no mipmaps for now
+        createInfo.subresourceRange.levelCount = _mipLevels;
         createInfo.subresourceRange.baseArrayLayer = 0;
         createInfo.subresourceRange.layerCount = 1;
 
@@ -203,6 +209,8 @@ namespace flaw {
         samplerInfo.compareEnable = VK_FALSE;
         samplerInfo.compareOp = vk::CompareOp::eAlways;
         samplerInfo.mipmapMode = vk::SamplerMipmapMode::eLinear;
+        samplerInfo.minLod = 0.0f;
+        samplerInfo.maxLod = static_cast<float>(_mipLevels);
 
         auto samplerWrapper = _context.GetVkDevice().createSampler(samplerInfo);
         if (samplerWrapper.result != vk::Result::eSuccess) {

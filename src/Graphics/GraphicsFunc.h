@@ -42,6 +42,16 @@ namespace flaw {
 		throw std::runtime_error("Unknown element type");
 	}
 
+	inline uint32_t GetMaxMipLevels(uint32_t width, uint32_t height) {
+		uint32_t maxLevel = 0;
+		while (width > 1 || height > 1) {
+			width = std::max(1u, width / 2);
+			height = std::max(1u, height / 2);
+			maxLevel++;
+		}
+		return maxLevel;
+	}
+
 	inline void GetChangedPixelFormat(const PixelFormat srcFormat, const std::vector<uint8_t>& src, const PixelFormat dstFormat, std::vector<uint8_t>& dst) {
 		if (srcFormat == dstFormat) {
 			dst = src;

@@ -223,6 +223,8 @@ namespace flaw {
         }
 
         vk::PhysicalDeviceFeatures deviceFeatures;
+        deviceFeatures.samplerAnisotropy = VK_TRUE;
+        deviceFeatures.sampleRateShading = VK_TRUE;
 
         std::vector<const char*> requiredExtensions = {
             VK_KHR_SWAPCHAIN_EXTENSION_NAME

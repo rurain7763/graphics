@@ -48,7 +48,9 @@ namespace flaw {
         void CopyBuffer(const vk::Buffer& srcBuffer, const vk::Image& dstImage, uint32_t width, uint32_t height, uint32_t srcOffset, uint32_t dstOffset, uint32_t arrayLayer = 1);
         void CopyBuffer(const Ref<VertexBuffer>& srcBuffer, const Ref<VertexBuffer>& dstBuffer, uint32_t size, uint32_t srcOffset, uint32_t dstOffset);
 
-        void TransitionImageLayout(const vk::Image& image, vk::ImageLayout oldLayout, vk::ImageLayout newLayout, uint32_t arrayLayer = 1);
+        void TransitionImageLayout(const vk::Image& image, vk::ImageLayout oldLayout, vk::ImageLayout newLayout, uint32_t arrayLayer, uint32_t mipLevel);
+
+        void GenerateMipmaps(const vk::Image& image, vk::Format format, uint32_t width, uint32_t height, uint32_t arrayLayer, uint32_t mipLevels);
 
         void Execute() override;
 
