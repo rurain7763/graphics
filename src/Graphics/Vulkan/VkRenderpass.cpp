@@ -25,7 +25,7 @@ namespace flaw {
             attachmentDescription.initialLayout = vk::ImageLayout::eUndefined;
             attachmentDescription.finalLayout = vk::ImageLayout::eColorAttachmentOptimal;
 
-            _vkColorAttachments.push_back(attachmentDescription);
+            _vkAttachments.push_back(attachmentDescription);
             _colorAttachmentRefs.push_back({ static_cast<uint32_t>(i), vk::ImageLayout::eColorAttachmentOptimal });
         }
 
@@ -33,7 +33,7 @@ namespace flaw {
             const auto& depthAttachment = descriptor.depthStencilAttachment.value();
 
             vk::AttachmentReference depthAttachmentRef;
-            depthAttachmentRef.attachment = static_cast<uint32_t>(_vkColorAttachments.size());
+            depthAttachmentRef.attachment = static_cast<uint32_t>(_vkAttachments.size());
             depthAttachmentRef.layout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
 
             vk::AttachmentDescription depthAttachmentDescription;
@@ -46,7 +46,7 @@ namespace flaw {
             depthAttachmentDescription.initialLayout = vk::ImageLayout::eUndefined;
             depthAttachmentDescription.finalLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
 
-            _vkColorAttachments.push_back(depthAttachmentDescription);
+            _vkAttachments.push_back(depthAttachmentDescription);
             _depthAttachmentRef = depthAttachmentRef;
         }
     }
@@ -77,7 +77,7 @@ namespace flaw {
 
     VkRenderPass::~VkRenderPass() {
         _context.AddDelayedDeletionTasks([&context = _context, renderPass = _renderPass]() {
-            context.GetVkDevice().destroyRenderPass(renderPass, nullptr, context.GetVkDispatchLoader());
+            context.GetVkDevice().destroyRenderPass(renderPass, nullptr);
         });
     }
 
@@ -150,7 +150,7 @@ namespace flaw {
         renderPassInfo.subpassCount = 1;
         renderPassInfo.pSubpasses = &subpassDescription;
 
-        auto renderPassWrapper = _context.GetVkDevice().createRenderPass(renderPassInfo, nullptr, _context.GetVkDispatchLoader());
+        auto renderPassWrapper = _context.GetVkDevice().createRenderPass(renderPassInfo, nullptr);
         if (renderPassWrapper.result != vk::Result::eSuccess) {
             Log::Fatal("Failed to create Vulkan render pass: %s", vk::to_string(renderPassWrapper.result).c_str());
             return false;

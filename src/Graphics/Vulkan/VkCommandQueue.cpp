@@ -55,7 +55,7 @@ namespace flaw {
         poolInfo.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
         poolInfo.queueFamilyIndex = _context.GetGraphicsQueueFamilyIndex();
 
-        auto result = _context.GetVkDevice().createCommandPool(poolInfo, nullptr, _context.GetVkDispatchLoader());
+        auto result = _context.GetVkDevice().createCommandPool(poolInfo, nullptr);
         if (result.result != vk::Result::eSuccess) {
             Log::Fatal("Failed to create Vulkan command pool: %s", vk::to_string(result.result).c_str());
             return false;
@@ -65,7 +65,7 @@ namespace flaw {
 
         poolInfo.queueFamilyIndex = _context.GetTransferQueueFamilyIndex();
 
-        result = _context.GetVkDevice().createCommandPool(poolInfo, nullptr, _context.GetVkDispatchLoader());
+        result = _context.GetVkDevice().createCommandPool(poolInfo, nullptr);
         if (result.result != vk::Result::eSuccess) {
             Log::Fatal("Failed to create Vulkan command pool: %s", vk::to_string(result.result).c_str());
             return false;
@@ -86,7 +86,7 @@ namespace flaw {
         mainCmdBuffAllocInfo.level = vk::CommandBufferLevel::ePrimary;
         mainCmdBuffAllocInfo.commandBufferCount = 1;
 
-        auto mainBuffWrapper = _context.GetVkDevice().allocateCommandBuffers(mainCmdBuffAllocInfo, _context.GetVkDispatchLoader());
+        auto mainBuffWrapper = _context.GetVkDevice().allocateCommandBuffers(mainCmdBuffAllocInfo);
         if (mainBuffWrapper.result != vk::Result::eSuccess) {
             Log::Fatal("Failed to allocate Vulkan main command buffer: %s", vk::to_string(mainBuffWrapper.result).c_str());
             return false;
@@ -99,7 +99,7 @@ namespace flaw {
         allocInfo.level = vk::CommandBufferLevel::ePrimary;
         allocInfo.commandBufferCount = frameBufferCount;
         
-        auto buffWrapper = _context.GetVkDevice().allocateCommandBuffers(allocInfo, _context.GetVkDispatchLoader());
+        auto buffWrapper = _context.GetVkDevice().allocateCommandBuffers(allocInfo);
         if (buffWrapper.result != vk::Result::eSuccess) {
             Log::Error("Failed to allocate Vulkan command buffers: %s", vk::to_string(buffWrapper.result).c_str());
             return false;
@@ -112,7 +112,7 @@ namespace flaw {
         transferAllocInfo.level = vk::CommandBufferLevel::ePrimary;
         transferAllocInfo.commandBufferCount = 1;
 
-        auto transferBuffWrapper = _context.GetVkDevice().allocateCommandBuffers(transferAllocInfo, _context.GetVkDispatchLoader());
+        auto transferBuffWrapper = _context.GetVkDevice().allocateCommandBuffers(transferAllocInfo);
         if (transferBuffWrapper.result != vk::Result::eSuccess) {
             Log::Error("Failed to allocate Vulkan transfer command buffer: %s", vk::to_string(transferBuffWrapper.result).c_str());
             return false;
@@ -124,9 +124,9 @@ namespace flaw {
     }
 
     bool VkCommandQueue::SetupQueues() {
-        _graphicsQueue = _context.GetVkDevice().getQueue(_context.GetGraphicsQueueFamilyIndex(), 0, _context.GetVkDispatchLoader());
-        _presentQueue = _context.GetVkDevice().getQueue(_context.GetPresentQueueFamilyIndex(), 0, _context.GetVkDispatchLoader());
-        _transferQueue = _context.GetVkDevice().getQueue(_context.GetTransferQueueFamilyIndex(), 0, _context.GetVkDispatchLoader());
+        _graphicsQueue = _context.GetVkDevice().getQueue(_context.GetGraphicsQueueFamilyIndex(), 0);
+        _presentQueue = _context.GetVkDevice().getQueue(_context.GetPresentQueueFamilyIndex(), 0);
+        _transferQueue = _context.GetVkDevice().getQueue(_context.GetTransferQueueFamilyIndex(), 0);
         return true;
     }
 
@@ -135,7 +135,7 @@ namespace flaw {
             vk::FenceCreateInfo fenceInfo;
             fenceInfo.flags = vk::FenceCreateFlagBits::eSignaled;
 
-            auto fenceWrapper = _context.GetVkDevice().createFence(fenceInfo, nullptr, _context.GetVkDispatchLoader());
+            auto fenceWrapper = _context.GetVkDevice().createFence(fenceInfo, nullptr);
             if (fenceWrapper.result != vk::Result::eSuccess) {
                 Log::Error("Failed to create Vulkan fence: %s", vk::to_string(fenceWrapper.result).c_str());
                 return false;
@@ -151,7 +151,7 @@ namespace flaw {
         for (uint32_t i = 0; i < _graphicsFrameCommandBuffers.size(); ++i) {
             vk::SemaphoreCreateInfo semaphoreInfo;
 
-            auto semaphoreWrapper = _context.GetVkDevice().createSemaphore(semaphoreInfo, nullptr, _context.GetVkDispatchLoader());
+            auto semaphoreWrapper = _context.GetVkDevice().createSemaphore(semaphoreInfo, nullptr);
             if (semaphoreWrapper.result != vk::Result::eSuccess) {
                 Log::Error("Failed to create Vulkan semaphore: %s", vk::to_string(semaphoreWrapper.result).c_str());
                 return false;
@@ -159,7 +159,7 @@ namespace flaw {
 
             _presentCompleteSemaphores.push_back(semaphoreWrapper.value);
 
-            semaphoreWrapper = _context.GetVkDevice().createSemaphore(semaphoreInfo, nullptr, _context.GetVkDispatchLoader());
+            semaphoreWrapper = _context.GetVkDevice().createSemaphore(semaphoreInfo, nullptr);
             if (semaphoreWrapper.result != vk::Result::eSuccess) {
                 Log::Error("Failed to create Vulkan semaphore: %s", vk::to_string(semaphoreWrapper.result).c_str());
                 return false;
@@ -173,14 +173,14 @@ namespace flaw {
 
     VkCommandQueue::~VkCommandQueue() {
         for (uint32_t i = 0; i < _graphicsFrameCommandBuffers.size(); ++i) {
-            _context.GetVkDevice().destroySemaphore(_renderCompleteSemaphores[i], nullptr, _context.GetVkDispatchLoader());
-            _context.GetVkDevice().destroyFence(_inFlightFences[i], nullptr, _context.GetVkDispatchLoader());
-            _context.GetVkDevice().destroySemaphore(_presentCompleteSemaphores[i], nullptr, _context.GetVkDispatchLoader());
+            _context.GetVkDevice().destroySemaphore(_renderCompleteSemaphores[i], nullptr);
+            _context.GetVkDevice().destroyFence(_inFlightFences[i], nullptr);
+            _context.GetVkDevice().destroySemaphore(_presentCompleteSemaphores[i], nullptr);
         }
 
         // NOTE: Because command buffers are allocated from a command pool, we don't need to destroy them individually.
-        _context.GetVkDevice().destroyCommandPool(_transferCommandPool, nullptr, _context.GetVkDispatchLoader());
-        _context.GetVkDevice().destroyCommandPool(_graphicsCommandPool, nullptr, _context.GetVkDispatchLoader());
+        _context.GetVkDevice().destroyCommandPool(_transferCommandPool, nullptr);
+        _context.GetVkDevice().destroyCommandPool(_graphicsCommandPool, nullptr);
     }
 
     bool VkCommandQueue::Prepare() {
@@ -390,7 +390,7 @@ namespace flaw {
         const auto& pushConstantRange = _currentPushConstantRanges.at(rangeIndex);
 
         auto& commandBuffer = _graphicsFrameCommandBuffers[_currentCommandBufferIndex];
-        commandBuffer.pushConstants(_currentPipelineLayout, pushConstantRange.stageFlags, pushConstantRange.offset, pushConstantRange.size, data, _context.GetVkDispatchLoader());
+        commandBuffer.pushConstants(_currentPipelineLayout, pushConstantRange.stageFlags, pushConstantRange.offset, pushConstantRange.size, data);
     }
 
     void VkCommandQueue::SetVertexBuffer(const Ref<VertexBuffer>& vertexBuffer) {
@@ -415,17 +415,17 @@ namespace flaw {
         auto& commandBuffer = _graphicsFrameCommandBuffers[_currentCommandBufferIndex];
 
         if (!_currentDescriptorSets.empty()) {
-            commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, _currentPipelineLayout, 0, _currentDescriptorSets.size(), _currentDescriptorSets.data(), 0, nullptr, _context.GetVkDispatchLoader());
+            commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, _currentPipelineLayout, 0, _currentDescriptorSets.size(), _currentDescriptorSets.data(), 0, nullptr);
         }
 
         if (_currentVertexBuffer) {
             vk::Buffer buffers[] = { _currentVertexBuffer->GetVkBuffer() };
             vk::DeviceSize offsets[] = { 0 };
     
-            commandBuffer.bindVertexBuffers(0, 1, buffers, offsets, _context.GetVkDispatchLoader());
+            commandBuffer.bindVertexBuffers(0, 1, buffers, offsets);
         }
 
-        commandBuffer.draw(vertexCount, instanceCount, vertexOffset, 0, _context.GetVkDispatchLoader());
+        commandBuffer.draw(vertexCount, instanceCount, vertexOffset, 0);
     }
 
     void VkCommandQueue::DrawIndexed(const Ref<IndexBuffer>& indexBuffer, uint32_t indexCount, uint32_t indexOffset, uint32_t vertexOffset) {
@@ -439,16 +439,16 @@ namespace flaw {
         auto& commandBuffer = _graphicsFrameCommandBuffers[_currentCommandBufferIndex];
 
         if (!_currentDescriptorSets.empty()) {
-            commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, _currentPipelineLayout, 0, _currentDescriptorSets.size(), _currentDescriptorSets.data(), 0, nullptr, _context.GetVkDispatchLoader());
+            commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, _currentPipelineLayout, 0, _currentDescriptorSets.size(), _currentDescriptorSets.data(), 0, nullptr);
         }
 
         vk::Buffer vertexBuffers[] = { _currentVertexBuffer->GetVkBuffer() };
         vk::DeviceSize offsets[] = { 0 };
-        commandBuffer.bindVertexBuffers(0, 1, vertexBuffers, offsets, _context.GetVkDispatchLoader());
+        commandBuffer.bindVertexBuffers(0, 1, vertexBuffers, offsets);
 
-        commandBuffer.bindIndexBuffer(vkIndexBuffer->GetVkBuffer(), 0, vk::IndexType::eUint32, _context.GetVkDispatchLoader());
+        commandBuffer.bindIndexBuffer(vkIndexBuffer->GetVkBuffer(), 0, vk::IndexType::eUint32);
 
-        commandBuffer.drawIndexed(indexCount, instanceCount, indexOffset, vertexOffset, 0, _context.GetVkDispatchLoader());
+        commandBuffer.drawIndexed(indexCount, instanceCount, indexOffset, vertexOffset, 0);
     }
 
     void VkCommandQueue::SetComputePipeline(const Ref<ComputePipeline>& pipeline) {
@@ -472,19 +472,19 @@ namespace flaw {
     }
 
     void VkCommandQueue::CopyBuffer(const vk::Buffer& srcBuffer, const vk::Buffer& dstBuffer, uint32_t size, uint32_t srcOffset, uint32_t dstOffset) {
-        _transferCommandBuffer.reset(vk::CommandBufferResetFlagBits::eReleaseResources, _context.GetVkDispatchLoader());
+        _transferCommandBuffer.reset(vk::CommandBufferResetFlagBits::eReleaseResources);
 
         vk::CommandBufferBeginInfo beginInfo;
         beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
 
-        _transferCommandBuffer.begin(beginInfo, _context.GetVkDispatchLoader());
+        _transferCommandBuffer.begin(beginInfo);
 
         vk::BufferCopy copyRegion;
         copyRegion.size = size;
         copyRegion.srcOffset = srcOffset;
         copyRegion.dstOffset = dstOffset;
 
-        _transferCommandBuffer.copyBuffer(srcBuffer, dstBuffer, 1, &copyRegion, _context.GetVkDispatchLoader());
+        _transferCommandBuffer.copyBuffer(srcBuffer, dstBuffer, 1, &copyRegion);
 
         _transferCommandBuffer.end();
 
@@ -492,13 +492,13 @@ namespace flaw {
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = &_transferCommandBuffer;
 
-        auto result = _transferQueue.submit(1, &submitInfo, nullptr, _context.GetVkDispatchLoader());
+        auto result = _transferQueue.submit(1, &submitInfo, nullptr);
         if (result != vk::Result::eSuccess) {
             Log::Fatal("Failed to submit Vulkan command buffer for copy: %s", vk::to_string(result).c_str());
             return;
         }
 
-        _transferQueue.waitIdle(_context.GetVkDispatchLoader());
+        _transferQueue.waitIdle();
     }
 
     void VkCommandQueue::CopyBuffer(const vk::Buffer& srcBuffer, const vk::Image& dstImage, uint32_t width, uint32_t height, uint32_t srcOffset, uint32_t dstOffset, uint32_t arrayLayer) {

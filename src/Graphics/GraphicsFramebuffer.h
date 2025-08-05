@@ -4,6 +4,9 @@
 #include "GraphicsRenderPass.h"
 #include "GraphicsTextures.h"
 
+#include <optional>
+#include <functional>
+
 namespace flaw {
 	class GraphicsFramebuffer {
 	public:
@@ -24,7 +27,7 @@ namespace flaw {
 
         virtual Ref<Texture> GetAttachment(uint32_t index) const = 0;
         virtual Ref<Texture> GetDepthStencilAttachment() const = 0;
-        virtual const Ref<GraphicsRenderPassLayout>& GetRenderPassLayout() const = 0;
+        virtual Ref<GraphicsRenderPassLayout> GetRenderPassLayout() const = 0;
 
         virtual uint32_t GetWidth() const = 0;
         virtual uint32_t GetHeight() const = 0;

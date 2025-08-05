@@ -36,7 +36,7 @@ namespace flaw {
 
     VkFramebuffer::~VkFramebuffer() {
         _context.AddDelayedDeletionTasks([&context = _context, framebuffer = _framebuffer]() {
-            context.GetVkDevice().destroyFramebuffer(framebuffer, nullptr, context.GetVkDispatchLoader());
+            context.GetVkDevice().destroyFramebuffer(framebuffer, nullptr);
         });
     }
 
@@ -69,7 +69,7 @@ namespace flaw {
         _extent.height = height;
 
         _context.AddDelayedDeletionTasks([&context = _context, framebuffer = _framebuffer]() {
-            context.GetVkDevice().destroyFramebuffer(framebuffer, nullptr, context.GetVkDispatchLoader());
+            context.GetVkDevice().destroyFramebuffer(framebuffer, nullptr);
         });
 
         if (!CreateFramebuffer()) {
@@ -77,9 +77,9 @@ namespace flaw {
         }
     }
 
-    const Ref<GraphicsRenderPassLayout>& VkFramebuffer::GetRenderPassLayout() const {
-        return _renderPassLayout;
-    }
+	Ref<GraphicsRenderPassLayout> VkFramebuffer::GetRenderPassLayout() const {
+		return _renderPassLayout;
+	}
 
     bool VkFramebuffer::CreateRenderPass() {
         GraphicsRenderPass::Descriptor renderPassDesc;
@@ -129,7 +129,7 @@ namespace flaw {
         createInfo.height = _extent.height;
         createInfo.layers = 1;
 
-        auto result = _context.GetVkDevice().createFramebuffer(createInfo, nullptr, _context.GetVkDispatchLoader());
+        auto result = _context.GetVkDevice().createFramebuffer(createInfo, nullptr);
         if (result.result != vk::Result::eSuccess) {
             Log::Fatal("Failed to create Vulkan framebuffer: %s", vk::to_string(result.result).c_str());
             return false;

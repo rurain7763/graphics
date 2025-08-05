@@ -58,7 +58,6 @@ namespace flaw {
 		void AddDelayedDeletionTasks(const std::function<void()>& task);
 
         inline vk::Instance GetVkInstance() const { return _instance; }
-        inline vk::DispatchLoaderDynamic GetVkDispatchLoader() const { return _dldi; }
         inline vk::PhysicalDevice GetVkPhysicalDevice() const { return _physicalDevice; }
         inline vk::Device GetVkDevice() const { return _device; }
         inline vk::SurfaceKHR GetVkSurface() const { return _surface; }
@@ -92,7 +91,6 @@ namespace flaw {
 		constexpr static uint32_t MaxDeletionCounter = 1000;
 
         vk::Instance _instance;
-        vk::DispatchLoaderDynamic _dldi;
 
         vk::DebugUtilsMessengerEXT _debugMessenger;
 

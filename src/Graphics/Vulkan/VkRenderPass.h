@@ -21,7 +21,7 @@ namespace flaw {
         virtual bool HasDepthStencilAttachment() const override;
 
         inline vk::PipelineBindPoint GetVkPipelineBindPoint() const { return _pipelineBindPoint; }
-        inline std::vector<vk::AttachmentDescription> GetVkAttachments() { return _vkColorAttachments; }
+        inline std::vector<vk::AttachmentDescription> GetVkAttachments() { return _vkAttachments; }
         inline std::vector<vk::AttachmentReference> GetVkColorAttachmentRefs() { return _colorAttachmentRefs; }
         inline std::optional<vk::AttachmentReference> GetVkDepthAttachmentRef() { return _depthAttachmentRef; }
 
@@ -30,7 +30,9 @@ namespace flaw {
 
         vk::PipelineBindPoint _pipelineBindPoint;
         std::vector<ColorAttachment> _colorAttachments;
-        std::vector<vk::AttachmentDescription> _vkColorAttachments;
+
+        std::vector<vk::AttachmentDescription> _vkAttachments;
+
         std::vector<vk::AttachmentReference> _colorAttachmentRefs;
 
         std::optional<vk::AttachmentReference> _depthAttachmentRef;

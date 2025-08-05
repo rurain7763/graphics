@@ -3,20 +3,18 @@
 #ifdef _WIN32
 
 #include "Platform/FileDialogs.h"
-#include "Platform/Windows/WindowsContext.h"
+#include "Platform/PlatformContext.h"
 
 #include <Windows.h>
 #include <commdlg.h>
 
 namespace flaw {
 	std::string FileDialogs::OpenFile(PlatformContext& context, const char* filter) {
-		WindowsContext& winContext = static_cast<WindowsContext&>(context);
-
 		OPENFILENAMEA ofn;
 		CHAR szFile[260] = { 0 };
 		ZeroMemory(&ofn, sizeof(ofn));
 		ofn.lStructSize = sizeof(ofn);
-		ofn.hwndOwner = winContext.GetWindowHandle();
+		ofn.hwndOwner = context.GetWindowHandle();
 		ofn.lpstrFile = szFile;
 		ofn.nMaxFile = sizeof(szFile);
 		ofn.lpstrFilter = filter;
@@ -30,13 +28,11 @@ namespace flaw {
 	}
 
 	std::string FileDialogs::SaveFile(PlatformContext& context, const char* filter) {
-		WindowsContext& winContext = static_cast<WindowsContext&>(context);
-
 		OPENFILENAMEA ofn;
 		CHAR szFile[260] = { 0 };
 		ZeroMemory(&ofn, sizeof(ofn));
 		ofn.lStructSize = sizeof(ofn);
-		ofn.hwndOwner = winContext.GetWindowHandle();
+		ofn.hwndOwner = context.GetWindowHandle();
 		ofn.lpstrFile = szFile;
 		ofn.nMaxFile = sizeof(szFile);
 		ofn.lpstrFilter = filter;

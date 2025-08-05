@@ -39,7 +39,7 @@ namespace flaw {
                 vkCommandQueue.CopyBuffer(stagingBuffer->GetVkBuffer(), _buffer, _size, 0, 0);
             }
             else {
-                auto mappedDataWrapper = _context.GetVkDevice().mapMemory(_memory, 0, descriptor.bufferSize, vk::MemoryMapFlags(), _context.GetVkDispatchLoader());
+                auto mappedDataWrapper = _context.GetVkDevice().mapMemory(_memory, 0, descriptor.bufferSize, vk::MemoryMapFlags());
                 if (mappedDataWrapper.result != vk::Result::eSuccess) {
                     Log::Error("Failed to map vertex buffer memory.");
                     return;
@@ -54,13 +54,13 @@ namespace flaw {
 
     VkVertexBuffer::~VkVertexBuffer() {
         if (_mappedData) {
-            _context.GetVkDevice().unmapMemory(_memory, _context.GetVkDispatchLoader());
+            _context.GetVkDevice().unmapMemory(_memory);
             _mappedData = nullptr;
         }
 
         _context.AddDelayedDeletionTasks([&context = _context, buffer = _buffer, memory = _memory]() {
-            context.GetVkDevice().destroyBuffer(buffer, nullptr, context.GetVkDispatchLoader());
-            context.GetVkDevice().freeMemory(memory, nullptr, context.GetVkDispatchLoader());
+            context.GetVkDevice().destroyBuffer(buffer, nullptr);
+            context.GetVkDevice().freeMemory(memory, nullptr);
         });
     }
 
@@ -105,7 +105,7 @@ namespace flaw {
         GetRequiredVkBufferUsageFlags(_usage, bufferInfo.usage);
         bufferInfo.sharingMode = vk::SharingMode::eExclusive;
 
-        auto bufferWrapper = _context.GetVkDevice().createBuffer(bufferInfo, nullptr, _context.GetVkDispatchLoader());
+        auto bufferWrapper = _context.GetVkDevice().createBuffer(bufferInfo, nullptr);
         if (bufferWrapper.result != vk::Result::eSuccess) {
             Log::Error("Failed to create vertex buffer: %s", vk::to_string(bufferWrapper.result).c_str());
             return false;
@@ -117,7 +117,7 @@ namespace flaw {
     }
 
     bool VkVertexBuffer::AllocateMemory() {
-        vk::MemoryRequirements memRequirements = _context.GetVkDevice().getBufferMemoryRequirements(_buffer, _context.GetVkDispatchLoader());
+        vk::MemoryRequirements memRequirements = _context.GetVkDevice().getBufferMemoryRequirements(_buffer);
 
         vk::MemoryPropertyFlags memoryFlags;
         GetRequiredVkMemoryPropertyFlags(_usage, memoryFlags);
@@ -126,7 +126,7 @@ namespace flaw {
         allocInfo.allocationSize = memRequirements.size;
         allocInfo.memoryTypeIndex = GetMemoryTypeIndex(_context.GetVkPhysicalDevice(), memRequirements.memoryTypeBits, memoryFlags);
 
-        auto memoryWrapper = _context.GetVkDevice().allocateMemory(allocInfo, nullptr, _context.GetVkDispatchLoader());
+        auto memoryWrapper = _context.GetVkDevice().allocateMemory(allocInfo, nullptr);
         if (memoryWrapper.result != vk::Result::eSuccess) {
             Log::Error("Failed to allocate vertex buffer memory: %s", vk::to_string(memoryWrapper.result).c_str());
             return false;
@@ -134,7 +134,7 @@ namespace flaw {
 
         _memory = memoryWrapper.value;
 
-        _context.GetVkDevice().bindBufferMemory(_buffer, _memory, 0, _context.GetVkDispatchLoader());
+        _context.GetVkDevice().bindBufferMemory(_buffer, _memory, 0);
 
         return true;
     }

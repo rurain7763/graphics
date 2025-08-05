@@ -27,7 +27,7 @@ namespace flaw {
         layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
         layoutInfo.pBindings = bindings.data();
 
-        auto descriptorWrapper = _context.GetVkDevice().createDescriptorSetLayout(layoutInfo, nullptr, _context.GetVkDispatchLoader());
+        auto descriptorWrapper = _context.GetVkDevice().createDescriptorSetLayout(layoutInfo, nullptr);
         if (descriptorWrapper.result != vk::Result::eSuccess) {
             Log::Error("Failed to create descriptor set layout: %s", vk::to_string(descriptorWrapper.result).c_str());
             throw std::runtime_error("Failed to create descriptor set layout");
@@ -38,7 +38,7 @@ namespace flaw {
 
 	VkShaderResourcesLayout::~VkShaderResourcesLayout() {
         _context.AddDelayedDeletionTasks([&context = _context, layout = _descriptorSetLayout]() {
-            context.GetVkDevice().destroyDescriptorSetLayout(layout, nullptr, context.GetVkDispatchLoader());
+            context.GetVkDevice().destroyDescriptorSetLayout(layout, nullptr);
         });
 	}
 
@@ -64,7 +64,7 @@ namespace flaw {
 
     VkShaderResources::~VkShaderResources() {
         _context.AddDelayedDeletionTasks([&context = _context, descriptorSet = _descriptorSet]() {
-            context.GetVkDevice().freeDescriptorSets(context.GetVkDescriptorPool(), { descriptorSet }, context.GetVkDispatchLoader());
+            context.GetVkDevice().freeDescriptorSets(context.GetVkDescriptorPool(), { descriptorSet });
         });
     }
 
@@ -80,7 +80,7 @@ namespace flaw {
         writeDescSet.descriptorCount = 1;
         writeDescSet.pImageInfo = &vkTexture->GetVkDescriptorImageInfo();
 
-        _context.GetVkDevice().updateDescriptorSets(1, &writeDescSet, 0, nullptr, _context.GetVkDispatchLoader());
+        _context.GetVkDevice().updateDescriptorSets(1, &writeDescSet, 0, nullptr);
     }
 
     void VkShaderResources::BindTextureCube(const Ref<TextureCube>& texture, uint32_t binding) {
@@ -95,7 +95,7 @@ namespace flaw {
         writeDescSet.descriptorCount = 1;
         writeDescSet.pImageInfo = &vkTexture->GetVkDescriptorImageInfo();
 
-        _context.GetVkDevice().updateDescriptorSets(1, &writeDescSet, 0, nullptr, _context.GetVkDispatchLoader());
+        _context.GetVkDevice().updateDescriptorSets(1, &writeDescSet, 0, nullptr);
     }
 
     void VkShaderResources::BindConstantBuffer(const Ref<ConstantBuffer>& constantBuffer, uint32_t binding) {
@@ -110,7 +110,7 @@ namespace flaw {
         writeDescSet.descriptorCount = 1;
         writeDescSet.pBufferInfo = &vkConstantBuffer->GetVkDescriptorBufferInfo();
 
-        _context.GetVkDevice().updateDescriptorSets(1, &writeDescSet, 0, nullptr, _context.GetVkDispatchLoader());
+        _context.GetVkDevice().updateDescriptorSets(1, &writeDescSet, 0, nullptr);
     }
 
     void VkShaderResources::BindStructuredBuffer(const Ref<StructuredBuffer>& structuredBuffer, uint32_t binding) {
@@ -125,7 +125,7 @@ namespace flaw {
         writeDescSet.descriptorCount = 1;
         writeDescSet.pBufferInfo = &vkStructuredBuffer->GetVkDescriptorBufferInfo();
 
-        _context.GetVkDevice().updateDescriptorSets(1, &writeDescSet, 0, nullptr, _context.GetVkDispatchLoader());
+        _context.GetVkDevice().updateDescriptorSets(1, &writeDescSet, 0, nullptr);
     }
 }
 

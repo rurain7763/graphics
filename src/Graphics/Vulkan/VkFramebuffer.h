@@ -22,13 +22,12 @@ namespace flaw {
 
         inline Ref<Texture> GetAttachment(uint32_t index) const override { return _colorAttachments[index]; }
         inline Ref<Texture> GetDepthStencilAttachment() const override { return _depthStencilAttachment; }
-
-        const Ref<GraphicsRenderPassLayout>& GetRenderPassLayout() const override;
+        Ref<GraphicsRenderPassLayout> GetRenderPassLayout() const override;
 
         inline uint32_t GetWidth() const override { return _extent.width; }
         inline uint32_t GetHeight() const override { return _extent.height; }
 
-        inline vk::Framebuffer &GetNativeVkFramebuffer() { return _framebuffer; }
+        inline vk::Framebuffer& GetNativeVkFramebuffer() { return _framebuffer; }
 
     private:
         bool CreateRenderPass();

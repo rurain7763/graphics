@@ -1,3 +1,4 @@
+#include "pch.h"
 #include "Log/Log.h"
 #include "Event/EventDispatcher.h"
 #include "Platform/PlatformContext.h"
@@ -326,8 +327,6 @@ int main() {
         int32_t width, height;
         g_graphicsContext->GetSize(width, height);
 
-        cameraRotation.y += Time::DeltaTime();
-
         CameraConstants cameraConstants;
         cameraConstants.view_matrix = ViewMatrix(cameraPosition, cameraRotation);
         cameraConstants.projection_matrix = Perspective(glm::radians(45.0f), static_cast<float>(width) / height, 0.1f, 100.0f);
@@ -350,14 +349,14 @@ int main() {
             commandQueue.SetShaderResources(g_skyboxResources1, 1);
             commandQueue.Draw(6);
 
-            //commandQueue.SetPipeline(graphicsPipeline);
-            //commandQueue.SetShaderResources(shaderResources, 0);
-            //commandQueue.SetShaderResources(textureResources, 1);
-            //commandQueue.SetVertexBuffer(modelVertexBuffer);
+            commandQueue.SetPipeline(graphicsPipeline);
+            commandQueue.SetShaderResources(shaderResources, 0);
+            commandQueue.SetShaderResources(textureResources, 1);
+            commandQueue.SetVertexBuffer(modelVertexBuffer);
             
-            //for (const auto& mesh : currentModel.GetMeshs()) {
-            //    commandQueue.DrawIndexed(modelIndexBuffer, mesh.indexCount, mesh.indexStart, mesh.vertexStart);
-            //}
+            for (const auto& mesh : currentModel.GetMeshs()) {
+                commandQueue.DrawIndexed(modelIndexBuffer, mesh.indexCount, mesh.indexStart, mesh.vertexStart);
+            }
 
             commandQueue.Present();
         }

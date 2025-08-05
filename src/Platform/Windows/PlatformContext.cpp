@@ -8,6 +8,11 @@
 #include "Input/InputCodes.h"
 #include "Log/Log.h"
 
+#ifdef SUPPORT_VULKAN
+#define VK_USE_PLATFORM_WIN32_KHR
+#include <vulkan/vulkan.hpp>
+#endif
+
 namespace flaw {
 	struct PlatformContextInternalData {
 		EventDispatcher* eventDispatcher;
@@ -333,6 +338,13 @@ namespace flaw {
 		return true;
 	}
 
+	void PlatformContext::SetTitle(const char* title) {
+		auto* internalData = static_cast<PlatformContextInternalData*>(_internalData);
+
+		std::wstring wTitle = std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(title);
+		SetWindowText(internalData->window, wTitle.c_str());
+	}
+
 	int32_t PlatformContext::GetX() const {
 		auto* internalData = static_cast<PlatformContextInternalData*>(_internalData);
 		return internalData->x;
@@ -368,6 +380,23 @@ namespace flaw {
 		auto* internalData = static_cast<PlatformContextInternalData*>(_internalData);
 		return internalData->window;
 	}
+
+#ifdef SUPPORT_VULKAN
+	void PlatformContext::GetVkRequiredExtensions(std::vector<const char*>& extensions) const {
+		extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+		extensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
+	}
+
+	void PlatformContext::GetVkSurface(vk::Instance& instance, vk::SurfaceKHR& surface) const {
+		auto* internalData = static_cast<PlatformContextInternalData*>(_internalData);
+		
+		vk::Win32SurfaceCreateInfoKHR createInfo;
+		createInfo.hinstance = GetModuleHandle(nullptr);
+		createInfo.hwnd = internalData->window;
+
+		surface = instance.createWin32SurfaceKHR(createInfo);
+	}
+#endif
 }
 
 #endif

@@ -68,11 +68,11 @@ namespace flaw {
     VkGraphicsPipeline::~VkGraphicsPipeline() {
         _context.AddDelayedDeletionTasks([&context = _context, pipeline = _pipeline, pipelineLayout = _pipelineLayout]() {
             if (pipeline) {
-                context.GetVkDevice().destroyPipeline(pipeline, nullptr, context.GetVkDispatchLoader());
+                context.GetVkDevice().destroyPipeline(pipeline, nullptr);
             }
 
             if (pipelineLayout) {
-                context.GetVkDevice().destroyPipelineLayout(pipelineLayout, nullptr, context.GetVkDispatchLoader());
+                context.GetVkDevice().destroyPipelineLayout(pipelineLayout, nullptr);
             }
         });
     }
@@ -345,7 +345,7 @@ namespace flaw {
             pipelineLayoutInfo.pushConstantRangeCount = static_cast<uint32_t>(_pushConstantRanges.size());
             pipelineLayoutInfo.pPushConstantRanges = _pushConstantRanges.data();
 
-            auto pipelineLayoutWrapper = _context.GetVkDevice().createPipelineLayout(pipelineLayoutInfo, nullptr, _context.GetVkDispatchLoader());
+            auto pipelineLayoutWrapper = _context.GetVkDevice().createPipelineLayout(pipelineLayoutInfo, nullptr);
             if (pipelineLayoutWrapper.result != vk::Result::eSuccess) {
                 Log::Fatal("Failed to create Vulkan pipeline layout: %s", vk::to_string(pipelineLayoutWrapper.result).c_str());
                 return;
@@ -370,7 +370,7 @@ namespace flaw {
         pipelineInfo.subpass = 0; // Assuming single subpass for now
         pipelineInfo.basePipelineHandle = nullptr;
 
-        auto pipelineWrapper = _context.GetVkDevice().createGraphicsPipeline(nullptr, pipelineInfo, nullptr, _context.GetVkDispatchLoader());
+        auto pipelineWrapper = _context.GetVkDevice().createGraphicsPipeline(nullptr, pipelineInfo, nullptr);
         if (pipelineWrapper.result != vk::Result::eSuccess) {
             Log::Error("Failed to create Vulkan graphics pipeline: %s", vk::to_string(pipelineWrapper.result).c_str());
             return;
@@ -381,7 +381,7 @@ namespace flaw {
 
     void VkGraphicsPipeline::DestroyPipeline() {
         if (_pipeline) {
-            _context.GetVkDevice().destroyPipeline(_pipeline, nullptr, _context.GetVkDispatchLoader());
+            _context.GetVkDevice().destroyPipeline(_pipeline, nullptr);
             _pipeline = nullptr;
         }
     }

@@ -31,7 +31,7 @@ namespace flaw {
 
                 vkCommandQueue.CopyBuffer(stagingBuffer->GetVkBuffer(), _buffer, _size, 0, 0);
             } else {
-                auto mappedDataWrapper = _context.GetVkDevice().mapMemory(_memory, 0, descriptor.bufferSize, vk::MemoryMapFlags(), _context.GetVkDispatchLoader());
+                auto mappedDataWrapper = _context.GetVkDevice().mapMemory(_memory, 0, descriptor.bufferSize, vk::MemoryMapFlags());
                 if (mappedDataWrapper.result != vk::Result::eSuccess) {
                     Log::Error("Failed to map index buffer memory.");
                     return;
@@ -46,13 +46,13 @@ namespace flaw {
 
     VkIndexBuffer::~VkIndexBuffer() {
         if (_mappedData) {
-            _context.GetVkDevice().unmapMemory(_memory, _context.GetVkDispatchLoader());
+            _context.GetVkDevice().unmapMemory(_memory);
             _mappedData = nullptr;
         }
 
         _context.AddDelayedDeletionTasks([&context = _context, buffer = _buffer, memory = _memory]() {
-            context.GetVkDevice().destroyBuffer(buffer, nullptr, context.GetVkDispatchLoader());
-            context.GetVkDevice().freeMemory(memory, nullptr, context.GetVkDispatchLoader());
+            context.GetVkDevice().destroyBuffer(buffer, nullptr);
+            context.GetVkDevice().freeMemory(memory, nullptr);
         });
     }
 
@@ -80,7 +80,7 @@ namespace flaw {
         vk::MemoryPropertyFlags memoryFlags;
         GetRequiredVkMemoryPropertyFlags(_usage, memoryFlags);
 
-        VkBuffer buffer = CreateVkBuffer(
+        VkBufferWrapper buffer = CreateVkBuffer(
             _context.GetVkPhysicalDevice(),
             _context.GetVkDevice(),
             _size,

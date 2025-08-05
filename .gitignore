@@ -1,2 +1,9 @@
 .vscode/
+.vs/
 bin/
+bin-int/
+
+*.sln
+*.vcxproj
+*.vcxproj.user
+*.vcxproj.filters

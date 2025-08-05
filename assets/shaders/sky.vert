@@ -19,10 +19,16 @@ vec2 screen_positions[6] = vec2[](
 layout(location = 0) out vec3 out_tex_coord;
 
 void main() {
-    vec3 viewed_position = mat3(uniformBuffer.view_matrix) * screen_positions[gl_VertexIndex];
-    vec4 projected_position = uniformBuffer.projection_matrix * vec4(viewed_position, 1.0);
+    gl_Position = vec4(screen_positions[gl_VertexIndex], 0.0, 1.0);
 
-    gl_Position = projected_position;
-    gl_Position.z = gl_Position.w;
-    out_tex_coord = normalize(gl_Position.xyz);
+    vec3 forward = vec3(0.0, 0.0, 1.0);
+    forward = normalize(mat3(uniformBuffer.view_matrix) * forward);
+
+    vec3 up = vec3(0.0, 1.0, 0.0);
+    vec3 right = normalize(cross(forward, up));
+
+    up = normalize(cross(right, forward));
+
+    out_tex_coord = forward + screen_positions[gl_VertexIndex].x * right - screen_positions[gl_VertexIndex].y * up;
+    out_tex_coord = normalize(out_tex_coord);
 }

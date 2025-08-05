@@ -66,7 +66,7 @@ namespace flaw {
             _frameBuffers.clear();
             _renderTextures.clear();
             _depthStencilTextures.clear();
-            _context.GetVkDevice().destroySwapchainKHR(_swapchain, nullptr, _context.GetVkDispatchLoader());
+            _context.GetVkDevice().destroySwapchainKHR(_swapchain, nullptr);
         }
 
         auto surfaceDetails = GetVkSurfaceDetails(_context.GetVkPhysicalDevice(), _context.GetVkSurface());
@@ -285,7 +285,7 @@ namespace flaw {
         _frameBuffers.clear();
         _renderTextures.clear();
         _depthStencilTextures.clear();
-        _context.GetVkDevice().destroySwapchainKHR(_swapchain, nullptr, _context.GetVkDispatchLoader());
+        _context.GetVkDevice().destroySwapchainKHR(_swapchain, nullptr);
         _swapchain = vk::SwapchainKHR();
     }
 }

@@ -13,16 +13,18 @@
 #include "VkTextures.h"
 #include "VkFramebuffer.h"
 
+VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
+
 namespace flaw {
-    static VKAPI_ATTR VkBool32 DebugCallback(
-        VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-        VkDebugUtilsMessageTypeFlagsEXT messageType,
-        const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+    static VKAPI_ATTR vk::Bool32 DebugCallback(
+        vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+        vk::DebugUtilsMessageTypeFlagsEXT messageType,
+        const vk::DebugUtilsMessengerCallbackDataEXT* pCallbackData,
         void* pUserData) 
     {
-        if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
+        if (messageSeverity & vk::DebugUtilsMessageSeverityFlagBitsEXT::eError) {
             Log::Error("Vulkan Error: %s", pCallbackData->pMessage);
-        } else if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
+        } else if (messageSeverity & vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning) {
             Log::Warn("Vulkan Warning: %s", pCallbackData->pMessage);
         } else {
             Log::Info("Vulkan Info: %s", pCallbackData->pMessage);
@@ -36,6 +38,8 @@ namespace flaw {
         , _renderHeight(height)
         , _swapInterval(1)
     {
+        VULKAN_HPP_DEFAULT_DISPATCHER.init();
+
 		uint32_t vkVersion = vk::enumerateInstanceVersion().value;
         Log::Info("Vulkan API Version: %d.%d.%d", VK_VERSION_MAJOR(vkVersion), VK_VERSION_MINOR(vkVersion), VK_VERSION_PATCH(vkVersion));
 
@@ -46,8 +50,8 @@ namespace flaw {
             return;
         }
 
-        _dldi = vk::DispatchLoaderDynamic(_instance, vkGetInstanceProcAddr);
-        
+		VULKAN_HPP_DEFAULT_DISPATCHER.init(_instance);
+
         if (CreateDebugMessenger()) {
             Log::Fatal("Failed to create Vulkan debug messenger.");
             return;
@@ -73,6 +77,8 @@ namespace flaw {
             Log::Fatal("Failed to create Vulkan logical device.");
             return;
         }
+
+        VULKAN_HPP_DEFAULT_DISPATCHER.init(_device);
 
         _swapchain = CreateRef<VkSwapchain>(*this);
         if (_swapchain->Create(_renderWidth, _renderHeight)) {
@@ -148,7 +154,7 @@ namespace flaw {
 
         createInfo.pfnUserCallback = DebugCallback;
 
-        auto result = _instance.createDebugUtilsMessengerEXT(createInfo, nullptr, _dldi);
+        auto result = _instance.createDebugUtilsMessengerEXT(createInfo, nullptr);
         if (result.result != vk::Result::eSuccess) {
             Log::Fatal("Failed to create Vulkan debug messenger: %s", vk::to_string(result.result).c_str());
             return -1;
@@ -239,7 +245,7 @@ namespace flaw {
         createInfo.ppEnabledLayerNames = requiredLayers.data();
         createInfo.pEnabledFeatures = &deviceFeatures;
 
-        auto deviceWrapper = _physicalDevice.createDevice(createInfo, nullptr, _dldi);
+        auto deviceWrapper = _physicalDevice.createDevice(createInfo, nullptr);
         if (deviceWrapper.result != vk::Result::eSuccess) {
             Log::Fatal("Failed to create Vulkan logical device: %s", vk::to_string(deviceWrapper.result).c_str());
             return -1;
@@ -292,13 +298,13 @@ namespace flaw {
             _delayedDeletionTasks.pop();
         }
 
-        _device.destroyDescriptorPool(_descriptorPool, nullptr, _dldi);
+        _device.destroyDescriptorPool(_descriptorPool, nullptr);
 
-        _device.destroy(nullptr, _dldi);
-        _instance.destroySurfaceKHR(_surface, nullptr, _dldi);
+        _device.destroy(nullptr);
+        _instance.destroySurfaceKHR(_surface, nullptr);
 
         if (_debugMessenger) {
-            _instance.destroyDebugUtilsMessengerEXT(_debugMessenger, nullptr, _dldi);
+            _instance.destroyDebugUtilsMessengerEXT(_debugMessenger, nullptr);
         }
 
         _instance.destroy();

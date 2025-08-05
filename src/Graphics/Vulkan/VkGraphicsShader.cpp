@@ -49,7 +49,7 @@ namespace flaw {
         createInfo.codeSize = sourceCode.size();
         createInfo.pCode = reinterpret_cast<const uint32_t*>(sourceCode.data());
 
-        auto moduleWrapper = _context.GetVkDevice().createShaderModule(createInfo, nullptr, _context.GetVkDispatchLoader());
+        auto moduleWrapper = _context.GetVkDevice().createShaderModule(createInfo, nullptr);
         if (moduleWrapper.result != vk::Result::eSuccess) {
             Log::Error("Failed to create shader module: %s", filePath.c_str());
             return;
@@ -69,7 +69,7 @@ namespace flaw {
                 continue;
             }
 
-            _context.GetVkDevice().destroyShaderModule(shaderEntry.module, nullptr, _context.GetVkDispatchLoader());
+            _context.GetVkDevice().destroyShaderModule(shaderEntry.module, nullptr);
         }
     }
 

@@ -9,6 +9,8 @@
 
 #ifdef _WIN32
 
+#define SUPPORT_VULKAN
+
 #ifdef FL_DYNAMIC_LIB
 	#ifdef FL_DLL_EXPORT
 		#define FAPI __declspec(dllexport)
