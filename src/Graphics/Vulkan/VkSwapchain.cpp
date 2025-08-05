@@ -227,7 +227,7 @@ namespace flaw {
         desc.format = _depthStencilFormat;
         desc.usage = UsageFlag::Static;
         desc.bindFlags = BindFlag::DepthStencil;
-        desc.sampleCount = _context.GetMSAAState() ? _context.GetMsaaSampleCount() : 1;
+        desc.sampleCount = _context.GetMSAAState() ? _context.GetMSAASampleCount() : 1;
 
         _depthStencilTextures.resize(renderTexCount);
         for (size_t i = 0; i < renderTexCount; ++i) {
@@ -252,7 +252,7 @@ namespace flaw {
             desc.format = PixelFormat::BGRA8;
             desc.usage = UsageFlag::Static;
             desc.bindFlags = BindFlag::RenderTarget;
-            desc.sampleCount = _context.GetMsaaSampleCount();
+            desc.sampleCount = _context.GetMSAASampleCount();
 
             _msaaColorTextures[i] = CreateRef<VkTexture2D>(_context, desc);
         }
@@ -269,7 +269,7 @@ namespace flaw {
             renderPassLayoutDesc.colorAttachments = { { PixelFormat::BGRA8, BlendMode::Default, false } };
             renderPassLayoutDesc.depthStencilAttachment = { _depthStencilFormat };
         } else {
-            renderPassLayoutDesc.sampleCount = _context.GetMsaaSampleCount();
+            renderPassLayoutDesc.sampleCount = _context.GetMSAASampleCount();
             renderPassLayoutDesc.colorAttachments = { { PixelFormat::BGRA8, BlendMode::Default, false } };
             renderPassLayoutDesc.depthStencilAttachment = { _depthStencilFormat };
             renderPassLayoutDesc.resolveAttachment = { PixelFormat::BGRA8 };

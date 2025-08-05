@@ -67,7 +67,7 @@ namespace flaw {
 		inline uint32_t GetGraphicsQueueFamilyIndex() const { return _queueFamilyIndices.graphicsFamily.value(); }
 		inline uint32_t GetPresentQueueFamilyIndex() const { return _queueFamilyIndices.presentFamily.value(); }
 		inline uint32_t GetTransferQueueFamilyIndex() const { return _queueFamilyIndices.transferFamily.value(); }
-		inline uint32_t GetMsaaSampleCount() const { return _msaaSampleCount; }
+		inline uint32_t GetMSAASampleCount() const { return _msaaSampleCount; }
 		inline vk::DescriptorPool GetVkDescriptorPool() const { return _descriptorPool; }
 
 	private:

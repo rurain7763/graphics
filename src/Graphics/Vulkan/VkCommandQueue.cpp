@@ -197,6 +197,7 @@ namespace flaw {
             return false;
         }
 
+		_currentFrameBuffers = swapchain.GetFramebuffers();
         _currentFrameIndex = acquireWrapper.value;
   
         // Begin command buffer
@@ -208,8 +209,8 @@ namespace flaw {
             Log::Fatal("Failed to begin Vulkan command buffer: %s", vk::to_string(result).c_str());
         }
 
-        auto vkFramebuffer = _context.GetVkSwapchain().GetFramebuffer(_currentFrameIndex); 
-        auto vkRenderPass = _context.GetVkSwapchain().GetClearOpRenderPass();
+        auto vkFramebuffer = swapchain.GetFramebuffer(_currentFrameIndex); 
+        auto vkRenderPass = swapchain.GetClearOpRenderPass();
 
         std::vector<vk::ClearValue> clearValues;
         for(uint32_t i = 0; i < vkRenderPass->GetColorAttachmentOpCount(); ++i) {

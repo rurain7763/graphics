@@ -116,6 +116,7 @@ namespace flaw {
 
         _colorOperations = descriptor.colorAttachmentOperations;
         _depthStencilOperation = descriptor.depthStencilAttachmentOperation;
+		_resolveAttachmentOperation = descriptor.resolveAttachmentOperation;
     }
 
     VkRenderPass::~VkRenderPass() {
