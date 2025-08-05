@@ -220,7 +220,6 @@ namespace flaw {
             op.storeOp = AttachmentStoreOp::Store;
         }
 
-        renderPassDesc.depthStencilAttachmentOperation = std::nullopt;
         if (vkRenderPassLayout->HasDepthStencilAttachment()) {
             renderPassDesc.depthStencilAttachmentOperation = {
                 TextureLayout::Undefined,
@@ -229,6 +228,15 @@ namespace flaw {
                 AttachmentStoreOp::Store,
                 AttachmentLoadOp::DontCare,
                 AttachmentStoreOp::DontCare
+            };
+        }
+
+        if (vkRenderPassLayout->HasResolveAttachment()) {
+            renderPassDesc.resolveAttachmentOperation = {
+                TextureLayout::Undefined,
+                TextureLayout::Color,
+                AttachmentLoadOp::Clear,
+                AttachmentStoreOp::Store
             };
         }
 
@@ -277,6 +285,12 @@ namespace flaw {
 
         _colorBlendStateInfo.attachmentCount = _colorBlendAttachments.size();
         _colorBlendStateInfo.pAttachments = _colorBlendAttachments.data();
+
+        if (vkRenderPassLayout->HasResolveAttachment()) {
+            _multisampleInfo.rasterizationSamples = ConvertToVkSampleCount(vkRenderPassLayout->GetResolveAttachment().sampleCount);
+        } else {
+            _multisampleInfo.rasterizationSamples = vk::SampleCountFlagBits::e1;
+        }
     }
 
     void VkGraphicsPipeline::Bind() {

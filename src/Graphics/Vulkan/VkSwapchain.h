@@ -44,6 +44,8 @@ namespace flaw {
 
         bool CreateDepthStencilTextures();
 
+        bool CreateResolveTextures();
+
         bool CreateRenderPasses();
 
         bool CreateFramebuffers();
@@ -61,6 +63,7 @@ namespace flaw {
         vk::SwapchainKHR _swapchain;
         std::vector<Ref<VkTexture2D>> _renderTextures;
         std::vector<Ref<VkTexture2D>> _depthStencilTextures;
+        std::vector<Ref<VkTexture2D>> _resolveTextures;
         std::vector<Ref<VkFramebuffer>> _frameBuffers;
         Ref<VkRenderPassLayout> _renderPassLayout;
         Ref<VkRenderPass> _clearOpRenderPass;

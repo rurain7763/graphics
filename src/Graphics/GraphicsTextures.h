@@ -19,18 +19,20 @@ namespace flaw {
 		virtual UsageFlag GetUsage() const = 0;
 		virtual uint32_t GetBindFlags() const = 0;
 		virtual uint32_t GetAccessFlags() const = 0;
+		virtual uint32_t GetSampleCount() const = 0;
 	};
 
 	class Texture2D : public Texture {
 	public:
 		struct Descriptor {
-			const uint8_t* data;
-			PixelFormat format;
-			uint32_t width, height;
-			UsageFlag usage;
-			uint32_t access;
-			uint32_t bindFlags;
+			const uint8_t* data = nullptr;
+			PixelFormat format = PixelFormat::UNDEFINED;
+			uint32_t width = 0, height = 0;
+			UsageFlag usage = UsageFlag::Static;
+			uint32_t access = 0;
+			uint32_t bindFlags = 0;
 			uint32_t mipLevels = 1;
+			uint32_t sampleCount = 1;
 		};
 
 		Texture2D() = default;
@@ -79,14 +81,15 @@ namespace flaw {
 		};
 
 		struct Descriptor {
-			Layout layout;
-			const uint8_t* data;
-			PixelFormat format;
-			uint32_t width, height;
-			UsageFlag usage;
-			uint32_t access;
-			uint32_t bindFlags;
+			Layout layout = Layout::Horizontal;
+			const uint8_t* data = nullptr;
+			PixelFormat format = PixelFormat::UNDEFINED;
+			uint32_t width = 0, height = 0;
+			UsageFlag usage = UsageFlag::Static;
+			uint32_t access = 0;
+			uint32_t bindFlags = 0;
 			uint32_t mipLevels = 1;
+			uint32_t sampleCount = 1;
 		};
 
 		TextureCube() = default;

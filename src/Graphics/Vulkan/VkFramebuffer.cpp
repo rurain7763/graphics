@@ -14,9 +14,11 @@ namespace flaw {
         , _extent{ descriptor.width, descriptor.height }
         , _colorAttachments(descriptor.colorAttachments)
         , _depthStencilAttachment(descriptor.depthStencilAttachment.has_value() ? descriptor.depthStencilAttachment.value() : nullptr)
+        , _resolveAttachment(descriptor.resolveAttachment.has_value() ? descriptor.resolveAttachment.value() : nullptr)
         , _renderPassLayout(std::static_pointer_cast<VkRenderPassLayout>(descriptor.renderPassLayout))
         , _colorResizeHandler(descriptor.colorResizeHandler ? descriptor.colorResizeHandler : nullptr)
         , _depthStencilResizeHandler(descriptor.depthStencilResizeHandler ? descriptor.depthStencilResizeHandler : nullptr)
+        , _resolveResizeHandler(descriptor.resolveResizeHandler ? descriptor.resolveResizeHandler : nullptr)
     {
         if (_renderPassLayout == nullptr) {
             Log::Fatal("Render pass layout cannot be null for VkFramebuffer.");
@@ -61,6 +63,12 @@ namespace flaw {
             _depthStencilAttachment = newAttachment;
         }
 
+        if (_resolveResizeHandler && _resolveAttachment) {
+            auto newAttachment = _resolveResizeHandler(width, height);
+            needRecreate |= newAttachment != _resolveAttachment;
+            _resolveAttachment = newAttachment;
+        }
+
         if (!needRecreate) {
             return;
         }
@@ -84,6 +92,7 @@ namespace flaw {
     bool VkFramebuffer::CreateRenderPass() {
         GraphicsRenderPass::Descriptor renderPassDesc;
         renderPassDesc.layout = _renderPassLayout;
+
         renderPassDesc.colorAttachmentOperations.resize(_renderPassLayout->GetColorAttachmentCount());
         for (uint32_t i = 0; i < renderPassDesc.colorAttachmentOperations.size(); ++i) {
             auto& op = renderPassDesc.colorAttachmentOperations[i];
@@ -93,7 +102,6 @@ namespace flaw {
             op.storeOp = AttachmentStoreOp::Store;
         }
 
-        renderPassDesc.depthStencilAttachmentOperation = std::nullopt;
         if (_renderPassLayout->HasDepthStencilAttachment()) {
             renderPassDesc.depthStencilAttachmentOperation = {
                 TextureLayout::Undefined,
@@ -102,6 +110,15 @@ namespace flaw {
                 AttachmentStoreOp::Store,
                 AttachmentLoadOp::DontCare,
                 AttachmentStoreOp::DontCare
+            };
+        }
+
+        if (_renderPassLayout->HasResolveAttachment()) {
+            renderPassDesc.resolveAttachmentOperation = {
+                TextureLayout::Undefined,
+                TextureLayout::Color,
+                AttachmentLoadOp::Clear,
+                AttachmentStoreOp::Store
             };
         }
 
@@ -119,6 +136,10 @@ namespace flaw {
 
         if (_depthStencilAttachment) {
             attachmentViews.push_back(*static_cast<vk::ImageView*>(_depthStencilAttachment->GetDepthStencilView()));
+        }
+
+        if (_resolveAttachment) {
+            attachmentViews.push_back(*static_cast<vk::ImageView*>(_resolveAttachment->GetShaderResourceView()));
         }
 
         vk::FramebufferCreateInfo createInfo;

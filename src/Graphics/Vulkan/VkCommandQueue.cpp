@@ -296,8 +296,8 @@ namespace flaw {
 
         std::vector<vk::ClearValue> clearValues;
 
-        for (uint32_t i = 0; i < vkRenderPass->GetColorAttachmentCount(); ++i) {
-            if (vkRenderPass->GetColorAttachmentLoadOp(i) == AttachmentLoadOp::Clear) {
+        for (uint32_t i = 0; i < vkRenderPass->GetColorAttachmentOpCount(); ++i) {
+            if (vkRenderPass->GetColorAttachmentOp(i).loadOp == AttachmentLoadOp::Clear) {
                 clearValues.push_back(vk::ClearColorValue(0.0f, 0.0f, 0.0f, 1.0f));
             }
             else {
@@ -305,8 +305,8 @@ namespace flaw {
             }
         }
 
-        if (vkRenderPass->HasDepthStencilAttachment()) {
-            if (vkRenderPass->GetDepthStencilAttachmentLoadOp() == AttachmentLoadOp::Clear) {
+        if (vkRenderPass->HasDepthStencilAttachmentOp()) {
+            if (vkRenderPass->GetDepthStencilAttachmentOp().loadOp == AttachmentLoadOp::Clear) {
                 clearValues.push_back(vk::ClearDepthStencilValue(1.0f, 0));
             } else {
                 clearValues.push_back({});

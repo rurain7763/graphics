@@ -15,7 +15,7 @@ namespace flaw {
 	class VkTexture2D : public Texture2D {
 	public:
 		VkTexture2D(VkContext& context, const Descriptor& descriptor);
-		VkTexture2D(VkContext& context, vk::Image image, uint32_t width, uint32_t height, PixelFormat format, UsageFlag usage, uint32_t bindFlags, uint32_t accessFlags, uint32_t mipLevels);
+		VkTexture2D(VkContext& context, vk::Image image, uint32_t width, uint32_t height, PixelFormat format, UsageFlag usage, uint32_t bindFlags, uint32_t accessFlags, uint32_t sampleCount, uint32_t mipLevels);
 		~VkTexture2D();
 
 		void Fetch(void* outData, const uint32_t size) const override {}
@@ -34,6 +34,7 @@ namespace flaw {
 		UsageFlag GetUsage() const override { return _usage; }
 		uint32_t GetBindFlags() const override { return _bindFlags; }
 		uint32_t GetAccessFlags() const override { return _acessFlags; }
+		uint32_t GetSampleCount() const override { return _sampleCount; }
 
 		inline vk::Image GetVkImage() const { return _image; }
 		inline vk::ImageView GetVkImageView() const { return _imageView; }
@@ -63,6 +64,7 @@ namespace flaw {
 		uint32_t _acessFlags;
 		uint32_t _bindFlags;
 		uint32_t _mipLevels;
+		uint32_t _sampleCount;
 
 		uint32_t _width;
 		uint32_t _height;
@@ -84,6 +86,7 @@ namespace flaw {
 		UsageFlag GetUsage() const override { return _usage; }
 		uint32_t GetBindFlags() const override { return _bindFlags; }
 		uint32_t GetAccessFlags() const override { return _acessFlags; }
+		uint32_t GetSampleCount() const override { return _sampleCount; }
 
 		inline vk::Image GetVkImage() const { return _image; }
 		inline vk::ImageView GetVkImageView() const { return _imageView; }
@@ -111,6 +114,7 @@ namespace flaw {
 		uint32_t _acessFlags;
 		uint32_t _bindFlags;
 		uint32_t _mipLevels;
+		uint32_t _sampleCount;
 
 		uint32_t _width;
 		uint32_t _height;

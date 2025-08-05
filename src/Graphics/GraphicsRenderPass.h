@@ -9,19 +9,27 @@ namespace flaw {
 	class GraphicsRenderPassLayout {
 	public:
 		struct ColorAttachment {
-			PixelFormat format;
+			PixelFormat format = PixelFormat::UNDEFINED;
+			uint32_t sampleCount = 1;
 			BlendMode blendMode = BlendMode::Default;
 			bool alphaToCoverage = false;
 		};
 
 		struct DepthStencilAttachment {
-			PixelFormat format;
+			PixelFormat format = PixelFormat::UNDEFINED;
+			uint32_t sampleCount = 1;
+		};
+
+		struct ResolveAttachment {
+			PixelFormat format = PixelFormat::UNDEFINED;
+			uint32_t sampleCount = 1;
 		};
 
 		struct Descriptor {
 			PipelineType type;
 			std::vector<ColorAttachment> colorAttachments;
 			std::optional<DepthStencilAttachment> depthStencilAttachment;
+			std::optional<ResolveAttachment> resolveAttachment;
 		};
 
 		virtual ~GraphicsRenderPassLayout() = default;
@@ -30,6 +38,10 @@ namespace flaw {
 		virtual const ColorAttachment& GetColorAttachment(uint32_t index) const = 0;
 
 		virtual bool HasDepthStencilAttachment() const = 0;
+		virtual const DepthStencilAttachment& GetDepthStencilAttachment() const = 0;
+
+		virtual bool HasResolveAttachment() const = 0;
+		virtual const ResolveAttachment& GetResolveAttachment() const = 0;
 	};
 
 	class GraphicsRenderPass {
@@ -50,19 +62,30 @@ namespace flaw {
 			AttachmentStoreOp stencilStoreOp;
 		};
 
+		struct ResolveAttachmentOperation {
+			TextureLayout initialLayout;
+			TextureLayout finalLayout;
+			AttachmentLoadOp loadOp;
+			AttachmentStoreOp storeOp;
+		};
+
 		struct Descriptor {
 			Ref<GraphicsRenderPassLayout> layout;
 
 			std::vector<ColorAttachmentOperation> colorAttachmentOperations;
 			std::optional<DepthStencilAttachmentOperation> depthStencilAttachmentOperation;
+			std::optional<ResolveAttachmentOperation> resolveAttachmentOperation;
 		};
 
 		virtual ~GraphicsRenderPass() = default;
 
-		virtual uint32_t GetColorAttachmentCount() const = 0;
-		virtual AttachmentLoadOp GetColorAttachmentLoadOp(uint32_t index) const = 0;
+		virtual uint32_t GetColorAttachmentOpCount() const = 0;
+		virtual const ColorAttachmentOperation& GetColorAttachmentOp(uint32_t index) const = 0;
 
-		virtual bool HasDepthStencilAttachment() const = 0;
-		virtual AttachmentLoadOp GetDepthStencilAttachmentLoadOp() const = 0;
+		virtual bool HasDepthStencilAttachmentOp() const = 0;
+		virtual const DepthStencilAttachmentOperation& GetDepthStencilAttachmentOp() const = 0;
+
+		virtual bool HasResolveAttachmentOp() const = 0;
+		virtual const ResolveAttachmentOperation& GetResolveAttachmentOp() const = 0;
 	};
 }

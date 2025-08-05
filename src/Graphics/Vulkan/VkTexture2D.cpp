@@ -17,6 +17,7 @@ namespace flaw {
         , _acessFlags(descriptor.access)
         , _bindFlags(descriptor.bindFlags)
         , _mipLevels(descriptor.mipLevels)
+        , _sampleCount(descriptor.sampleCount)
         , _width(descriptor.width)
         , _height(descriptor.height)
     {
@@ -52,7 +53,7 @@ namespace flaw {
         _imageInfo.sampler = _sampler;
     }
 
-    VkTexture2D::VkTexture2D(VkContext& context, vk::Image image, uint32_t width, uint32_t height, PixelFormat format, UsageFlag usage, uint32_t bindFlags, uint32_t accessFlags, uint32_t mipLevels)
+    VkTexture2D::VkTexture2D(VkContext& context, vk::Image image, uint32_t width, uint32_t height, PixelFormat format, UsageFlag usage, uint32_t bindFlags, uint32_t accessFlags, uint32_t sampleCount, uint32_t mipLevels)
         : _context(context)
         , _isExternalImage(true)
         , _image(image)
@@ -62,6 +63,7 @@ namespace flaw {
         , _usage(usage)
         , _acessFlags(accessFlags)
         , _bindFlags(bindFlags)
+        , _sampleCount(sampleCount)
         , _mipLevels(mipLevels)
     {
         if (!CreateImageView()) {
@@ -95,7 +97,7 @@ namespace flaw {
         imageInfo.extent.depth = 1;
         imageInfo.mipLevels = _mipLevels;
         imageInfo.arrayLayers = 1;
-        imageInfo.samples = vk::SampleCountFlagBits::e1;
+        imageInfo.samples = ConvertToVkSampleCount(_sampleCount);
         imageInfo.tiling = vk::ImageTiling::eOptimal;
         imageInfo.usage = ConvertToVkImageUsageFlags(_bindFlags);
         if (hasData) {

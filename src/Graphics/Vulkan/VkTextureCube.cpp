@@ -16,6 +16,7 @@ namespace flaw {
         , _acessFlags(descriptor.access)
         , _bindFlags(descriptor.bindFlags)
         , _mipLevels(descriptor.mipLevels)
+        , _sampleCount(descriptor.sampleCount)
         , _width(descriptor.width)
         , _height(descriptor.height)
     {
@@ -70,7 +71,7 @@ namespace flaw {
         imageInfo.extent.depth = 1;
         imageInfo.mipLevels = _mipLevels;
         imageInfo.arrayLayers = 6;
-        imageInfo.samples = vk::SampleCountFlagBits::e1;
+        imageInfo.samples = ConvertToVkSampleCount(_sampleCount);
         imageInfo.tiling = vk::ImageTiling::eOptimal;
         imageInfo.usage = ConvertToVkImageUsageFlags(_bindFlags);
         if (hasData) {

@@ -22,6 +22,8 @@ namespace flaw {
 
         inline Ref<Texture> GetAttachment(uint32_t index) const override { return _colorAttachments[index]; }
         inline Ref<Texture> GetDepthStencilAttachment() const override { return _depthStencilAttachment; }
+        inline Ref<Texture> GetResolveAttachment() const override { return _resolveAttachment; }
+        
         Ref<GraphicsRenderPassLayout> GetRenderPassLayout() const override;
 
         inline uint32_t GetWidth() const override { return _extent.width; }
@@ -41,12 +43,14 @@ namespace flaw {
 
         std::vector<Ref<Texture>> _colorAttachments;
         Ref<Texture> _depthStencilAttachment;
+        Ref<Texture> _resolveAttachment;
 
         Ref<VkRenderPassLayout> _renderPassLayout;
         Ref<VkRenderPass> _renderpass;
 
         std::function<Ref<Texture>(uint32_t, uint32_t, uint32_t)> _colorResizeHandler;
         std::function<Ref<Texture>(uint32_t, uint32_t)> _depthStencilResizeHandler;
+        std::function<Ref<Texture>(uint32_t, uint32_t)> _resolveResizeHandler;
     };
 }
 

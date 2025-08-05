@@ -17,6 +17,8 @@ namespace flaw {
             std::function<Ref<Texture>(uint32_t index, uint32_t width, uint32_t height)> colorResizeHandler;
             std::optional<Ref<Texture>> depthStencilAttachment;
             std::function<Ref<Texture>(uint32_t width, uint32_t height)> depthStencilResizeHandler;
+            std::optional<Ref<Texture>> resolveAttachment;
+            std::function<Ref<Texture>(uint32_t width, uint32_t height)> resolveResizeHandler;
             Ref<GraphicsRenderPassLayout> renderPassLayout;
         };
 
@@ -27,6 +29,8 @@ namespace flaw {
 
         virtual Ref<Texture> GetAttachment(uint32_t index) const = 0;
         virtual Ref<Texture> GetDepthStencilAttachment() const = 0;
+        virtual Ref<Texture> GetResolveAttachment() const = 0;
+        
         virtual Ref<GraphicsRenderPassLayout> GetRenderPassLayout() const = 0;
 
         virtual uint32_t GetWidth() const = 0;

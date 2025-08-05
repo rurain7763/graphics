@@ -268,51 +268,6 @@ int main() {
 
     shaderResourcesDesc.layout = nullptr;
 
-    GraphicsRenderPassLayout::Descriptor subFramesRenderPassLayoutDesc;
-    subFramesRenderPassLayoutDesc.type = PipelineType::Graphics;
-    subFramesRenderPassLayoutDesc.colorAttachments = {
-        { g_graphicsContext->GetMainFramebuffer(0)->GetAttachment(0)->GetPixelFormat(), BlendMode::Default, false }
-    };
-    subFramesRenderPassLayoutDesc.depthStencilAttachment = { 
-        g_graphicsContext->GetMainFramebuffer(0)->GetDepthStencilAttachment()->GetPixelFormat() 
-    };
-
-    auto subFramesRenderPassLayout = g_graphicsContext->CreateRenderPassLayout(subFramesRenderPassLayoutDesc);
-
-    GraphicsRenderPass::Descriptor subFramesRenderPassDesc;
-    subFramesRenderPassDesc.layout = subFramesRenderPassLayout;
-    subFramesRenderPassDesc.colorAttachmentOperations = {
-        { TextureLayout::Undefined, TextureLayout::Present, AttachmentLoadOp::Clear, AttachmentStoreOp::Store }
-    };
-    subFramesRenderPassDesc.depthStencilAttachmentOperation = {
-        { TextureLayout::Undefined, TextureLayout::DepthStencil, AttachmentLoadOp::Clear, AttachmentStoreOp::Store, AttachmentLoadOp::DontCare, AttachmentStoreOp::DontCare }
-    };
-
-    auto subFramesRenderPass = g_graphicsContext->CreateRenderPass(subFramesRenderPassDesc);
-
-    std::vector<Ref<GraphicsFramebuffer>> subFrameBuffers;
-    std::vector<Ref<GraphicsRenderPass>> subFramesRenderPasses;
-
-    for (uint32_t i = 0; i < g_graphicsContext->GetMainFramebuffersCount(); ++i) {
-        auto framebuffer = g_graphicsContext->GetMainFramebuffer(i);
-
-        GraphicsFramebuffer::Descriptor framebufferDesc;
-        framebufferDesc.width = framebuffer->GetWidth();
-        framebufferDesc.height = framebuffer->GetHeight();
-        framebufferDesc.colorAttachments = { framebuffer->GetAttachment(0) };
-        framebufferDesc.colorResizeHandler = [i](uint32_t index, uint32_t width, uint32_t height) {
-            return g_graphicsContext->GetMainFramebuffer(i)->GetAttachment(index);
-        };
-        framebufferDesc.depthStencilAttachment = framebuffer->GetDepthStencilAttachment();
-        framebufferDesc.depthStencilResizeHandler = [i](uint32_t width, uint32_t height) {
-            return g_graphicsContext->GetMainFramebuffer(i)->GetDepthStencilAttachment();
-        };               
-        framebufferDesc.renderPassLayout = framebuffer->GetRenderPassLayout();
-
-        subFrameBuffers.push_back(g_graphicsContext->CreateFramebuffer(framebufferDesc));
-        subFramesRenderPasses.push_back(subFramesRenderPass);
-    }
-
     MakeSkyboxResources();
 
     auto& commandQueue = static_cast<VkCommandQueue&>(g_graphicsContext->GetCommandQueue());
@@ -341,9 +296,6 @@ int main() {
         structuredBuffer->Update(&modelMatrices, sizeof(glm::mat4));
 
         if (g_graphicsContext->Prepare()) {
-            commandQueue.SetFramebuffers(subFrameBuffers, subFramesRenderPasses);
-            commandQueue.ResetFramebuffers();
-
             commandQueue.SetPipeline(g_skyboxPipeline);
             commandQueue.SetShaderResources(g_skyboxResources0, 0);
             commandQueue.SetShaderResources(g_skyboxResources1, 1);
@@ -363,10 +315,6 @@ int main() {
     }
 
     ReleaseSkyboxResources();
-    subFramesRenderPass.reset();
-    subFramesRenderPassLayout.reset();
-    subFramesRenderPasses.clear();
-    subFrameBuffers.clear();
     shaderResources.reset();
     textureResources.reset();
     structuredBuffer.reset();

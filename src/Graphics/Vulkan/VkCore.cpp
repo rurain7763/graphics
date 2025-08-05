@@ -237,6 +237,20 @@ namespace flaw {
         }
     }
 
+    vk::SampleCountFlagBits ConvertToVkSampleCount(uint32_t sampleCount) {
+        switch (sampleCount) {
+        case 1: return vk::SampleCountFlagBits::e1;
+        case 2: return vk::SampleCountFlagBits::e2;
+        case 4: return vk::SampleCountFlagBits::e4;
+        case 8: return vk::SampleCountFlagBits::e8;
+        case 16: return vk::SampleCountFlagBits::e16;
+        case 32: return vk::SampleCountFlagBits::e32;
+        case 64: return vk::SampleCountFlagBits::e64;
+        default:
+            throw std::runtime_error("Unsupported sample count");
+        }
+    }
+
     void GetRequiredVkBufferUsageFlags(UsageFlag usage, vk::BufferUsageFlags& usageFlags) {
         if (usage == UsageFlag::Static) {
             usageFlags |= vk::BufferUsageFlagBits::eTransferDst;
@@ -356,6 +370,20 @@ namespace flaw {
         }
 
         return indices;
+    }
+
+    uint32_t GetMaxUsableSampleCount(const vk::PhysicalDevice& physicalDevice) {
+        vk::PhysicalDeviceProperties properties = physicalDevice.getProperties();
+        vk::SampleCountFlags counts = properties.limits.framebufferColorSampleCounts & properties.limits.framebufferDepthSampleCounts;
+
+        if (counts & vk::SampleCountFlagBits::e64) return 64;
+        if (counts & vk::SampleCountFlagBits::e32) return 32;
+        if (counts & vk::SampleCountFlagBits::e16) return 16;
+        if (counts & vk::SampleCountFlagBits::e8) return 8;
+        if (counts & vk::SampleCountFlagBits::e4) return 4;
+        if (counts & vk::SampleCountFlagBits::e2) return 2;
+
+        return 1;
     }
 
     uint32_t GetMemoryTypeIndex(const vk::PhysicalDevice& physicalDevice, uint32_t typeBits, vk::MemoryPropertyFlags properties) {

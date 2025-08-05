@@ -51,6 +51,8 @@ namespace flaw {
 
 		void Resize(int32_t width, int32_t height) override;
 		void GetSize(int32_t& width, int32_t& height) override;
+		void SetMSAAState(bool enable) override;
+		bool GetMSAAState() const override;
 
 		Ref<ComputeShader> CreateComputeShader(const char* filename) override;
 		Ref<ComputePipeline> CreateComputePipeline() override;
@@ -65,6 +67,7 @@ namespace flaw {
 		inline uint32_t GetGraphicsQueueFamilyIndex() const { return _queueFamilyIndices.graphicsFamily.value(); }
 		inline uint32_t GetPresentQueueFamilyIndex() const { return _queueFamilyIndices.presentFamily.value(); }
 		inline uint32_t GetTransferQueueFamilyIndex() const { return _queueFamilyIndices.transferFamily.value(); }
+		inline uint32_t GetMsaaSampleCount() const { return _msaaSampleCount; }
 		inline vk::DescriptorPool GetVkDescriptorPool() const { return _descriptorPool; }
 
 	private:
@@ -79,8 +82,6 @@ namespace flaw {
         int32_t CreateLogicalDevice();
 
 		int32_t CreateDescriptorPool();
-
-		void SetVSync(bool enable);
 
 	private:
 		constexpr static uint32_t MaxDescriptorSetsCount = 16;
@@ -98,6 +99,7 @@ namespace flaw {
 
 		vk::PhysicalDevice _physicalDevice;
 		VkQueueFamilyIndices _queueFamilyIndices;
+		uint32_t _msaaSampleCount;
 
         vk::Device _device;
 
@@ -106,10 +108,8 @@ namespace flaw {
 		Ref<VkSwapchain> _swapchain;
 		Ref<VkCommandQueue> _commandQueue;
 
-		float _swapInterval;
-
-		// rendering size
 		int32_t _renderWidth, _renderHeight;
+		bool _msaaEnabled;
 
 		uint32_t _currentDeletionCounter;
 		struct DelayedDeletionTask {

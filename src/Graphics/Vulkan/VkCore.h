@@ -52,6 +52,7 @@ namespace flaw {
     vk::PipelineBindPoint ConvertToVkPipelineBindPoint(PipelineType type);
     vk::AttachmentLoadOp ConvertToVkAttachmentLoadOp(AttachmentLoadOp loadOp);
     vk::AttachmentStoreOp ConvertToVkAttachmentStoreOp(AttachmentStoreOp storeOp);
+    vk::SampleCountFlagBits ConvertToVkSampleCount(uint32_t sampleCount);
     void GetRequiredVkBufferUsageFlags(UsageFlag usage, vk::BufferUsageFlags& usageFlags);
     void GetRequiredVkBufferUsageFlags(uint32_t accessFlags, vk::BufferUsageFlags& usageFlags);
     void GetRequiredVkMemoryPropertyFlags(UsageFlag flags, vk::MemoryPropertyFlags& memoryFlags);
@@ -60,6 +61,7 @@ namespace flaw {
     bool CheckSupportedPhysicalDeviceExtensions(const vk::PhysicalDevice& device, const std::vector<const char*>& requiredExtensions);
     VkSurfaceDetails GetVkSurfaceDetails(const vk::PhysicalDevice& physicalDevice, const vk::SurfaceKHR& surface);
     VkQueueFamilyIndices GetVkQueueFamilyIndices(const vk::PhysicalDevice& physicalDevice, const vk::SurfaceKHR& surface);
+    uint32_t GetMaxUsableSampleCount(const vk::PhysicalDevice& physicalDevice);
     uint32_t GetMemoryTypeIndex(const vk::PhysicalDevice& physicalDevice, uint32_t typeBits, vk::MemoryPropertyFlags properties);
     VkBufferWrapper CreateVkBuffer(const vk::PhysicalDevice& physicalDevice, const vk::Device& device, uint64_t size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties);
 }

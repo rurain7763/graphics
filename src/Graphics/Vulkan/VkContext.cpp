@@ -36,7 +36,7 @@ namespace flaw {
 	VkContext::VkContext(PlatformContext& context, int32_t width, int32_t height) 
         : _renderWidth(width)
         , _renderHeight(height)
-        , _swapInterval(1)
+        , _msaaEnabled(true)
     {
         VULKAN_HPP_DEFAULT_DISPATCHER.init();
 
@@ -72,6 +72,8 @@ namespace flaw {
             Log::Fatal("No suitable queue family found.");
             return;
         }
+
+        _msaaSampleCount = GetMaxUsableSampleCount(_physicalDevice);
 
         if (CreateLogicalDevice()) {
             Log::Fatal("Failed to create Vulkan logical device.");
@@ -420,6 +422,8 @@ namespace flaw {
         _renderWidth = width;
         _renderHeight = height;
 
+        _device.waitIdle();
+
         _swapchain->Resize(static_cast<uint32_t>(width), static_cast<uint32_t>(height));
 	}
 
@@ -428,9 +432,22 @@ namespace flaw {
 		height = _renderHeight;
 	}
 
-	void VkContext::SetVSync(bool enable) {
-		_swapInterval = enable ? 1 : 0;
-	}
+    void VkContext::SetMSAAState(bool enable) {
+        if (_msaaEnabled == enable) {
+            return; // No change needed
+        }
+
+        _msaaEnabled = enable;
+
+        _device.waitIdle();
+
+        _swapchain->Destroy();
+        _swapchain->Create(_renderWidth, _renderHeight);
+    }
+
+    bool VkContext::GetMSAAState() const {
+        return _msaaEnabled;
+    }
 
 	Ref<ComputeShader> VkContext::CreateComputeShader(const char* filename) {
         return nullptr;

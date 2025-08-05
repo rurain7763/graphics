@@ -47,10 +47,12 @@ namespace flaw {
 		virtual Ref<GraphicsFramebuffer> GetMainFramebuffer(uint32_t index) = 0;
 
 		virtual GraphicsCommandQueue& GetCommandQueue() = 0;
-
+		
 		virtual void Resize(int32_t width, int32_t height) = 0;
 		virtual void GetSize(int32_t& width, int32_t& height) = 0;
-
+		virtual void SetMSAAState(bool enable) = 0;
+		virtual bool GetMSAAState() const = 0;
+		
 		virtual Ref<ComputeShader> CreateComputeShader(const char* filename) = 0;
 		virtual Ref<ComputePipeline> CreateComputePipeline() = 0;
 	};
