@@ -308,7 +308,7 @@ namespace flaw {
                 { TextureLayout::Color, TextureLayout::Color, AttachmentLoadOp::Load, AttachmentStoreOp::Store }
             };
             renderPassDesc.resolveAttachmentOperation = {
-                { TextureLayout::Color, TextureLayout::Present, AttachmentLoadOp::Load, AttachmentStoreOp::Store }
+                { TextureLayout::Present, TextureLayout::Present, AttachmentLoadOp::Load, AttachmentStoreOp::Store }
             };
         } else {
             renderPassDesc.colorAttachmentOperations = {

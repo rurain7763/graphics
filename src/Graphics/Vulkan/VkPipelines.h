@@ -5,7 +5,7 @@
 #ifdef SUPPORT_VULKAN
 
 #include "VkCore.h"
-#include "Graphics/GraphicsPipeline.h"
+#include "Graphics/GraphicsPipelines.h"
 
 namespace flaw {
 	class VkContext;
@@ -13,14 +13,15 @@ namespace flaw {
     class VkShaderResourcesLayout;
     class VkRenderPassLayout;
     class VkRenderPass;
+    class VkComputeShader;
+
+    struct VkPushConstantRange {
+        uint32_t shaderStages;
+        uint32_t size;
+    };
 
 	class VkGraphicsPipeline : public GraphicsPipeline {
 	public:
-        struct PushConstantRange {
-            uint32_t shaderStages;
-            uint32_t size;
-        };
-
 		VkGraphicsPipeline(VkContext& context);
         ~VkGraphicsPipeline();
 
@@ -42,9 +43,7 @@ namespace flaw {
         void SetBehaviorStates(uint32_t flags) override;
         uint32_t GetBehaviorStates() const override;
 
-		void Bind() override;
-
-        void AddPushConstantRange(const PushConstantRange& pushConstant);
+        void AddPushConstantRange(const VkPushConstantRange& pushConstant);
 
         vk::Pipeline GetNativeVkGraphicsPipeline();
         inline vk::PipelineLayout GetVkPipelineLayout() const { return _pipelineLayout; }
@@ -101,6 +100,39 @@ namespace flaw {
 
         uint32_t _behaviorFlags;
 	};
+
+    class VkComputePipeline : public ComputePipeline {
+    public:
+        VkComputePipeline(VkContext& context);
+        ~VkComputePipeline();
+
+        void SetShader(const Ref<ComputeShader>& shader) override;
+        void AddShaderResourcesLayout(const Ref<ShaderResourcesLayout>& shaderResourceLayout) override;
+        
+        void AddPushConstantRange(const VkPushConstantRange& pushConstant);
+
+        vk::Pipeline GetNativeVkComputePipeline();
+
+    private:
+        void CreatePipeline();
+        void DestroyPipeline();
+
+    private:
+        VkContext& _context;
+
+        bool _needRecreatePipeline;
+
+        vk::Pipeline _pipeline;
+        vk::PipelineLayout _pipelineLayout;
+
+        Ref<VkComputeShader> _shader;
+
+        std::vector<Ref<VkShaderResourcesLayout>> _shaderResourceLayouts;
+        std::vector<vk::DescriptorSetLayout> _descriptorSetLayouts;
+
+        uint32_t _pushConstantOffset;
+        std::vector<vk::PushConstantRange> _pushConstantRanges;
+    };
 }
 
 #endif

@@ -19,11 +19,7 @@ namespace flaw {
         VkCommandQueue(VkContext& context);
         ~VkCommandQueue() override;
 
-        bool Prepare() override;
-        void Present() override;
-
-        void SetFramebuffers(const std::vector<Ref<GraphicsFramebuffer>>& framebuffers, const std::vector<Ref<GraphicsRenderPass>>& renderPasses) override;
-        void ResetFramebuffers() override;
+        bool Prepare();
 
         void SetPipeline(const Ref<GraphicsPipeline>& pipeline) override;
         void SetPipelinePushConstant(uint32_t rangeIndex, const void* data);
@@ -35,6 +31,13 @@ namespace flaw {
         void DrawInstanced(uint32_t vertexCount, uint32_t instanceCount, uint32_t vertexOffset = 0) override;
         void DrawIndexed(const Ref<IndexBuffer>& indexBuffer, uint32_t indexCount, uint32_t indexOffset = 0, uint32_t vertexOffset = 0) override;
         void DrawIndexedInstanced(const Ref<IndexBuffer>& indexBuffer, uint32_t indexCount, uint32_t instanceCount, uint32_t indexOffset = 0, uint32_t vertexOffset = 0) override;
+
+        void BeginRenderPass() override;
+        void BeginRenderPass(const Ref<GraphicsRenderPass>& beginRenderPass, const Ref<GraphicsRenderPass>& resumeRenderPass, const Ref<GraphicsFramebuffer>& framebuffer) override;
+        void EndRenderPass() override;
+        void Submit() override;
+
+        void Present() override;
 
         uint32_t GetCurrentFrameIndex() const override { return _currentFrameIndex; }
 
@@ -52,14 +55,14 @@ namespace flaw {
 
         void GenerateMipmaps(const vk::Image& image, vk::Format format, uint32_t width, uint32_t height, uint32_t arrayLayer, uint32_t mipLevels);
 
-        void Execute() override;
-
     private:
         bool CreateCommandPools();
         bool CreateCommandBuffers();
         bool SetupQueues();
         bool CreateFences();
         bool CreateSemaphores();
+
+        void BeginRenderPassImpl(const Ref<VkRenderPass>& renderPass, const Ref<VkFramebuffer>& framebuffer);
 
     private:
         VkContext& _context;
@@ -78,9 +81,17 @@ namespace flaw {
         vk::Queue _presentQueue;
         vk::Queue _transferQueue;
 
+        struct BeginInfo {
+            Ref<VkFramebuffer> framebuffer;
+            Ref<VkRenderPass> beginRenderPass;
+            Ref<VkRenderPass> resumeRenderPass;
+        };
+
         uint32_t _currentCommandBufferIndex;
         uint32_t _currentFrameIndex;
-        std::vector<Ref<VkFramebuffer>> _currentFrameBuffers;
+        std::vector<BeginInfo> _currentBeginInfoStack;
+        vk::Viewport _currentViewport;
+        vk::Rect2D _currentScissor;
         vk::Pipeline _currentPipeline;
         vk::PipelineLayout _currentPipelineLayout;
         std::vector<vk::PushConstantRange> _currentPushConstantRanges;

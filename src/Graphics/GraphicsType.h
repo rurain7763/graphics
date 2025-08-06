@@ -128,7 +128,8 @@ namespace flaw {
 		Pixel = 0x2,
 		Geometry = 0x4,
 		Hull = 0x8,
-		Domain = 0x10
+		Domain = 0x10,
+		Compute = 0x20,
 	};
 
 	enum class PipelineType {

@@ -63,7 +63,6 @@ namespace flaw {
 	// what is constant buffer?
 	// limit size
 	// allighn size with 16
-	// create once
 	class ConstantBuffer {
 	public:
 		ConstantBuffer() = default;
@@ -81,7 +80,6 @@ namespace flaw {
 	// what is structured buffer?
 	// no limit size
 	// no allighn size
-	// create multiple times with different size
 	class StructuredBuffer {
 	public:
 		struct Descriptor {

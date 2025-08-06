@@ -54,7 +54,7 @@ namespace flaw {
 		void SetMSAAState(bool enable) override;
 		bool GetMSAAState() const override;
 
-		Ref<ComputeShader> CreateComputeShader(const char* filename) override;
+		Ref<ComputeShader> CreateComputeShader(const ComputeShader::Descriptor& descriptor) override;
 		Ref<ComputePipeline> CreateComputePipeline() override;
 
 		void AddDelayedDeletionTasks(const std::function<void()>& task);

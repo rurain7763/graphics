@@ -289,11 +289,7 @@ namespace flaw {
         _multisampleInfo.rasterizationSamples = ConvertToVkSampleCount(vkRenderPassLayout->GetSampleCount());
     }
 
-    void VkGraphicsPipeline::Bind() {
-        // TODO: Implement binding logic
-    }
-
-    void VkGraphicsPipeline::AddPushConstantRange(const PushConstantRange& pushConstant) {
+    void VkGraphicsPipeline::AddPushConstantRange(const VkPushConstantRange& pushConstant) {
         _needRecreatePipeline = true;
 
         if (_pushConstantRanges.size() == 0) {

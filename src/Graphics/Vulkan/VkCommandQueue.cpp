@@ -45,7 +45,6 @@ namespace flaw {
 
         _currentCommandBufferIndex = 0;
         _currentFrameIndex = 0;
-        _currentFrameBuffers = _context.GetVkSwapchain().GetFramebuffers();
 
         Log::Info("Vulkan command queue initialized successfully.");
     }
@@ -186,9 +185,7 @@ namespace flaw {
     bool VkCommandQueue::Prepare() {
         _context.GetVkDevice().waitForFences(1, &_inFlightFences[_currentCommandBufferIndex], VK_TRUE, UINT64_MAX);
 
-        auto& swapchain = _context.GetVkSwapchain();
-
-        auto acquireWrapper = _context.GetVkDevice().acquireNextImageKHR(swapchain.GetNativeVkSwapchain(), UINT64_MAX, _presentCompleteSemaphores[_currentCommandBufferIndex], nullptr);
+        auto acquireWrapper = _context.GetVkDevice().acquireNextImageKHR(_context.GetVkSwapchain().GetNativeVkSwapchain(), UINT64_MAX, _presentCompleteSemaphores[_currentCommandBufferIndex], nullptr);
         if (acquireWrapper.result == vk::Result::eSuboptimalKHR) {
             Log::Warn("Vulkan swapchain is in a suboptimal state: %s", vk::to_string(acquireWrapper.result).c_str());
             return false;
@@ -197,168 +194,18 @@ namespace flaw {
             return false;
         }
 
-		_currentFrameBuffers = swapchain.GetFramebuffers();
         _currentFrameIndex = acquireWrapper.value;
-  
-        // Begin command buffer
+
         auto& commandBuffer = _graphicsFrameCommandBuffers[_currentCommandBufferIndex];
 
         vk::CommandBufferBeginInfo beginInfo;
         auto result = commandBuffer.begin(beginInfo);
         if (result != vk::Result::eSuccess) {
             Log::Fatal("Failed to begin Vulkan command buffer: %s", vk::to_string(result).c_str());
+            return false;
         }
-
-        auto vkFramebuffer = swapchain.GetFramebuffer(_currentFrameIndex); 
-        auto vkRenderPass = swapchain.GetClearOpRenderPass();
-
-        std::vector<vk::ClearValue> clearValues;
-        for(uint32_t i = 0; i < vkRenderPass->GetColorAttachmentOpCount(); ++i) {
-            clearValues.push_back(vk::ClearColorValue(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f}));
-        }
-
-        if (vkRenderPass->HasDepthStencilAttachmentOp()) {
-            clearValues.push_back(vk::ClearDepthStencilValue(1.0f, 0));
-        }
-
-        if (vkRenderPass->HasResolveAttachmentOp()) {
-            clearValues.push_back(vk::ClearColorValue(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f}));
-        }
-
-        vk::RenderPassBeginInfo renderPassInfo;
-        renderPassInfo.renderPass = vkRenderPass->GetNativeVkRenderPass();
-        renderPassInfo.framebuffer = vkFramebuffer->GetNativeVkFramebuffer();
-        renderPassInfo.renderArea.offset = vk::Offset2D{ 0, 0 };
-        renderPassInfo.renderArea.extent = vk::Extent2D{ vkFramebuffer->GetWidth(), vkFramebuffer->GetHeight() };
-        renderPassInfo.clearValueCount = clearValues.size();
-        renderPassInfo.pClearValues = clearValues.data();
-
-        commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
-        
+  
         return true;
-    }
-
-    void VkCommandQueue::Present() {
-        auto& commandBuffer = _graphicsFrameCommandBuffers[_currentCommandBufferIndex];
-
-        commandBuffer.endRenderPass();
-
-        auto result = commandBuffer.end();
-        if (result != vk::Result::eSuccess) {
-            Log::Fatal("Failed to end Vulkan command buffer: %s", vk::to_string(result).c_str());
-        }
-
-        vk::Semaphore waitSemaphores[] = { _presentCompleteSemaphores[_currentCommandBufferIndex] };
-        vk::PipelineStageFlags waitStages[] = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
-        vk::Semaphore signalSemaphores[] = { _renderCompleteSemaphores[_currentCommandBufferIndex] };
-
-        vk::SubmitInfo submitInfo;
-        submitInfo.waitSemaphoreCount = 1;
-        submitInfo.pWaitSemaphores = waitSemaphores;
-        submitInfo.pWaitDstStageMask = waitStages;
-        submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &commandBuffer;
-        submitInfo.signalSemaphoreCount = 1;
-        submitInfo.pSignalSemaphores = signalSemaphores;
-
-        _context.GetVkDevice().resetFences(1, &_inFlightFences[_currentCommandBufferIndex]);
-        result = _graphicsQueue.submit(1, &submitInfo, _inFlightFences[_currentCommandBufferIndex]);
-        if (result != vk::Result::eSuccess) {
-            Log::Fatal("Failed to submit Vulkan command buffer: %s", vk::to_string(result).c_str());
-        }
-
-        vk::PresentInfoKHR presentInfo;
-        presentInfo.waitSemaphoreCount = 1;
-        presentInfo.pWaitSemaphores = signalSemaphores;
-        presentInfo.swapchainCount = 1;
-        presentInfo.pSwapchains = &_context.GetVkSwapchain().GetNativeVkSwapchain();
-        presentInfo.pImageIndices = &_currentFrameIndex;
-
-        result = _presentQueue.presentKHR(presentInfo);
-        if (result != vk::Result::eSuccess) {
-            Log::Fatal("Failed to present Vulkan swapchain: %s", vk::to_string(result).c_str());
-        }
-
-        _currentCommandBufferIndex = (_currentCommandBufferIndex + 1) % _graphicsFrameCommandBuffers.size();
-    }
-
-    void VkCommandQueue::SetFramebuffers(const std::vector<Ref<GraphicsFramebuffer>>& framebuffers, const std::vector<Ref<GraphicsRenderPass>>& renderPasses) {
-        _currentFrameBuffers.resize(framebuffers.size());
-        for (size_t i = 0; i < framebuffers.size(); ++i) {
-            auto vkFramebuffer = std::dynamic_pointer_cast<VkFramebuffer>(framebuffers[i]);
-            FASSERT(vkFramebuffer, "Invalid framebuffer type for Vulkan command queue");
-            auto vkRenderPass = std::dynamic_pointer_cast<VkRenderPass>(renderPasses[i]);
-            FASSERT(vkRenderPass, "Invalid render pass type for Vulkan command queue");
-
-            _currentFrameBuffers[i] = vkFramebuffer;
-        }
-
-        auto& commandBuffer = _graphicsFrameCommandBuffers[_currentCommandBufferIndex];
-        auto vkFramebuffer = _currentFrameBuffers[_currentFrameIndex];
-        auto vkRenderPass = std::static_pointer_cast<VkRenderPass>(renderPasses[_currentFrameIndex]);
-
-        commandBuffer.endRenderPass();
-
-        int32_t renderWidth, renderHeight;
-        _context.GetSize(renderWidth, renderHeight);
-        vkFramebuffer->Resize(renderWidth, renderHeight);
-
-        std::vector<vk::ClearValue> clearValues;
-
-        for (uint32_t i = 0; i < vkRenderPass->GetColorAttachmentOpCount(); ++i) {
-            if (vkRenderPass->GetColorAttachmentOp(i).loadOp == AttachmentLoadOp::Clear) {
-                clearValues.push_back(vk::ClearColorValue(0.0f, 0.0f, 0.0f, 1.0f));
-            }
-            else {
-                clearValues.push_back({});
-            }
-        }
-
-        if (vkRenderPass->HasDepthStencilAttachmentOp()) {
-            if (vkRenderPass->GetDepthStencilAttachmentOp().loadOp == AttachmentLoadOp::Clear) {
-                clearValues.push_back(vk::ClearDepthStencilValue(1.0f, 0));
-            } else {
-                clearValues.push_back({});
-            }
-        }
-
-        if (vkRenderPass->HasResolveAttachmentOp()) {
-            if (vkRenderPass->GetResolveAttachmentOp().loadOp == AttachmentLoadOp::Clear) {
-                clearValues.push_back(vk::ClearColorValue(0.0f, 0.0f, 0.0f, 1.0f));
-            } else {
-                clearValues.push_back({});
-            }
-        }
-
-        vk::RenderPassBeginInfo renderPassInfo;
-        renderPassInfo.renderPass = vkRenderPass->GetNativeVkRenderPass();
-        renderPassInfo.framebuffer = vkFramebuffer->GetNativeVkFramebuffer();
-        renderPassInfo.renderArea.offset = vk::Offset2D{ 0, 0 };
-        renderPassInfo.renderArea.extent = vk::Extent2D{ vkFramebuffer->GetWidth(), vkFramebuffer->GetHeight() };
-        renderPassInfo.clearValueCount = clearValues.size();
-        renderPassInfo.pClearValues = clearValues.data();
-
-        commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline); 
-    }
-
-    void VkCommandQueue::ResetFramebuffers() {        
-        _currentFrameBuffers = _context.GetVkSwapchain().GetFramebuffers();
-
-        auto& commandBuffer = _graphicsFrameCommandBuffers[_currentCommandBufferIndex];
-        auto vkFramebuffer = _currentFrameBuffers[_currentFrameIndex];
-        auto vkRenderPass = _context.GetVkSwapchain().GetLoadOpRenderPass();
-        
-        commandBuffer.endRenderPass();
-
-        vk::RenderPassBeginInfo renderPassInfo;
-        renderPassInfo.renderPass = vkRenderPass->GetNativeVkRenderPass();
-        renderPassInfo.framebuffer = vkFramebuffer->GetNativeVkFramebuffer();
-        renderPassInfo.renderArea.offset = vk::Offset2D{ 0, 0 };
-        renderPassInfo.renderArea.extent = vk::Extent2D{ vkFramebuffer->GetWidth(), vkFramebuffer->GetHeight() };
-        renderPassInfo.clearValueCount = 0;
-        renderPassInfo.pClearValues = nullptr;
-
-        commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline); 
     }
 
     void VkCommandQueue::SetPipeline(const Ref<GraphicsPipeline>& pipeline) {
@@ -376,25 +223,11 @@ namespace flaw {
         const uint32_t behaviorStates = vkPipeline->GetBehaviorStates();
 
         if (behaviorStates & GraphicsPipeline::BehaviorFlag::AutoResizeViewport) {
-            auto framebuffer = _currentFrameBuffers[_currentFrameIndex];
-
-            vk::Viewport viewport;
-            viewport.x = 0.0f;
-            viewport.y = 0.0f;
-            viewport.width = static_cast<float>(framebuffer->GetWidth());
-            viewport.height = static_cast<float>(framebuffer->GetHeight());
-            viewport.minDepth = 0.0f;
-            viewport.maxDepth = 1.0f;
-            commandBuffer.setViewport(0, 1, &viewport);
+            commandBuffer.setViewport(0, 1, &_currentViewport);
         }
 
         if (behaviorStates & GraphicsPipeline::BehaviorFlag::AutoResizeScissor) {
-            auto framebuffer = _currentFrameBuffers[_currentFrameIndex];
-
-            vk::Rect2D scissor;
-            scissor.offset = vk::Offset2D{ 0, 0 };
-            scissor.extent = vk::Extent2D{ framebuffer->GetWidth(), framebuffer->GetHeight() };
-            commandBuffer.setScissor(0, 1, &scissor);
+            commandBuffer.setScissor(0, 1, &_currentScissor);
         }
     }
 
@@ -466,6 +299,164 @@ namespace flaw {
         commandBuffer.bindIndexBuffer(vkIndexBuffer->GetVkBuffer(), 0, vk::IndexType::eUint32);
 
         commandBuffer.drawIndexed(indexCount, instanceCount, indexOffset, vertexOffset, 0);
+    }
+
+    void VkCommandQueue::BeginRenderPassImpl(const Ref<VkRenderPass>& renderPass, const Ref<VkFramebuffer>& framebuffer) {
+        auto& commandBuffer = _graphicsFrameCommandBuffers[_currentCommandBufferIndex];
+
+        std::vector<vk::ClearValue> clearValues;
+        for(uint32_t i = 0; i < renderPass->GetColorAttachmentOpCount(); ++i) {
+            if (renderPass->GetColorAttachmentOp(i).loadOp == AttachmentLoadOp::Clear) {
+                clearValues.push_back(vk::ClearColorValue(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f}));
+            } else {
+                clearValues.push_back(vk::ClearColorValue());
+            }
+        }
+
+        if (renderPass->HasDepthStencilAttachmentOp()) {
+            if (renderPass->GetDepthStencilAttachmentOp().loadOp == AttachmentLoadOp::Clear) {
+                clearValues.push_back(vk::ClearDepthStencilValue(1.0f, 0));
+            } else {
+                clearValues.push_back(vk::ClearDepthStencilValue());
+            }
+        }
+
+        if (renderPass->HasResolveAttachmentOp()) {
+            if (renderPass->GetResolveAttachmentOp().loadOp == AttachmentLoadOp::Clear) {
+                clearValues.push_back(vk::ClearColorValue(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f}));
+            } else {
+                clearValues.push_back(vk::ClearColorValue());
+            }
+        }
+
+        vk::RenderPassBeginInfo renderPassInfo;
+        renderPassInfo.renderPass = renderPass->GetNativeVkRenderPass();
+        renderPassInfo.framebuffer = framebuffer->GetNativeVkFramebuffer();
+        renderPassInfo.renderArea.offset = vk::Offset2D{ 0, 0 };
+        renderPassInfo.renderArea.extent = vk::Extent2D{ framebuffer->GetWidth(), framebuffer->GetHeight() };
+        renderPassInfo.clearValueCount = clearValues.size();
+        renderPassInfo.pClearValues = clearValues.data();
+
+        commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
+    }
+
+    void VkCommandQueue::BeginRenderPass() {        
+        auto& swapchain = _context.GetVkSwapchain();
+        auto vkFramebuffer = swapchain.GetFramebuffer(_currentFrameIndex); 
+
+        BeginRenderPass(swapchain.GetClearOpRenderPass(), swapchain.GetLoadOpRenderPass(), vkFramebuffer);
+    }
+
+    void VkCommandQueue::BeginRenderPass(const Ref<GraphicsRenderPass>& beginRenderPass, const Ref<GraphicsRenderPass>& resumeRenderPass, const Ref<GraphicsFramebuffer>& framebuffer) {
+        auto vkBeginRenderPass = std::static_pointer_cast<VkRenderPass>(beginRenderPass);
+        FASSERT(vkBeginRenderPass, "Invalid render pass type for Vulkan command queue");
+
+        auto vkResumeRenderPass = std::static_pointer_cast<VkRenderPass>(resumeRenderPass);
+        FASSERT(vkResumeRenderPass, "Invalid render pass type for Vulkan command queue");
+
+        auto vkFramebuffer = std::static_pointer_cast<VkFramebuffer>(framebuffer);
+        FASSERT(vkFramebuffer, "Invalid framebuffer type for Vulkan command queue");
+
+        if (!_currentBeginInfoStack.empty()) {
+            auto& commandBuffer = _graphicsFrameCommandBuffers[_currentCommandBufferIndex];
+            commandBuffer.endRenderPass();
+        }
+        
+        _currentViewport.x = 0.0f;
+        _currentViewport.y = 0.0f;
+        _currentViewport.width = static_cast<float>(vkFramebuffer->GetWidth());
+        _currentViewport.height = static_cast<float>(vkFramebuffer->GetHeight());
+        _currentViewport.minDepth = 0.0f;
+        _currentViewport.maxDepth = 1.0f;
+
+        _currentScissor.offset = vk::Offset2D{ 0, 0 };
+        _currentScissor.extent = vk::Extent2D{ vkFramebuffer->GetWidth(), vkFramebuffer->GetHeight() };
+
+        _currentBeginInfoStack.push_back({ vkFramebuffer, vkBeginRenderPass, vkResumeRenderPass });
+
+        BeginRenderPassImpl(vkBeginRenderPass, vkFramebuffer);
+    }
+
+    void VkCommandQueue::EndRenderPass() {
+        if (_currentBeginInfoStack.empty()) {
+            Log::Error("No render pass is currently active.");
+            return;
+        }
+
+        auto& commandBuffer = _graphicsFrameCommandBuffers[_currentCommandBufferIndex];
+
+        commandBuffer.endRenderPass();
+
+        _currentBeginInfoStack.pop_back();
+        if (_currentBeginInfoStack.empty()) {
+            return;
+        }
+
+        auto& currentBeginInfo = _currentBeginInfoStack.back();
+        auto vkFramebuffer = currentBeginInfo.framebuffer;
+        auto vkRenderPass = currentBeginInfo.resumeRenderPass;
+
+        _currentViewport.x = 0.0f;
+        _currentViewport.y = 0.0f;
+        _currentViewport.width = static_cast<float>(vkFramebuffer->GetWidth());
+        _currentViewport.height = static_cast<float>(vkFramebuffer->GetHeight());
+        _currentViewport.minDepth = 0.0f;
+        _currentViewport.maxDepth = 1.0f;
+
+        _currentScissor.offset = vk::Offset2D{ 0, 0 };
+        _currentScissor.extent = vk::Extent2D{ vkFramebuffer->GetWidth(), vkFramebuffer->GetHeight() };
+
+        BeginRenderPassImpl(vkRenderPass, vkFramebuffer);
+    }
+
+    void VkCommandQueue::Submit() {
+        auto& commandBuffer = _graphicsFrameCommandBuffers[_currentCommandBufferIndex];
+
+        auto result = commandBuffer.end();
+        if (result != vk::Result::eSuccess) {
+            Log::Fatal("Failed to end Vulkan command buffer: %s", vk::to_string(result).c_str());
+            return;
+        }
+
+        vk::Semaphore waitSemaphores[] = { _presentCompleteSemaphores[_currentCommandBufferIndex] };
+        vk::PipelineStageFlags waitStages[] = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
+        vk::Semaphore signalSemaphores[] = { _renderCompleteSemaphores[_currentCommandBufferIndex] };
+
+        vk::SubmitInfo submitInfo;
+        submitInfo.waitSemaphoreCount = 1;
+        submitInfo.pWaitSemaphores = waitSemaphores;
+        submitInfo.pWaitDstStageMask = waitStages;
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &commandBuffer;
+        submitInfo.signalSemaphoreCount = 1;
+        submitInfo.pSignalSemaphores = signalSemaphores;
+
+        _context.GetVkDevice().resetFences(1, &_inFlightFences[_currentCommandBufferIndex]);
+        result = _graphicsQueue.submit(1, &submitInfo, _inFlightFences[_currentCommandBufferIndex]);
+        if (result != vk::Result::eSuccess) {
+            Log::Fatal("Failed to submit Vulkan command buffer: %s", vk::to_string(result).c_str());
+            return;
+        }
+    }
+
+    void VkCommandQueue::Present() {
+        auto& commandBuffer = _graphicsFrameCommandBuffers[_currentCommandBufferIndex];
+
+        vk::Semaphore signalSemaphores[] = { _renderCompleteSemaphores[_currentCommandBufferIndex] };
+
+        vk::PresentInfoKHR presentInfo;
+        presentInfo.waitSemaphoreCount = 1;
+        presentInfo.pWaitSemaphores = signalSemaphores;
+        presentInfo.swapchainCount = 1;
+        presentInfo.pSwapchains = &_context.GetVkSwapchain().GetNativeVkSwapchain();
+        presentInfo.pImageIndices = &_currentFrameIndex;
+
+        auto result = _presentQueue.presentKHR(presentInfo);
+        if (result != vk::Result::eSuccess) {
+            Log::Fatal("Failed to present Vulkan swapchain: %s", vk::to_string(result).c_str());
+        }
+
+        _currentCommandBufferIndex = (_currentCommandBufferIndex + 1) % _graphicsFrameCommandBuffers.size();
     }
 
     void VkCommandQueue::SetComputePipeline(const Ref<ComputePipeline>& pipeline) {
@@ -701,9 +692,6 @@ namespace flaw {
         }
 
         _graphicsQueue.waitIdle();
-    }
-
-    void VkCommandQueue::Execute() {
     }
 }
 

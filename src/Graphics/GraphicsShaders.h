@@ -65,6 +65,19 @@ namespace flaw {
 
 		virtual void Bind() = 0;
 	};
+
+	class ComputeShader {
+	public:
+		struct Descriptor {
+			std::string file;
+			std::string entry = "CSMain";
+		};
+
+		ComputeShader() = default;
+		virtual ~ComputeShader() = default;
+
+		virtual void Dispatch(uint32_t x = 1, uint32_t y = 1, uint32_t z = 1) = 0;
+	};
 }
 
 

@@ -27,8 +27,6 @@ namespace flaw {
 		virtual void SetCullMode(CullMode cullMode) = 0;
 		virtual void SetFillMode(FillMode fillMode) = 0;
 
-		virtual void Bind() = 0;
-
 		virtual void AddShaderResourcesLayout(const Ref<ShaderResourcesLayout>& shaderResourceLayout) = 0;
 		virtual void SetShader(const Ref<GraphicsShader>& shader) = 0;
 
@@ -36,5 +34,14 @@ namespace flaw {
 
 		virtual void SetBehaviorStates(uint32_t flags) = 0;
 		virtual uint32_t GetBehaviorStates() const = 0;
+	};
+
+	class ComputePipeline {
+	public:
+		ComputePipeline() = default;
+		virtual ~ComputePipeline() = default;
+
+		virtual void SetShader(const Ref<ComputeShader>& shader) = 0;
+		virtual void AddShaderResourcesLayout(const Ref<ShaderResourcesLayout>& shaderResourceLayout) = 0;
 	};
 }

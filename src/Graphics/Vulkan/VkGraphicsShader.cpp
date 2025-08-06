@@ -69,7 +69,9 @@ namespace flaw {
                 continue;
             }
 
-            _context.GetVkDevice().destroyShaderModule(shaderEntry.module, nullptr);
+            _context.AddDelayedDeletionTasks([&context = _context, shaderModule = shaderEntry.module]() {
+                context.GetVkDevice().destroyShaderModule(shaderModule, nullptr);
+            });
         }
     }
 

@@ -296,6 +296,8 @@ int main() {
         structuredBuffer->Update(&modelMatrices, sizeof(glm::mat4));
 
         if (g_graphicsContext->Prepare()) {
+            commandQueue.BeginRenderPass();
+
             commandQueue.SetPipeline(g_skyboxPipeline);
             commandQueue.SetShaderResources(g_skyboxResources0, 0);
             commandQueue.SetShaderResources(g_skyboxResources1, 1);
@@ -309,6 +311,10 @@ int main() {
             for (const auto& mesh : currentModel.GetMeshs()) {
                 commandQueue.DrawIndexed(modelIndexBuffer, mesh.indexCount, mesh.indexStart, mesh.vertexStart);
             }
+
+            commandQueue.EndRenderPass();
+
+            commandQueue.Submit();
 
             commandQueue.Present();
         }

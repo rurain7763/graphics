@@ -48,18 +48,13 @@ namespace flaw {
 	public:
 		struct Descriptor {
 			bool fromMemory = false;
-
 			std::vector<Ref<Texture2D>> textures;
-
 			const uint8_t* data;
 			PixelFormat format;
 			uint32_t width, height;
-
 			UsageFlag usage;
 			uint32_t access;
-
 			uint32_t bindFlags;
-
 			uint32_t arraySize;
 		};
 

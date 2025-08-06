@@ -4,9 +4,7 @@
 #include "Platform/PlatformContext.h"
 #include "GraphicsBuffers.h"
 #include "GraphicsShaders.h"
-#include "GraphicsPipeline.h"
-#include "ComputeShader.h"
-#include "ComputePipeline.h"
+#include "GraphicsPipelines.h"
 #include "GraphicsCommandQueue.h"
 #include "GraphicsRenderPass.h"
 #include "GraphicsFramebuffer.h"
@@ -52,8 +50,8 @@ namespace flaw {
 		virtual void GetSize(int32_t& width, int32_t& height) = 0;
 		virtual void SetMSAAState(bool enable) = 0;
 		virtual bool GetMSAAState() const = 0;
-		
-		virtual Ref<ComputeShader> CreateComputeShader(const char* filename) = 0;
+
+		virtual Ref<ComputeShader> CreateComputeShader(const ComputeShader::Descriptor& descriptor) = 0;
 		virtual Ref<ComputePipeline> CreateComputePipeline() = 0;
 	};
 }

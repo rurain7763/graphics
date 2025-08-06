@@ -449,12 +449,12 @@ namespace flaw {
         return _msaaEnabled;
     }
 
-	Ref<ComputeShader> VkContext::CreateComputeShader(const char* filename) {
-        return nullptr;
+	Ref<ComputeShader> VkContext::CreateComputeShader(const ComputeShader::Descriptor& descriptor) {
+        return CreateRef<VkComputeShader>(*this, descriptor);
 	}
 
 	Ref<ComputePipeline> VkContext::CreateComputePipeline() {
-        return nullptr;
+        return CreateRef<VkComputePipeline>(*this);
 	}
 
     void VkContext::AddDelayedDeletionTasks(const std::function<void()>& task) {

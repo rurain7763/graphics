@@ -78,6 +78,25 @@ namespace flaw {
 
 		std::vector<ShaderEntry> _shaderEntries;
 	};
+
+	class VkComputeShader : public ComputeShader {
+	public:
+		VkComputeShader(VkContext& context, const Descriptor& descriptor);
+		~VkComputeShader();
+
+		void Dispatch(uint32_t x = 1, uint32_t y = 1, uint32_t z = 1) override {}
+	
+		void GetVkShaderStage(vk::PipelineShaderStageCreateInfo& shaderStage) const;
+
+	private:
+		bool CreateShader(const std::string& filePath, const std::string& entryPoint);
+
+	private:
+		VkContext& _context;
+
+		vk::ShaderModule _shaderModule;
+		std::string _entryPoint;
+	};
 }
 
 #endif
