@@ -118,6 +118,26 @@ namespace flaw {
         }
     }
 
+    vk::ImageLayout ConvertToVkImageLayout(uint32_t bindFlags) {
+        if (bindFlags & BindFlag::RenderTarget) {
+            return vk::ImageLayout::eColorAttachmentOptimal;
+        }
+        
+        if (bindFlags & BindFlag::DepthStencil) {
+            return vk::ImageLayout::eDepthStencilAttachmentOptimal;
+        }
+
+        if (bindFlags & BindFlag::UnorderedAccess) {
+            return vk::ImageLayout::eGeneral;
+        }
+
+        if (bindFlags & BindFlag::ShaderResource) {
+            return vk::ImageLayout::eShaderReadOnlyOptimal;
+        }
+
+        return vk::ImageLayout::eUndefined;
+    }
+
     vk::ImageAspectFlags ConvertToVkImageAspectFlags(uint32_t bindFlags) {
         vk::ImageAspectFlags aspectFlags = {};
 
@@ -157,6 +177,14 @@ namespace flaw {
 
         if (bindFlags & BindFlag::UnorderedAccess) {
             usageFlags |= vk::ImageUsageFlagBits::eStorage;
+        }
+
+        if (bindFlags & BindFlag::DepthOnly) {
+            usageFlags |= vk::ImageUsageFlagBits::eDepthStencilAttachment;
+        }
+
+        if (bindFlags & BindFlag::StencilOnly) {
+            usageFlags |= vk::ImageUsageFlagBits::eDepthStencilAttachment;
         }
 
         return usageFlags;
@@ -249,6 +277,46 @@ namespace flaw {
         default:
             throw std::runtime_error("Unsupported sample count");
         }
+    }
+
+    vk::PipelineStageFlags ConvertToVkPipelineStageFlags(uint32_t bindFlags, uint32_t bindableShaderStages) {
+        vk::PipelineStageFlags stageFlags = {};
+
+        if (bindFlags & BindFlag::RenderTarget) {
+            stageFlags |= vk::PipelineStageFlagBits::eColorAttachmentOutput;
+        }
+
+        if (bindFlags & BindFlag::DepthStencil) {
+            stageFlags |= vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests;
+        }
+
+        if (bindFlags & (BindFlag::ShaderResource | BindFlag::UnorderedAccess)) {
+            if (bindableShaderStages & ShaderCompileFlag::Vertex) {
+                stageFlags |= vk::PipelineStageFlagBits::eVertexShader;
+            }
+
+            if (bindableShaderStages & ShaderCompileFlag::Pixel) {
+                stageFlags |= vk::PipelineStageFlagBits::eFragmentShader;
+            }
+
+            if (bindableShaderStages & ShaderCompileFlag::Geometry) {
+                stageFlags |= vk::PipelineStageFlagBits::eGeometryShader;
+            }
+
+            if (bindableShaderStages & ShaderCompileFlag::Hull) {
+                stageFlags |= vk::PipelineStageFlagBits::eTessellationControlShader;
+            }
+
+            if (bindableShaderStages & ShaderCompileFlag::Domain) {
+                stageFlags |= vk::PipelineStageFlagBits::eTessellationEvaluationShader;
+            }
+
+            if (bindableShaderStages & ShaderCompileFlag::Compute) {
+                stageFlags |= vk::PipelineStageFlagBits::eComputeShader;
+            }
+        }
+
+        return stageFlags;
     }
 
     void GetRequiredVkBufferUsageFlags(UsageFlag usage, vk::BufferUsageFlags& usageFlags) {

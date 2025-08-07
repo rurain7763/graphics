@@ -16,9 +16,9 @@ namespace flaw {
 	};
 
 	enum class UsageFlag {
-		Static,  // �⺻ �뵵. GPU�� �б�� ���⸦ ����ϸ� CPU ������ �ź��Ѵ�
-		Dynamic, // CPU�� ���Ⱑ �����ϴ�. GPU�� �б⸸ �����ϴ�
-		Staging, // GPU���� �ڷḦ ���, �����ϰ� �װ��� �����ϰų� �߰� ���縦 ���� CPU�� �о� �鿩�� �ϴ� ���
+		Static,  // GPU only, no CPU access 
+		Dynamic, // GPU and CPU access, data can change frequently
+		Staging, // CPU only, used for transferring data to GPU
 	};
 
 	enum AccessFlag {

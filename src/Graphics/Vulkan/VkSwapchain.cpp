@@ -27,9 +27,7 @@ namespace flaw {
         vk::Format vkDSFormat = ChooseDepthFormat({ vk::Format::eD24UnormS8Uint, vk::Format::eD32SfloatS8Uint, vk::Format::eD32Sfloat });
         _depthStencilFormat = ConvertToPixelFormat(vkDSFormat);
 
-        uint32_t renderTexCount = std::max(surfaceDetails.capabilities.minImageCount + 1, surfaceDetails.capabilities.maxImageCount);
-
-        if (!CreateSwapchain(renderTexCount, width, height)) {
+        if (!CreateSwapchain(width, height)) {
             Log::Error("Failed to create Vulkan swapchain.");
             return -1;
         }
@@ -77,9 +75,7 @@ namespace flaw {
         _extent = ChooseExtent(surfaceDetails.capabilities, width, height);
         _transform = surfaceDetails.capabilities.currentTransform;
 
-        uint32_t renderTexCount = std::max(surfaceDetails.capabilities.minImageCount + 1, surfaceDetails.capabilities.maxImageCount);
-
-        if (!CreateSwapchain(renderTexCount, width, height)) {
+        if (!CreateSwapchain(width, height)) {
             Log::Error("Failed to create Vulkan swapchain.");
             return -1;
         }
@@ -109,10 +105,10 @@ namespace flaw {
         return 0;
     }
 
-    bool VkSwapchain::CreateSwapchain(uint32_t renderTexCount, uint32_t width, uint32_t height) {
+    bool VkSwapchain::CreateSwapchain(uint32_t width, uint32_t height) {
         vk::SwapchainCreateInfoKHR createInfo;
         createInfo.surface = _context.GetVkSurface();
-        createInfo.minImageCount = renderTexCount;
+        createInfo.minImageCount = _context.GetFrameCount();
         createInfo.imageFormat = _surfaceFormat.format;
         createInfo.imageColorSpace = _surfaceFormat.colorSpace;
         createInfo.imageExtent = _extent;
@@ -125,8 +121,8 @@ namespace flaw {
         createInfo.oldSwapchain = vk::SwapchainKHR();
 
         std::array<uint32_t, 2> queueFamilyIndices = {
-            _context.GetGraphicsQueueFamilyIndex(),
-            _context.GetPresentQueueFamilyIndex()
+            _context.GetVkGraphicsQueueFamilyIndex(),
+            _context.GetVkPresentQueueFamilyIndex()
         };
 
         if (queueFamilyIndices[0] != queueFamilyIndices[1]) {
@@ -219,8 +215,6 @@ namespace flaw {
     }
 
     bool VkSwapchain::CreateDepthStencilTextures() {
-        uint32_t renderTexCount = _renderTextures.size();
-
         Texture2D::Descriptor desc;
         desc.width = _extent.width;
         desc.height = _extent.height;
@@ -229,9 +223,9 @@ namespace flaw {
         desc.bindFlags = BindFlag::DepthStencil;
         desc.sampleCount = _context.GetMSAAState() ? _context.GetMSAASampleCount() : 1;
 
-        _depthStencilTextures.resize(renderTexCount);
-        for (size_t i = 0; i < renderTexCount; ++i) {
-            _depthStencilTextures[i] = CreateRef<VkTexture2D>(_context, desc); 
+        _depthStencilTextures.reserve(_renderTextures.size());
+        for (size_t i = 0; i < _renderTextures.size(); ++i) {
+            _depthStencilTextures.push_back(CreateRef<VkTexture2D>(_context, desc));
         }
 
         return true;
@@ -242,10 +236,8 @@ namespace flaw {
             return true;
         }
 
-        uint32_t renderTexCount = _renderTextures.size();
-
-        _msaaColorTextures.resize(renderTexCount);
-        for (uint32_t i = 0; i < renderTexCount; ++i) {
+        _msaaColorTextures.reserve(_renderTextures.size());
+        for (uint32_t i = 0; i < _renderTextures.size(); ++i) {
             Texture2D::Descriptor desc;
             desc.width = _extent.width;
             desc.height = _extent.height;
@@ -254,7 +246,7 @@ namespace flaw {
             desc.bindFlags = BindFlag::RenderTarget;
             desc.sampleCount = _context.GetMSAASampleCount();
 
-            _msaaColorTextures[i] = CreateRef<VkTexture2D>(_context, desc);
+            _msaaColorTextures.push_back(CreateRef<VkTexture2D>(_context, desc));
         }
 
         return true;
@@ -322,9 +314,8 @@ namespace flaw {
     }
 
     bool VkSwapchain::CreateFramebuffers() {
-        uint32_t renderTexCount = _renderTextures.size();
-
-        for (uint32_t i = 0; i < renderTexCount; ++i) {
+        _frameBuffers.reserve(_renderTextures.size());
+        for (uint32_t i = 0; i < _renderTextures.size(); ++i) {
             auto renderTexture = _renderTextures[i];
             auto depthTexture = _depthStencilTextures[i];
             

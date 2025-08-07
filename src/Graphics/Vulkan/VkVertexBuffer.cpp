@@ -35,8 +35,10 @@ namespace flaw {
                 stagingDesc.initialData = descriptor.initialData;
     
                 auto stagingBuffer = CreateRef<VkVertexBuffer>(context, stagingDesc);
-                
+               
+                vkCommandQueue.BeginOneTimeCommands();
                 vkCommandQueue.CopyBuffer(stagingBuffer->GetVkBuffer(), _buffer, _size, 0, 0);
+                vkCommandQueue.EndOneTimeCommands();
             }
             else {
                 auto mappedDataWrapper = _context.GetVkDevice().mapMemory(_memory, 0, descriptor.bufferSize, vk::MemoryMapFlags());

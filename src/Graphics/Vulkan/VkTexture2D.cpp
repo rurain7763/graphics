@@ -14,7 +14,6 @@ namespace flaw {
         , _isExternalImage(false)
         , _format(descriptor.format)
         , _usage(descriptor.usage)
-        , _acessFlags(descriptor.access)
         , _bindFlags(descriptor.bindFlags)
         , _mipLevels(descriptor.mipLevels)
         , _sampleCount(descriptor.sampleCount)
@@ -22,29 +21,52 @@ namespace flaw {
         , _height(descriptor.height)
     {
         if (!CreateImage(descriptor.data)) {
-            Log::Fatal("Failed to create image for texture");
             return;
         }
 
         if (!AllocateMemory()) {
-            Log::Fatal("Failed to allocate memory for texture");
             return;
         }
 
+        auto& vkCmdQueue = static_cast<VkCommandQueue&>(_context.GetCommandQueue());
+
+        vk::ImageLayout initialLayout = vk::ImageLayout::eUndefined;
+        vk::AccessFlags srcAccessMask = vk::AccessFlagBits::eNone;
+        vk::PipelineStageFlags srcStageMask = vk::PipelineStageFlagBits::eTopOfPipe;
+
+        vkCmdQueue.BeginOneTimeCommands();
+
         if (descriptor.data) {
             if (!PullMemory(descriptor.data)) {
-                Log::Fatal("Failed to pull memory for texture");
                 return;
             }
+
+            initialLayout = vk::ImageLayout::eTransferDstOptimal;
+            srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+            srcStageMask = vk::PipelineStageFlagBits::eTransfer;
         }
 
+        if (descriptor.mipLevels > 1) {
+            if (!GenerateMipmaps()) {
+                return;
+            }
+
+            initialLayout = vk::ImageLayout::eTransferSrcOptimal;
+            srcAccessMask = vk::AccessFlagBits::eTransferRead;
+            srcStageMask = vk::PipelineStageFlagBits::eTransfer;
+        }
+
+        if (!TransitionImageLayout(initialLayout, srcAccessMask, srcStageMask)) {
+            return;
+        }
+
+        vkCmdQueue.EndOneTimeCommands();
+
         if (!CreateImageView()) {
-            Log::Fatal("Failed to create image view for texture");
             return;
         }
 
         if (!CreateSampler()) {
-            Log::Fatal("Failed to create sampler for texture");
             return;
         }
 
@@ -61,7 +83,6 @@ namespace flaw {
         , _height(height)
         , _format(format)
         , _usage(usage)
-        , _acessFlags(accessFlags)
         , _bindFlags(bindFlags)
         , _sampleCount(sampleCount)
         , _mipLevels(mipLevels)
@@ -161,12 +182,65 @@ namespace flaw {
         memcpy(stagingBuffMapedDataWrapper.value, data, bufferSize);
         _context.GetVkDevice().unmapMemory(stagingBuffer.memory);
 
-        vkCmdQueue.TransitionImageLayout(_image, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal, 1, _mipLevels);
+        vkCmdQueue.TransitionImageLayout(
+            _image,
+            ConvertToVkImageAspectFlags(_bindFlags),
+            vk::ImageLayout::eUndefined,
+            vk::ImageLayout::eTransferDstOptimal,
+            vk::AccessFlagBits::eNone,
+            vk::AccessFlagBits::eTransferWrite,
+            vk::PipelineStageFlagBits::eTopOfPipe,
+            vk::PipelineStageFlagBits::eTransfer
+        );
         vkCmdQueue.CopyBuffer(stagingBuffer.buffer, _image, _width, _height, 0, 0);
-        vkCmdQueue.GenerateMipmaps(_image, ConvertToVkFormat(_format), _width, _height, 1, _mipLevels);
 
-        _context.GetVkDevice().freeMemory(stagingBuffer.memory, nullptr);
-        _context.GetVkDevice().destroyBuffer(stagingBuffer.buffer, nullptr);
+        _context.AddDelayedDeletionTasks([&context = _context, stagingBuffer]() {
+            context.GetVkDevice().destroyBuffer(stagingBuffer.buffer);
+            context.GetVkDevice().freeMemory(stagingBuffer.memory);
+        });
+
+        return true;
+    }
+
+    bool VkTexture2D::GenerateMipmaps() {
+        auto& vkCmdQueue = static_cast<VkCommandQueue&>(_context.GetCommandQueue());
+
+        vkCmdQueue.GenerateMipmaps(_image, ConvertToVkImageAspectFlags(_bindFlags), ConvertToVkFormat(_format), _width, _height, 1, _mipLevels);
+
+        return true;
+    }
+
+    bool VkTexture2D::TransitionImageLayout(vk::ImageLayout oldLayout, vk::AccessFlags srcAccessMask, vk::PipelineStageFlags srcStageMask) {
+        auto& vkCmdQueue = static_cast<VkCommandQueue&>(_context.GetCommandQueue());
+
+        vk::AccessFlags finalAccessFlags;
+
+        if (_bindFlags & BindFlag::ShaderResource) {
+            finalAccessFlags |= vk::AccessFlagBits::eShaderRead;
+        } 
+        
+        if (_bindFlags & BindFlag::RenderTarget) {
+            finalAccessFlags |= vk::AccessFlagBits::eColorAttachmentWrite;
+        }
+        
+        if (_bindFlags & BindFlag::DepthStencil) {
+            finalAccessFlags |= vk::AccessFlagBits::eDepthStencilAttachmentWrite;
+        }
+
+        if (_bindFlags & BindFlag::UnorderedAccess) {
+            finalAccessFlags |= vk::AccessFlagBits::eShaderWrite | vk::AccessFlagBits::eShaderRead;
+        }
+
+        vkCmdQueue.TransitionImageLayout(
+            _image,
+            ConvertToVkImageAspectFlags(_bindFlags),
+            oldLayout,
+            ConvertToVkImageLayout(_bindFlags),
+            srcAccessMask,
+            finalAccessFlags,
+            srcStageMask,
+            ConvertToVkPipelineStageFlags(_bindFlags, ShaderCompileFlag::Pixel)
+        );
 
         return true;
     }
@@ -223,6 +297,17 @@ namespace flaw {
         _sampler = samplerWrapper.value;
 
         return true;
+    }
+
+    void VkTexture2D::Fetch(void* outData, const uint32_t size) const {
+        if (_usage == UsageFlag::Static) {
+            Log::Error("Cannot fetch data from a static texture");
+            return;
+        }
+
+        uint32_t copySize = min(size, _width * _height * GetSizePerPixel(_format));
+
+        return;
     }
 }
 

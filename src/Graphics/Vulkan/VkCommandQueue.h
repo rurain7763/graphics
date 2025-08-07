@@ -47,18 +47,25 @@ namespace flaw {
         void SetComputeStructuredBuffer(const Ref<StructuredBuffer>& buffer, BindFlag bindFlag, uint32_t slot) override;
         void Dispatch(uint32_t x, uint32_t y, uint32_t z) override;
 
+        void BeginOneTimeCommands();
+        void EndOneTimeCommands();
+
         void CopyBuffer(const vk::Buffer& srcBuffer, const vk::Buffer& dstBuffer, uint32_t size, uint32_t srcOffset, uint32_t dstOffset);
         void CopyBuffer(const vk::Buffer& srcBuffer, const vk::Image& dstImage, uint32_t width, uint32_t height, uint32_t srcOffset, uint32_t dstOffset, uint32_t arrayLayer = 1);
         void CopyBuffer(const Ref<VertexBuffer>& srcBuffer, const Ref<VertexBuffer>& dstBuffer, uint32_t size, uint32_t srcOffset, uint32_t dstOffset);
 
-        void TransitionImageLayout(const vk::Image& image, vk::ImageLayout oldLayout, vk::ImageLayout newLayout, uint32_t arrayLayer, uint32_t mipLevel);
+        void TransitionImageLayout( const vk::Image& image, 
+                                    vk::ImageAspectFlags aspectMask,
+                                    vk::ImageLayout oldLayout, vk::ImageLayout newLayout,
+                                    vk::AccessFlags srcAccessMask,
+                                    vk::AccessFlags dstAccessMask,
+                                    vk::PipelineStageFlags srcStageMask,
+                                    vk::PipelineStageFlags dstStageMask );
 
-        void GenerateMipmaps(const vk::Image& image, vk::Format format, uint32_t width, uint32_t height, uint32_t arrayLayer, uint32_t mipLevels);
+        void GenerateMipmaps(const vk::Image& image, vk::ImageAspectFlags aspectMask, vk::Format format, uint32_t width, uint32_t height, uint32_t arrayLayer, uint32_t mipLevels);
 
     private:
-        bool CreateCommandPools();
         bool CreateCommandBuffers();
-        bool SetupQueues();
         bool CreateFences();
         bool CreateSemaphores();
 
@@ -67,19 +74,10 @@ namespace flaw {
     private:
         VkContext& _context;
 
-        vk::CommandPool _graphicsCommandPool;
-        vk::CommandBuffer _graphicsMainCommandBuffer;
         std::vector<vk::CommandBuffer> _graphicsFrameCommandBuffers;
         std::vector<vk::Fence> _inFlightFences;
         std::vector<vk::Semaphore> _presentCompleteSemaphores;
         std::vector<vk::Semaphore> _renderCompleteSemaphores;
-
-        vk::CommandPool _transferCommandPool;
-        vk::CommandBuffer _transferCommandBuffer;
-
-        vk::Queue _graphicsQueue;
-        vk::Queue _presentQueue;
-        vk::Queue _transferQueue;
 
         struct BeginInfo {
             Ref<VkFramebuffer> framebuffer;
@@ -97,6 +95,9 @@ namespace flaw {
         std::vector<vk::PushConstantRange> _currentPushConstantRanges;
         Ref<VkVertexBuffer> _currentVertexBuffer;
         std::vector<vk::DescriptorSet> _currentDescriptorSets;
+
+        vk::Queue _oneTimeCommandQueue;
+        vk::CommandBuffer _oneTimeCommandBuffer;
     };
 }
 

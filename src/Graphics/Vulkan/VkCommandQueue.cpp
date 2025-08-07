@@ -18,18 +18,8 @@ namespace flaw {
     VkCommandQueue::VkCommandQueue(VkContext& context)
         : _context(context)
     {
-        if (!CreateCommandPools()) {
-            Log::Fatal("Failed to create Vulkan command pools.");
-            return;
-        }
-
         if (!CreateCommandBuffers()) {
             Log::Fatal("Failed to create Vulkan command buffers.");
-            return;
-        }
-
-        if (!SetupQueues()) {
-            Log::Fatal("Failed to setup Vulkan queues.");
             return;
         }
 
@@ -49,54 +39,11 @@ namespace flaw {
         Log::Info("Vulkan command queue initialized successfully.");
     }
 
-    bool VkCommandQueue::CreateCommandPools() {
-        vk::CommandPoolCreateInfo poolInfo;
-        poolInfo.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
-        poolInfo.queueFamilyIndex = _context.GetGraphicsQueueFamilyIndex();
-
-        auto result = _context.GetVkDevice().createCommandPool(poolInfo, nullptr);
-        if (result.result != vk::Result::eSuccess) {
-            Log::Fatal("Failed to create Vulkan command pool: %s", vk::to_string(result.result).c_str());
-            return false;
-        }
-
-        _graphicsCommandPool = result.value;
-
-        poolInfo.queueFamilyIndex = _context.GetTransferQueueFamilyIndex();
-
-        result = _context.GetVkDevice().createCommandPool(poolInfo, nullptr);
-        if (result.result != vk::Result::eSuccess) {
-            Log::Fatal("Failed to create Vulkan command pool: %s", vk::to_string(result.result).c_str());
-            return false;
-        }
-
-        _transferCommandPool = result.value;
-
-        return true;
-    }
-
     bool VkCommandQueue::CreateCommandBuffers() {
-        auto& swapchain = _context.GetVkSwapchain();
-        
-        uint32_t frameBufferCount = swapchain.GetRenderTextureCount();
-
-        vk::CommandBufferAllocateInfo mainCmdBuffAllocInfo;
-        mainCmdBuffAllocInfo.commandPool = _graphicsCommandPool;
-        mainCmdBuffAllocInfo.level = vk::CommandBufferLevel::ePrimary;
-        mainCmdBuffAllocInfo.commandBufferCount = 1;
-
-        auto mainBuffWrapper = _context.GetVkDevice().allocateCommandBuffers(mainCmdBuffAllocInfo);
-        if (mainBuffWrapper.result != vk::Result::eSuccess) {
-            Log::Fatal("Failed to allocate Vulkan main command buffer: %s", vk::to_string(mainBuffWrapper.result).c_str());
-            return false;
-        }
-
-        _graphicsMainCommandBuffer = mainBuffWrapper.value[0];
-
         vk::CommandBufferAllocateInfo allocInfo;
-        allocInfo.commandPool = _graphicsCommandPool;
+        allocInfo.commandPool = _context.GetVkGraphicsCommandPool();
         allocInfo.level = vk::CommandBufferLevel::ePrimary;
-        allocInfo.commandBufferCount = frameBufferCount;
+        allocInfo.commandBufferCount = _context.GetFrameCount();
         
         auto buffWrapper = _context.GetVkDevice().allocateCommandBuffers(allocInfo);
         if (buffWrapper.result != vk::Result::eSuccess) {
@@ -106,26 +53,6 @@ namespace flaw {
 
         _graphicsFrameCommandBuffers = buffWrapper.value;
 
-        vk::CommandBufferAllocateInfo transferAllocInfo;
-        transferAllocInfo.commandPool = _transferCommandPool;
-        transferAllocInfo.level = vk::CommandBufferLevel::ePrimary;
-        transferAllocInfo.commandBufferCount = 1;
-
-        auto transferBuffWrapper = _context.GetVkDevice().allocateCommandBuffers(transferAllocInfo);
-        if (transferBuffWrapper.result != vk::Result::eSuccess) {
-            Log::Error("Failed to allocate Vulkan transfer command buffer: %s", vk::to_string(transferBuffWrapper.result).c_str());
-            return false;
-        }
-
-        _transferCommandBuffer = transferBuffWrapper.value[0];
-
-        return true;
-    }
-
-    bool VkCommandQueue::SetupQueues() {
-        _graphicsQueue = _context.GetVkDevice().getQueue(_context.GetGraphicsQueueFamilyIndex(), 0);
-        _presentQueue = _context.GetVkDevice().getQueue(_context.GetPresentQueueFamilyIndex(), 0);
-        _transferQueue = _context.GetVkDevice().getQueue(_context.GetTransferQueueFamilyIndex(), 0);
         return true;
     }
 
@@ -176,10 +103,6 @@ namespace flaw {
             _context.GetVkDevice().destroyFence(_inFlightFences[i], nullptr);
             _context.GetVkDevice().destroySemaphore(_presentCompleteSemaphores[i], nullptr);
         }
-
-        // NOTE: Because command buffers are allocated from a command pool, we don't need to destroy them individually.
-        _context.GetVkDevice().destroyCommandPool(_transferCommandPool, nullptr);
-        _context.GetVkDevice().destroyCommandPool(_graphicsCommandPool, nullptr);
     }
 
     bool VkCommandQueue::Prepare() {
@@ -432,7 +355,7 @@ namespace flaw {
         submitInfo.pSignalSemaphores = signalSemaphores;
 
         _context.GetVkDevice().resetFences(1, &_inFlightFences[_currentCommandBufferIndex]);
-        result = _graphicsQueue.submit(1, &submitInfo, _inFlightFences[_currentCommandBufferIndex]);
+        result = _context.GetVkGraphicsQueue().submit(1, &submitInfo, _inFlightFences[_currentCommandBufferIndex]);
         if (result != vk::Result::eSuccess) {
             Log::Fatal("Failed to submit Vulkan command buffer: %s", vk::to_string(result).c_str());
             return;
@@ -451,7 +374,7 @@ namespace flaw {
         presentInfo.pSwapchains = &_context.GetVkSwapchain().GetNativeVkSwapchain();
         presentInfo.pImageIndices = &_currentFrameIndex;
 
-        auto result = _presentQueue.presentKHR(presentInfo);
+        auto result = _context.GetVkPresentQueue().presentKHR(presentInfo);
         if (result != vk::Result::eSuccess) {
             Log::Fatal("Failed to present Vulkan swapchain: %s", vk::to_string(result).c_str());
         }
@@ -479,43 +402,80 @@ namespace flaw {
         // Issue a compute dispatch call with the specified dimensions
     }
 
-    void VkCommandQueue::CopyBuffer(const vk::Buffer& srcBuffer, const vk::Buffer& dstBuffer, uint32_t size, uint32_t srcOffset, uint32_t dstOffset) {
-        _transferCommandBuffer.reset(vk::CommandBufferResetFlagBits::eReleaseResources);
+    void VkCommandQueue::BeginOneTimeCommands() {
+        auto device = _context.GetVkDevice();
+        auto graphicsQueue = _context.GetVkGraphicsQueue();
+        auto graphicsCommandPool = _context.GetVkGraphicsCommandPool();
+
+        vk::CommandBufferAllocateInfo buffAllocInfo;
+        buffAllocInfo.commandPool = graphicsCommandPool;
+        buffAllocInfo.level = vk::CommandBufferLevel::ePrimary;
+        buffAllocInfo.commandBufferCount = 1;
+
+        auto buffWrapper = device.allocateCommandBuffers(buffAllocInfo);
+        if (buffWrapper.result != vk::Result::eSuccess) {
+            Log::Fatal("Failed to allocate one-time command buffer: %s", vk::to_string(buffWrapper.result).c_str());
+            return;
+        }
+
+        _oneTimeCommandBuffer = buffWrapper.value[0];
 
         vk::CommandBufferBeginInfo beginInfo;
         beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
 
-        _transferCommandBuffer.begin(beginInfo);
+        auto result = _oneTimeCommandBuffer.begin(beginInfo);
+        if (result != vk::Result::eSuccess) {
+            Log::Fatal("Failed to begin one-time command buffer: %s", vk::to_string(result).c_str());
+            return;
+        }
+
+        _oneTimeCommandQueue = graphicsQueue;
+    }
+
+    void VkCommandQueue::EndOneTimeCommands() {
+        if (!_oneTimeCommandBuffer) {
+            Log::Error("No one-time command buffer is currently active.");
+            return;
+        }
+
+        _oneTimeCommandBuffer.end();
+
+        vk::SubmitInfo submitInfo;
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &_oneTimeCommandBuffer;
+
+        auto result = _oneTimeCommandQueue.submit(1, &submitInfo, nullptr);
+        if (result != vk::Result::eSuccess) {
+            Log::Fatal("Failed to submit one-time command buffer: %s", vk::to_string(result).c_str());
+            return;
+        }
+
+        _oneTimeCommandQueue.waitIdle();
+
+        _context.GetVkDevice().freeCommandBuffers(_context.GetVkGraphicsCommandPool(), 1, &_oneTimeCommandBuffer);
+        _oneTimeCommandBuffer = nullptr;
+        _oneTimeCommandQueue = nullptr;
+    }
+
+    void VkCommandQueue::CopyBuffer(const vk::Buffer& srcBuffer, const vk::Buffer& dstBuffer, uint32_t size, uint32_t srcOffset, uint32_t dstOffset) {
+        if (!_oneTimeCommandBuffer) {
+            Log::Error("No one-time command buffer is currently active.");
+            return;
+        }
 
         vk::BufferCopy copyRegion;
         copyRegion.size = size;
         copyRegion.srcOffset = srcOffset;
         copyRegion.dstOffset = dstOffset;
 
-        _transferCommandBuffer.copyBuffer(srcBuffer, dstBuffer, 1, &copyRegion);
-
-        _transferCommandBuffer.end();
-
-        vk::SubmitInfo submitInfo;
-        submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &_transferCommandBuffer;
-
-        auto result = _transferQueue.submit(1, &submitInfo, nullptr);
-        if (result != vk::Result::eSuccess) {
-            Log::Fatal("Failed to submit Vulkan command buffer for copy: %s", vk::to_string(result).c_str());
-            return;
-        }
-
-        _transferQueue.waitIdle();
+        _oneTimeCommandBuffer.copyBuffer(srcBuffer, dstBuffer, 1, &copyRegion);
     }
 
     void VkCommandQueue::CopyBuffer(const vk::Buffer& srcBuffer, const vk::Image& dstImage, uint32_t width, uint32_t height, uint32_t srcOffset, uint32_t dstOffset, uint32_t arrayLayer) {
-        _transferCommandBuffer.reset(vk::CommandBufferResetFlagBits::eReleaseResources);
-
-        vk::CommandBufferBeginInfo beginInfo;
-        beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
-
-        _transferCommandBuffer.begin(beginInfo);
+        if (!_oneTimeCommandBuffer) {
+            Log::Error("No one-time command buffer is currently active.");
+            return;
+        }
 
         vk::BufferImageCopy copyRegion;
         copyRegion.bufferOffset = srcOffset;
@@ -528,21 +488,7 @@ namespace flaw {
         copyRegion.imageOffset = vk::Offset3D{ 0, 0, 0 };
         copyRegion.imageExtent = vk::Extent3D{ width, height, 1 };
 
-        _transferCommandBuffer.copyBufferToImage(srcBuffer, dstImage, vk::ImageLayout::eTransferDstOptimal, 1, &copyRegion);
-
-        _transferCommandBuffer.end();
-
-        vk::SubmitInfo submitInfo;
-        submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &_transferCommandBuffer;
-
-        auto result = _transferQueue.submit(1, &submitInfo, nullptr);
-        if (result != vk::Result::eSuccess) {
-            Log::Fatal("Failed to submit Vulkan command buffer for copy: %s", vk::to_string(result).c_str());
-            return;
-        }
-
-        _transferQueue.waitIdle();
+        _oneTimeCommandBuffer.copyBufferToImage(srcBuffer, dstImage, vk::ImageLayout::eTransferDstOptimal, 1, &copyRegion);
     }
 
     void VkCommandQueue::CopyBuffer(const Ref<VertexBuffer>& srcBuffer, const Ref<VertexBuffer>& dstBuffer, uint32_t size, uint32_t srcOffset, uint32_t dstOffset) {
@@ -553,76 +499,51 @@ namespace flaw {
         CopyBuffer(vkSrcBuffer->GetVkBuffer(), vkDstBuffer->GetVkBuffer(), size, srcOffset, dstOffset);
     }
 
-    void VkCommandQueue::TransitionImageLayout(const vk::Image& image, vk::ImageLayout oldLayout, vk::ImageLayout newLayout, uint32_t arrayLayer, uint32_t mipLevel) {
-        _graphicsMainCommandBuffer.reset(vk::CommandBufferResetFlagBits::eReleaseResources);
-
-        vk::CommandBufferBeginInfo beginInfo;
-        beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
-
-        _graphicsMainCommandBuffer.begin(beginInfo);
-
+    void VkCommandQueue::TransitionImageLayout( const vk::Image& image, 
+                                                vk::ImageAspectFlags aspectMask, 
+                                                vk::ImageLayout oldLayout, vk::ImageLayout newLayout,
+                                                vk::AccessFlags srcAccessMask, vk::AccessFlags dstAccessMask,
+                                                vk::PipelineStageFlags srcStageMask, vk::PipelineStageFlags dstStageMask )
+    {
+        if (!_oneTimeCommandBuffer) {
+            Log::Error("No one-time command buffer is currently active.");
+            return;
+        }
+        
         vk::ImageMemoryBarrier barrier;
         barrier.oldLayout = oldLayout;
         barrier.newLayout = newLayout;
         barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barrier.image = image;
-        barrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+        barrier.subresourceRange.aspectMask = aspectMask;
         barrier.subresourceRange.baseMipLevel = 0;
-        barrier.subresourceRange.levelCount = mipLevel;
+        barrier.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
         barrier.subresourceRange.baseArrayLayer = 0;
-        barrier.subresourceRange.layerCount = arrayLayer;
+        barrier.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+        barrier.srcAccessMask = srcAccessMask;
+        barrier.dstAccessMask = dstAccessMask;
 
-        vk::PipelineStageFlags srcStageMask, dstStageMask;
-        if (oldLayout == vk::ImageLayout::eUndefined) {
-            barrier.srcAccessMask = vk::AccessFlagBits::eNone;
-            barrier.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
-            srcStageMask = vk::PipelineStageFlagBits::eTopOfPipe;
-            dstStageMask = vk::PipelineStageFlagBits::eTransfer;
-        }
-        else {
-            barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
-            barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
-            srcStageMask = vk::PipelineStageFlagBits::eTransfer;
-            dstStageMask = vk::PipelineStageFlagBits::eFragmentShader;
-        }
-
-        _graphicsMainCommandBuffer.pipelineBarrier(srcStageMask, dstStageMask, vk::DependencyFlags(), nullptr, nullptr, barrier);
-
-        _graphicsMainCommandBuffer.end();
-
-        vk::SubmitInfo submitInfo;
-        submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &_graphicsMainCommandBuffer;
-
-        auto result = _graphicsQueue.submit(1, &submitInfo, nullptr);
-        if (result != vk::Result::eSuccess) {
-            Log::Fatal("Failed to submit Vulkan command buffer for copy: %s", vk::to_string(result).c_str());
-            return;
-        }
-        
-        _graphicsQueue.waitIdle();
+        _oneTimeCommandBuffer.pipelineBarrier(srcStageMask, dstStageMask, vk::DependencyFlags(), nullptr, nullptr, barrier);
     }
 
-    void VkCommandQueue::GenerateMipmaps(const vk::Image& image, vk::Format format, uint32_t width, uint32_t height, uint32_t arrayLayer, uint32_t mipLevels) {
+    void VkCommandQueue::GenerateMipmaps(const vk::Image& image, vk::ImageAspectFlags aspectMask, vk::Format format, uint32_t width, uint32_t height, uint32_t arrayLayer, uint32_t mipLevels) {
         vk::FormatProperties formatProperties;
         _context.GetVkPhysicalDevice().getFormatProperties(format, &formatProperties);
         if (!(formatProperties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eSampledImageFilterLinear)) {
             std::runtime_error("Texture format does not support linear blitting for mipmap generation.");
         }
 
-        _graphicsMainCommandBuffer.reset(vk::CommandBufferResetFlagBits::eReleaseResources);
-
-        vk::CommandBufferBeginInfo beginInfo;
-        beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
-
-        _graphicsMainCommandBuffer.begin(beginInfo);
+        if (!_oneTimeCommandBuffer) {
+            Log::Error("No one-time command buffer is currently active.");
+            return;
+        }
 
         vk::ImageMemoryBarrier barrier;
         barrier.image = image;
         barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+        barrier.subresourceRange.aspectMask = aspectMask;
         barrier.subresourceRange.baseArrayLayer = 0;
         barrier.subresourceRange.layerCount = arrayLayer;
         barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
@@ -634,7 +555,7 @@ namespace flaw {
         barrier.subresourceRange.levelCount = 1;
         barrier.oldLayout = vk::ImageLayout::eTransferDstOptimal;
         barrier.newLayout = vk::ImageLayout::eTransferSrcOptimal;
-        _graphicsMainCommandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, {}, nullptr, nullptr, barrier);
+        _oneTimeCommandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, {}, nullptr, nullptr, barrier);
 
         int32_t mipWidth = static_cast<int32_t>(width);
         int32_t mipHeight = static_cast<int32_t>(height);
@@ -643,7 +564,7 @@ namespace flaw {
             vk::ImageBlit blitRegion;
             blitRegion.srcOffsets[0] = vk::Offset3D{ 0, 0, 0 };
             blitRegion.srcOffsets[1] = vk::Offset3D{ mipWidth, mipHeight, 1 };
-            blitRegion.srcSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+            blitRegion.srcSubresource.aspectMask = aspectMask;
             blitRegion.srcSubresource.mipLevel = i - 1;
             blitRegion.srcSubresource.baseArrayLayer = 0;
             blitRegion.srcSubresource.layerCount = arrayLayer;
@@ -659,39 +580,15 @@ namespace flaw {
             blitRegion.dstSubresource.baseArrayLayer = 0;
             blitRegion.dstSubresource.layerCount = arrayLayer;
 
-            _graphicsMainCommandBuffer.blitImage(image, vk::ImageLayout::eTransferSrcOptimal, image, vk::ImageLayout::eTransferDstOptimal, 1, &blitRegion, vk::Filter::eLinear);
+            _oneTimeCommandBuffer.blitImage(image, vk::ImageLayout::eTransferSrcOptimal, image, vk::ImageLayout::eTransferDstOptimal, 1, &blitRegion, vk::Filter::eLinear);
 
             // 현재 밉 레벨(i)을 다음 반복의 소스로 사용하기 위해 TRANSFER_SRC_OPTIMAL로 전환합니다.
             barrier.subresourceRange.baseMipLevel = i;
             barrier.subresourceRange.levelCount = 1;
             barrier.oldLayout = vk::ImageLayout::eTransferDstOptimal;
             barrier.newLayout = vk::ImageLayout::eTransferSrcOptimal;
-            _graphicsMainCommandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, {}, nullptr, nullptr, barrier);
+            _oneTimeCommandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, {}, nullptr, nullptr, barrier);
         }
-        
-        // 최종 상태: 모든 밉 레벨을 SHADER_READ_ONLY_OPTIMAL로 전환합니다.
-        // 모든 밉 레벨은 루프를 거치며 eTransferSrcOptimal 상태가 됩니다.
-        barrier.subresourceRange.baseMipLevel = 0;
-        barrier.subresourceRange.levelCount = mipLevels;
-        barrier.oldLayout = vk::ImageLayout::eTransferSrcOptimal;
-        barrier.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-        barrier.srcAccessMask = vk::AccessFlagBits::eTransferRead;
-        barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
-        _graphicsMainCommandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eFragmentShader, {}, nullptr, nullptr, barrier);
-
-        _graphicsMainCommandBuffer.end();
-
-        vk::SubmitInfo submitInfo;
-        submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &_graphicsMainCommandBuffer;
-
-        auto result = _graphicsQueue.submit(1, &submitInfo, nullptr);
-        if (result != vk::Result::eSuccess) {
-            Log::Fatal("Failed to submit Vulkan command buffer for mipmap generation: %s", vk::to_string(result).c_str());
-            return;
-        }
-
-        _graphicsQueue.waitIdle();
     }
 }
 

@@ -18,7 +18,6 @@ namespace flaw {
 		virtual PixelFormat GetPixelFormat() const = 0;
 		virtual UsageFlag GetUsage() const = 0;
 		virtual uint32_t GetBindFlags() const = 0;
-		virtual uint32_t GetAccessFlags() const = 0;
 		virtual uint32_t GetSampleCount() const = 0;
 	};
 
@@ -29,7 +28,6 @@ namespace flaw {
 			PixelFormat format = PixelFormat::UNDEFINED;
 			uint32_t width = 0, height = 0;
 			UsageFlag usage = UsageFlag::Static;
-			uint32_t access = 0;
 			uint32_t bindFlags = 0;
 			uint32_t mipLevels = 1;
 			uint32_t sampleCount = 1;
@@ -49,13 +47,14 @@ namespace flaw {
 		struct Descriptor {
 			bool fromMemory = false;
 			std::vector<Ref<Texture2D>> textures;
-			const uint8_t* data;
-			PixelFormat format;
-			uint32_t width, height;
-			UsageFlag usage;
-			uint32_t access;
-			uint32_t bindFlags;
-			uint32_t arraySize;
+			const uint8_t* data = nullptr;
+			PixelFormat format = PixelFormat::UNDEFINED;
+			uint32_t width = 0, height = 0;
+			UsageFlag usage = UsageFlag::Static;
+			uint32_t bindFlags = 0;
+			uint32_t arraySize = 0;
+			uint32_t mipLevels = 1;
+			uint32_t sampleCount = 1;
 		};
 
 		Texture2DArray() = default;
@@ -81,7 +80,6 @@ namespace flaw {
 			PixelFormat format = PixelFormat::UNDEFINED;
 			uint32_t width = 0, height = 0;
 			UsageFlag usage = UsageFlag::Static;
-			uint32_t access = 0;
 			uint32_t bindFlags = 0;
 			uint32_t mipLevels = 1;
 			uint32_t sampleCount = 1;

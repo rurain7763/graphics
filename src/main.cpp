@@ -95,6 +95,9 @@ Ref<GraphicsPipeline> g_skyboxPipeline;
 void MakeSkyboxResources();
 void ReleaseSkyboxResources();
 
+void MakeComputeShaderRayTracingResources();
+void ReleaseComputeShaderRayTracingResources();
+
 int main() {
     Log::Initialize();
     
@@ -269,6 +272,7 @@ int main() {
     shaderResourcesDesc.layout = nullptr;
 
     MakeSkyboxResources();
+    MakeComputeShaderRayTracingResources();
 
     auto& commandQueue = static_cast<VkCommandQueue&>(g_graphicsContext->GetCommandQueue());
     
@@ -320,6 +324,7 @@ int main() {
         }
     }
 
+    ReleaseComputeShaderRayTracingResources();
     ReleaseSkyboxResources();
     shaderResources.reset();
     textureResources.reset();
@@ -420,4 +425,22 @@ void ReleaseSkyboxResources() {
     g_skyboxResources0.reset();
     g_skyboxResources1.reset();
     g_skyboxPipeline.reset();
+}
+
+Ref<Texture2D> g_storageTexture;
+
+void MakeComputeShaderRayTracingResources() {
+    Texture2D::Descriptor storageTextureDesc;
+    storageTextureDesc.width = 1024;
+    storageTextureDesc.height = 1024;
+    storageTextureDesc.format = PixelFormat::RGBA8;
+    storageTextureDesc.usage = UsageFlag::Static;
+    storageTextureDesc.bindFlags = BindFlag::UnorderedAccess | BindFlag::ShaderResource;
+    storageTextureDesc.sampleCount = 1;
+
+    g_storageTexture = g_graphicsContext->CreateTexture2D(storageTextureDesc);
+}
+
+void ReleaseComputeShaderRayTracingResources() {
+    g_storageTexture.reset();
 }

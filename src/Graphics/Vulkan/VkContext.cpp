@@ -37,6 +37,7 @@ namespace flaw {
         : _renderWidth(width)
         , _renderHeight(height)
         , _msaaEnabled(true)
+        , _currentDeletionCounter(0)
     {
         VULKAN_HPP_DEFAULT_DISPATCHER.init();
 
@@ -67,6 +68,9 @@ namespace flaw {
             return;
         }
 
+        auto surfaceDetails = GetVkSurfaceDetails(_physicalDevice, _surface);
+        _frameCount = std::max(surfaceDetails.capabilities.minImageCount + 1, surfaceDetails.capabilities.maxImageCount);
+
         _queueFamilyIndices = GetVkQueueFamilyIndices(_physicalDevice, _surface);
         if (!_queueFamilyIndices.IsComplete()) {
             Log::Fatal("No suitable queue family found.");
@@ -82,20 +86,24 @@ namespace flaw {
 
         VULKAN_HPP_DEFAULT_DISPATCHER.init(_device);
 
+        _graphicsQueue = _device.getQueue(_queueFamilyIndices.graphicsFamily.value(), 0);
+        _presentQueue = _device.getQueue(_queueFamilyIndices.presentFamily.value(), 0);
+
+        if (CreateCommandPools()) {
+            return;
+        }
+
+        if (CreateDescriptorPool()) {
+            return;
+        }
+        
+        _commandQueue = CreateRef<VkCommandQueue>(*this);
+        
         _swapchain = CreateRef<VkSwapchain>(*this);
         if (_swapchain->Create(_renderWidth, _renderHeight)) {
             Log::Fatal("Failed to create Vulkan swap chain.");
             return;
         }
-
-        if (CreateDescriptorPool()) {
-            Log::Fatal("Failed to create Vulkan descriptor pool.");
-            return;
-        }
-
-        _commandQueue = CreateRef<VkCommandQueue>(*this);
-
-        _currentDeletionCounter = 0;
     }
 
     int32_t VkContext::CreateInstance(PlatformContext& context, uint32_t version) {
@@ -227,6 +235,7 @@ namespace flaw {
         vk::PhysicalDeviceFeatures deviceFeatures;
         deviceFeatures.samplerAnisotropy = VK_TRUE;
         deviceFeatures.sampleRateShading = VK_TRUE;
+        deviceFeatures.tessellationShader = VK_TRUE;
 
         std::vector<const char*> requiredExtensions = {
             VK_KHR_SWAPCHAIN_EXTENSION_NAME
@@ -262,9 +271,23 @@ namespace flaw {
         return 0;
     }
 
-    int32_t VkContext::CreateDescriptorPool() {
-        uint32_t renderTexCount = _swapchain->GetRenderTextureCount();
+    int32_t VkContext::CreateCommandPools() {
+        vk::CommandPoolCreateInfo poolInfo;
+        poolInfo.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
+        poolInfo.queueFamilyIndex = _queueFamilyIndices.graphicsFamily.value();
 
+        auto result = _device.createCommandPool(poolInfo, nullptr);
+        if (result.result != vk::Result::eSuccess) {
+            Log::Fatal("Failed to create Vulkan command pool: %s", vk::to_string(result.result).c_str());
+            return -1;
+        }
+
+        _graphicsCommandPool = result.value;
+
+        return 0;
+    }
+
+    int32_t VkContext::CreateDescriptorPool() {
         std::vector<vk::DescriptorPoolSize> poolSizes = {
             { vk::DescriptorType::eUniformBuffer, MaxConstantBufferBindingCount },
             { vk::DescriptorType::eStorageBuffer, MaxStructuredBufferBindingCount },
@@ -303,6 +326,7 @@ namespace flaw {
         }
 
         _device.destroyDescriptorPool(_descriptorPool, nullptr);
+        _device.destroyCommandPool(_graphicsCommandPool, nullptr);
 
         _device.destroy(nullptr);
         _instance.destroySurfaceKHR(_surface, nullptr);

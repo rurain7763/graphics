@@ -18,7 +18,7 @@ namespace flaw {
 		VkTexture2D(VkContext& context, vk::Image image, uint32_t width, uint32_t height, PixelFormat format, UsageFlag usage, uint32_t bindFlags, uint32_t accessFlags, uint32_t sampleCount, uint32_t mipLevels);
 		~VkTexture2D();
 
-		void Fetch(void* outData, const uint32_t size) const override {}
+		void Fetch(void* outData, const uint32_t size) const override;
 
 		void CopyTo(Ref<Texture2D>& target) const override {}
 		void CopyToSub(Ref<Texture2D>& target, const uint32_t x, const uint32_t y, const uint32_t width, const uint32_t height) const override {}
@@ -33,7 +33,6 @@ namespace flaw {
 		PixelFormat GetPixelFormat() const override { return _format; }
 		UsageFlag GetUsage() const override { return _usage; }
 		uint32_t GetBindFlags() const override { return _bindFlags; }
-		uint32_t GetAccessFlags() const override { return _acessFlags; }
 		uint32_t GetSampleCount() const override { return _sampleCount; }
 
 		inline vk::Image GetVkImage() const { return _image; }
@@ -44,6 +43,10 @@ namespace flaw {
 		bool CreateImage(bool hasData);
 		bool AllocateMemory();
 		bool PullMemory(const uint8_t* data);
+
+		bool GenerateMipmaps();
+
+		bool TransitionImageLayout(vk::ImageLayout oldLayout, vk::AccessFlags srcAccessMask, vk::PipelineStageFlags srcStageMask);
 
 		bool CreateImageView();
 		bool CreateSampler();
@@ -61,8 +64,50 @@ namespace flaw {
 
 		PixelFormat _format;
 		UsageFlag _usage;
-		uint32_t _acessFlags;
 		uint32_t _bindFlags;
+		uint32_t _mipLevels;
+		uint32_t _sampleCount;
+
+		uint32_t _width;
+		uint32_t _height;
+	};
+
+	class VkTexture2DArray : public Texture2DArray {
+	public:
+		VkTexture2DArray(VkContext& context, const Descriptor& descriptor);
+		~VkTexture2DArray();
+
+		void FetchAll(void* outData) const override {}
+
+		void CopyTo(Ref<Texture2DArray>& target) const override {}
+
+		uint32_t GetArraySize() const override { return _arraySize; }
+
+	private:
+		bool CreateImage(bool hasData);
+		bool AllocateMemory();
+		bool PullMemory(const uint8_t* data);
+
+		bool GenerateMipmaps();
+
+		bool TransitionImageLayout(vk::ImageLayout oldLayout, vk::AccessFlags srcAccessMask, vk::PipelineStageFlags srcStageMask);
+
+		bool CreateImageView();
+		bool CreateSampler();
+
+	private:
+		VkContext& _context;
+
+		vk::Image _image;
+		vk::DeviceMemory _imageMemory;
+		vk::ImageView _imageView;
+		vk::Sampler _sampler;
+		vk::DescriptorImageInfo _imageInfo;
+
+		PixelFormat _format;
+		UsageFlag _usage;
+		uint32_t _bindFlags;
+		uint32_t _arraySize;
 		uint32_t _mipLevels;
 		uint32_t _sampleCount;
 
@@ -85,7 +130,6 @@ namespace flaw {
 		PixelFormat GetPixelFormat() const override { return _format; }
 		UsageFlag GetUsage() const override { return _usage; }
 		uint32_t GetBindFlags() const override { return _bindFlags; }
-		uint32_t GetAccessFlags() const override { return _acessFlags; }
 		uint32_t GetSampleCount() const override { return _sampleCount; }
 
 		inline vk::Image GetVkImage() const { return _image; }
@@ -96,6 +140,10 @@ namespace flaw {
 		bool CreateImage(bool hasData);
 		bool AllocateMemory();
 		bool PullMemory(const uint8_t* data);
+
+		bool GenerateMipmaps();
+
+		bool TransitionImageLayout(vk::ImageLayout oldLayout, vk::AccessFlags srcAccessMask, vk::PipelineStageFlags srcStageMask);
 
 		bool CreateImageView();
 		bool CreateSampler();
@@ -111,7 +159,6 @@ namespace flaw {
 
 		PixelFormat _format;
 		UsageFlag _usage;
-		uint32_t _acessFlags;
 		uint32_t _bindFlags;
 		uint32_t _mipLevels;
 		uint32_t _sampleCount;

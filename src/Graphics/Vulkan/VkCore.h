@@ -44,6 +44,7 @@ namespace flaw {
     vk::ShaderStageFlagBits ConvertToVkShaderStage(ShaderCompileFlag flag);
     vk::VertexInputRate ConvertToVkVertexInputRate(VertexInputRate rate);
     vk::ImageLayout ConvertToVkImageLayout(TextureLayout layout);
+    vk::ImageLayout ConvertToVkImageLayout(uint32_t bindFlags);
     vk::ImageAspectFlags ConvertToVkImageAspectFlags(uint32_t bindFlags);
     vk::ImageUsageFlags ConvertToVkImageUsageFlags(uint32_t bindFlags);
     vk::Format ConvertToVkFormat(ElementType type, uint32_t count);
@@ -53,6 +54,7 @@ namespace flaw {
     vk::AttachmentLoadOp ConvertToVkAttachmentLoadOp(AttachmentLoadOp loadOp);
     vk::AttachmentStoreOp ConvertToVkAttachmentStoreOp(AttachmentStoreOp storeOp);
     vk::SampleCountFlagBits ConvertToVkSampleCount(uint32_t sampleCount);
+    vk::PipelineStageFlags ConvertToVkPipelineStageFlags(uint32_t bindFlags, uint32_t bindableShaderStages);
     void GetRequiredVkBufferUsageFlags(UsageFlag usage, vk::BufferUsageFlags& usageFlags);
     void GetRequiredVkBufferUsageFlags(uint32_t accessFlags, vk::BufferUsageFlags& usageFlags);
     void GetRequiredVkMemoryPropertyFlags(UsageFlag flags, vk::MemoryPropertyFlags& memoryFlags);

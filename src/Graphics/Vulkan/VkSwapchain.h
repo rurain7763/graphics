@@ -34,7 +34,7 @@ namespace flaw {
         inline Ref<VkRenderPass> GetClearOpRenderPass() const { return _clearOpRenderPass; }
 
     private:
-        bool CreateSwapchain(uint32_t renderTexCount, uint32_t width, uint32_t height);
+        bool CreateSwapchain(uint32_t width, uint32_t height);
         vk::SurfaceFormatKHR ChooseSurfaceFormat(const std::vector<vk::SurfaceFormatKHR>& formats) const;
         vk::PresentModeKHR ChoosePresentMode(const std::vector<vk::PresentModeKHR>& presentModes) const;
         vk::Extent2D ChooseExtent(const vk::SurfaceCapabilitiesKHR& capabilities, uint32_t width, uint32_t height) const;

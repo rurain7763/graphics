@@ -63,10 +63,13 @@ namespace flaw {
         inline vk::PhysicalDevice GetVkPhysicalDevice() const { return _physicalDevice; }
         inline vk::Device GetVkDevice() const { return _device; }
         inline vk::SurfaceKHR GetVkSurface() const { return _surface; }
+		inline uint32_t GetFrameCount() const { return _frameCount; }
 		inline VkSwapchain& GetVkSwapchain() { return *_swapchain; }
-		inline uint32_t GetGraphicsQueueFamilyIndex() const { return _queueFamilyIndices.graphicsFamily.value(); }
-		inline uint32_t GetPresentQueueFamilyIndex() const { return _queueFamilyIndices.presentFamily.value(); }
-		inline uint32_t GetTransferQueueFamilyIndex() const { return _queueFamilyIndices.transferFamily.value(); }
+		inline vk::Queue GetVkGraphicsQueue() const { return _graphicsQueue; }
+		inline uint32_t GetVkGraphicsQueueFamilyIndex() const { return _queueFamilyIndices.graphicsFamily.value(); }
+		inline vk::Queue GetVkPresentQueue() const { return _presentQueue; }
+		inline uint32_t GetVkPresentQueueFamilyIndex() const { return _queueFamilyIndices.presentFamily.value(); }
+		inline vk::CommandPool GetVkGraphicsCommandPool() const { return _graphicsCommandPool; }
 		inline uint32_t GetMSAASampleCount() const { return _msaaSampleCount; }
 		inline vk::DescriptorPool GetVkDescriptorPool() const { return _descriptorPool; }
 
@@ -80,6 +83,8 @@ namespace flaw {
         int32_t ChoosePhysicalDevice();
 
         int32_t CreateLogicalDevice();
+
+		int32_t CreateCommandPools();
 
 		int32_t CreateDescriptorPool();
 
@@ -102,6 +107,11 @@ namespace flaw {
 		uint32_t _msaaSampleCount;
 
         vk::Device _device;
+		
+		vk::Queue _graphicsQueue;
+		vk::Queue _presentQueue;
+
+        vk::CommandPool _graphicsCommandPool;
 
 		vk::DescriptorPool _descriptorPool;
 
@@ -109,6 +119,7 @@ namespace flaw {
 		Ref<VkCommandQueue> _commandQueue;
 
 		int32_t _renderWidth, _renderHeight;
+		uint32_t _frameCount;
 		bool _msaaEnabled;
 
 		uint32_t _currentDeletionCounter;

@@ -9,17 +9,23 @@
 #include "Graphics/GraphicsFunc.h"
 
 namespace flaw {
-    VkTextureCube::VkTextureCube(VkContext& context, const Descriptor& descriptor)
+    VkTexture2DArray::VkTexture2DArray(VkContext& context, const Descriptor& descriptor)
         : _context(context) 
         , _format(descriptor.format)
         , _usage(descriptor.usage)
         , _bindFlags(descriptor.bindFlags)
         , _mipLevels(descriptor.mipLevels)
+        , _arraySize(descriptor.arraySize)
         , _sampleCount(descriptor.sampleCount)
         , _width(descriptor.width)
         , _height(descriptor.height)
     {
-        if (!CreateImage(descriptor.data)) {
+        const uint8_t* data = descriptor.data;
+        if (!descriptor.fromMemory && !descriptor.textures.empty()) {
+            // TODO: merge textures into a single data block  
+        }
+
+        if (!CreateImage(data)) {
             return;
         }
 
@@ -35,7 +41,7 @@ namespace flaw {
 
         vkCmdQueue.BeginOneTimeCommands();
 
-        if (descriptor.data) {
+        if (data) {
             if (!PullMemory(descriptor.data)) {
                 return;
             }
@@ -74,7 +80,7 @@ namespace flaw {
         _imageInfo.sampler = _sampler;
     }
 
-    VkTextureCube::~VkTextureCube() {
+    VkTexture2DArray::~VkTexture2DArray() {
         _context.AddDelayedDeletionTasks([&context = _context, image = _image, imageMemory = _imageMemory, imageView = _imageView, sampler = _sampler]() {
             context.GetVkDevice().destroyImage(image);
             context.GetVkDevice().freeMemory(imageMemory);
@@ -83,16 +89,15 @@ namespace flaw {
         });
     }
 
-    bool VkTextureCube::CreateImage(bool hasData) {
+    bool VkTexture2DArray::CreateImage(bool hasData) {
         vk::ImageCreateInfo imageInfo;
-        imageInfo.flags = vk::ImageCreateFlagBits::eCubeCompatible;
         imageInfo.imageType = vk::ImageType::e2D;
         imageInfo.format = ConvertToVkFormat(_format);
         imageInfo.extent.width = _width;
         imageInfo.extent.height = _height;
         imageInfo.extent.depth = 1;
         imageInfo.mipLevels = _mipLevels;
-        imageInfo.arrayLayers = 6;
+        imageInfo.arrayLayers = _arraySize;
         imageInfo.samples = ConvertToVkSampleCount(_sampleCount);
         imageInfo.tiling = vk::ImageTiling::eOptimal;
         imageInfo.usage = ConvertToVkImageUsageFlags(_bindFlags);
@@ -113,7 +118,7 @@ namespace flaw {
         return true; 
     }
 
-    bool VkTextureCube::AllocateMemory() {
+    bool VkTexture2DArray::AllocateMemory() {
         vk::MemoryRequirements memRequirements = _context.GetVkDevice().getImageMemoryRequirements(_image);
 
         vk::MemoryPropertyFlags properties;
@@ -136,10 +141,10 @@ namespace flaw {
         return true;
     }
 
-    bool VkTextureCube::PullMemory(const uint8_t* data) {
+    bool VkTexture2DArray::PullMemory(const uint8_t* data) {
         auto& vkCmdQueue = static_cast<VkCommandQueue&>(_context.GetCommandQueue());
         uint32_t bufferSizePerImage = _width * _height * GetSizePerPixel(_format);
-        uint32_t bufferSize = bufferSizePerImage * 6;
+        uint32_t bufferSize = bufferSizePerImage * _arraySize;
 
         auto stagingBuffer = CreateVkBuffer(
             _context.GetVkPhysicalDevice(),
@@ -170,7 +175,7 @@ namespace flaw {
             vk::PipelineStageFlagBits::eTopOfPipe,
             vk::PipelineStageFlagBits::eTransfer
         );
-        vkCmdQueue.CopyBuffer(stagingBuffer.buffer, _image, _width, _height, 0, 0, 6);
+        vkCmdQueue.CopyBuffer(stagingBuffer.buffer, _image, _width, _height, 0, 0, _arraySize);
 
         _context.AddDelayedDeletionTasks([&context = _context, stagingBuffer]() {
             context.GetVkDevice().destroyBuffer(stagingBuffer.buffer);
@@ -180,15 +185,15 @@ namespace flaw {
         return true;
     }
 
-    bool VkTextureCube::GenerateMipmaps() {
+    bool VkTexture2DArray::GenerateMipmaps() {
         auto& vkCmdQueue = static_cast<VkCommandQueue&>(_context.GetCommandQueue());
 
-        vkCmdQueue.GenerateMipmaps(_image, ConvertToVkImageAspectFlags(_bindFlags), ConvertToVkFormat(_format), _width, _height, 6, _mipLevels);
+        vkCmdQueue.GenerateMipmaps(_image, ConvertToVkImageAspectFlags(_bindFlags), ConvertToVkFormat(_format), _width, _height, _arraySize, _mipLevels);
 
         return true;
     }
 
-    bool VkTextureCube::TransitionImageLayout(vk::ImageLayout oldLayout, vk::AccessFlags srcAccessMask, vk::PipelineStageFlags srcStageMask) {
+    bool VkTexture2DArray::TransitionImageLayout(vk::ImageLayout oldLayout, vk::AccessFlags srcAccessMask, vk::PipelineStageFlags srcStageMask) {
         auto& vkCmdQueue = static_cast<VkCommandQueue&>(_context.GetCommandQueue());
 
         vk::AccessFlags finalAccessFlags;
@@ -223,16 +228,16 @@ namespace flaw {
         return true;
     }
 
-    bool VkTextureCube::CreateImageView() {
+    bool VkTexture2DArray::CreateImageView() {
         vk::ImageViewCreateInfo viewInfo;
         viewInfo.image = _image;
-        viewInfo.viewType = vk::ImageViewType::eCube;
+        viewInfo.viewType = vk::ImageViewType::e2DArray;
         viewInfo.format = ConvertToVkFormat(_format);
         viewInfo.subresourceRange.aspectMask = ConvertToVkImageAspectFlags(_bindFlags);
         viewInfo.subresourceRange.baseMipLevel = 0;
         viewInfo.subresourceRange.levelCount = _mipLevels;
         viewInfo.subresourceRange.baseArrayLayer = 0;
-        viewInfo.subresourceRange.layerCount = 6;
+        viewInfo.subresourceRange.layerCount = _arraySize;
 
         auto imageViewWrapper = _context.GetVkDevice().createImageView(viewInfo);
         if (imageViewWrapper.result != vk::Result::eSuccess) {
@@ -245,7 +250,7 @@ namespace flaw {
         return true;
     }
 
-    bool VkTextureCube::CreateSampler() {
+    bool VkTexture2DArray::CreateSampler() {
         vk::SamplerCreateInfo samplerInfo;
         samplerInfo.magFilter = vk::Filter::eLinear;
         samplerInfo.minFilter = vk::Filter::eLinear;
