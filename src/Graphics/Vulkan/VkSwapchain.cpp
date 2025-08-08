@@ -27,7 +27,7 @@ namespace flaw {
         vk::Format vkDSFormat = ChooseDepthFormat({ vk::Format::eD24UnormS8Uint, vk::Format::eD32SfloatS8Uint, vk::Format::eD32Sfloat });
         _depthStencilFormat = ConvertToPixelFormat(vkDSFormat);
 
-        if (!CreateSwapchain(width, height)) {
+        if (!CreateSwapchain()) {
             Log::Error("Failed to create Vulkan swapchain.");
             return -1;
         }
@@ -67,6 +67,7 @@ namespace flaw {
             _frameBuffers.clear();
             _renderTextures.clear();
             _depthStencilTextures.clear();
+			_msaaColorTextures.clear();
             _context.GetVkDevice().destroySwapchainKHR(_swapchain, nullptr);
         }
 
@@ -75,7 +76,7 @@ namespace flaw {
         _extent = ChooseExtent(surfaceDetails.capabilities, width, height);
         _transform = surfaceDetails.capabilities.currentTransform;
 
-        if (!CreateSwapchain(width, height)) {
+        if (!CreateSwapchain()) {
             Log::Error("Failed to create Vulkan swapchain.");
             return -1;
         }
@@ -105,7 +106,7 @@ namespace flaw {
         return 0;
     }
 
-    bool VkSwapchain::CreateSwapchain(uint32_t width, uint32_t height) {
+    bool VkSwapchain::CreateSwapchain() {
         vk::SwapchainCreateInfoKHR createInfo;
         createInfo.surface = _context.GetVkSurface();
         createInfo.minImageCount = _context.GetFrameCount();
@@ -197,17 +198,17 @@ namespace flaw {
         for (uint32_t i = 0; i < images.size(); ++i) {
             vk::Image image = images[i];
 
-            uint32_t bindFlags = BindFlag::RenderTarget | BindFlag::ShaderResource;
+            uint32_t bindFlags = TextureUsage::RenderTarget | TextureUsage::ShaderResource;
 
             _renderTextures[i] = CreateRef<VkTexture2D>(
                 _context, 
                 image, 
                 _extent.width, _extent.height, PixelFormat::BGRA8, 
-                UsageFlag::Static,
-                BindFlag::RenderTarget | BindFlag::ShaderResource,
-                0,
+                MemoryProperty::Static,
+                TextureUsage::RenderTarget | TextureUsage::ShaderResource,
                 1,
-                1
+                1,
+                0
             );
         }
 
@@ -219,8 +220,8 @@ namespace flaw {
         desc.width = _extent.width;
         desc.height = _extent.height;
         desc.format = _depthStencilFormat;
-        desc.usage = UsageFlag::Static;
-        desc.bindFlags = BindFlag::DepthStencil;
+        desc.memProperty = MemoryProperty::Static;
+        desc.imageUsages = TextureUsage::DepthStencil;
         desc.sampleCount = _context.GetMSAAState() ? _context.GetMSAASampleCount() : 1;
 
         _depthStencilTextures.reserve(_renderTextures.size());
@@ -242,8 +243,8 @@ namespace flaw {
             desc.width = _extent.width;
             desc.height = _extent.height;
             desc.format = PixelFormat::BGRA8;
-            desc.usage = UsageFlag::Static;
-            desc.bindFlags = BindFlag::RenderTarget;
+            desc.memProperty = MemoryProperty::Static;
+            desc.imageUsages = TextureUsage::RenderTarget;
             desc.sampleCount = _context.GetMSAASampleCount();
 
             _msaaColorTextures.push_back(CreateRef<VkTexture2D>(_context, desc));

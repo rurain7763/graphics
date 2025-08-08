@@ -6,33 +6,17 @@ namespace flaw {
 	using RenderTargetView = void*;
 	using DepthStencilView = void*;
 
-	enum class RenderDomain {
-		Opaque,
-		Masked,
-		Transparent,
-		PostProcess,
-		Debug,
-		Count
-	};
-
-	enum class UsageFlag {
+	enum class MemoryProperty {
 		Static,  // GPU only, no CPU access 
 		Dynamic, // GPU and CPU access, data can change frequently
 		Staging, // CPU only, used for transferring data to GPU
 	};
 
-	enum AccessFlag {
-		Write = 0x1,
-		Read = 0x2
-	};
-
-	enum BindFlag {
+	enum TextureUsage {
 		ShaderResource = 0x1,
 		UnorderedAccess = 0x2,
 		RenderTarget = 0x4,
 		DepthStencil = 0x8,
-		DepthOnly = 0x10,
-		StencilOnly = 0x20,
 	};
 
 	enum class PrimitiveTopology {
@@ -123,7 +107,7 @@ namespace flaw {
 		Count
 	};
 
-	enum ShaderCompileFlag { // TODO: Change name to ShaderStage
+	enum ShaderStage {
 		Vertex = 0x1,
 		Pixel = 0x2,
 		Geometry = 0x4,

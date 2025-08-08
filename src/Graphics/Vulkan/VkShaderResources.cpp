@@ -60,6 +60,7 @@ namespace flaw {
         }
 
         _descriptorSet = descriptorSetWrapper.value[0];
+		_layout = vkShaderResourcesLayout;
     }
 
     VkShaderResources::~VkShaderResources() {

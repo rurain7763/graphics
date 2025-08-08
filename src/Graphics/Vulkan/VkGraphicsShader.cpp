@@ -13,32 +13,32 @@ namespace flaw {
     {
         _compileFlags = 0;
         if (!descriptor.vertexShaderFile.empty()) {
-            _compileFlags |= ShaderCompileFlag::Vertex;
-            CreateShader(descriptor.vertexShaderFile.c_str(), descriptor.vertexShaderEntry, ShaderCompileFlag::Vertex);
+            _compileFlags |= ShaderStage::Vertex;
+            CreateShader(descriptor.vertexShaderFile.c_str(), descriptor.vertexShaderEntry, ShaderStage::Vertex);
         }
 
         if (!descriptor.hullShaderFile.empty()) {
-            _compileFlags |= ShaderCompileFlag::Hull;
-            CreateShader(descriptor.hullShaderFile.c_str(), descriptor.hullShaderEntry, ShaderCompileFlag::Hull);
+            _compileFlags |= ShaderStage::Hull;
+            CreateShader(descriptor.hullShaderFile.c_str(), descriptor.hullShaderEntry, ShaderStage::Hull);
         }
 
         if (!descriptor.domainShaderFile.empty()) {
-            _compileFlags |= ShaderCompileFlag::Domain;
-            CreateShader(descriptor.domainShaderFile.c_str(), descriptor.domainShaderEntry, ShaderCompileFlag::Domain);
+            _compileFlags |= ShaderStage::Domain;
+            CreateShader(descriptor.domainShaderFile.c_str(), descriptor.domainShaderEntry, ShaderStage::Domain);
         }
 
         if (!descriptor.geometryShaderFile.empty()) {
-            _compileFlags |= ShaderCompileFlag::Geometry;
-            CreateShader(descriptor.geometryShaderFile.c_str(), descriptor.geometryShaderEntry, ShaderCompileFlag::Geometry);
+            _compileFlags |= ShaderStage::Geometry;
+            CreateShader(descriptor.geometryShaderFile.c_str(), descriptor.geometryShaderEntry, ShaderStage::Geometry);
         }
 
         if (!descriptor.pixelShaderFile.empty()) {
-            _compileFlags |= ShaderCompileFlag::Pixel;
-            CreateShader(descriptor.pixelShaderFile.c_str(), descriptor.pixelShaderEntry, ShaderCompileFlag::Pixel);
+            _compileFlags |= ShaderStage::Pixel;
+            CreateShader(descriptor.pixelShaderFile.c_str(), descriptor.pixelShaderEntry, ShaderStage::Pixel);
         }
     }
 
-    void VkGraphicsShader::CreateShader(const std::string& filePath, const std::string& entryPoint, ShaderCompileFlag compileFlag) {
+    void VkGraphicsShader::CreateShader(const std::string& filePath, const std::string& entryPoint, ShaderStage compileFlag) {
         std::vector<int8_t> sourceCode;
         if (!FileSystem::ReadFile(filePath.c_str(), sourceCode)) {
             Log::Error("Failed to read shader file: %s", filePath.c_str());

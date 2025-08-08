@@ -47,7 +47,7 @@ namespace flaw {
 	private:
 		VkContext& _context;
 
-		UsageFlag _usage;
+		MemoryProperty _usage;
 		uint32_t _elmSize;
 		uint32_t _size;
 
@@ -81,7 +81,7 @@ namespace flaw {
 
 		void* _mappedData = nullptr;
 
-		UsageFlag _usage;
+		MemoryProperty _usage;
 		uint32_t _size;
 		uint32_t _indexCount;
 	};
@@ -144,8 +144,8 @@ namespace flaw {
 
 		void* _mappedData = nullptr;
 
+		MemoryProperty _usage;
 		uint32_t _elmSize;
-		uint32_t _accessFlags;
 		uint32_t _size;
 	};
 }

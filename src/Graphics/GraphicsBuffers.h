@@ -24,7 +24,7 @@ namespace flaw {
 	class VertexBuffer {
 	public:
 		struct Descriptor {
-			UsageFlag usage;
+			MemoryProperty usage;
 			uint32_t elmSize;
 			uint32_t bufferSize;
 			const void* initialData;
@@ -45,7 +45,7 @@ namespace flaw {
 	class IndexBuffer {
 	public:
 		struct Descriptor {
-			UsageFlag usage; 
+			MemoryProperty usage; 
 			uint32_t bufferSize;
 			const uint32_t* initialData;
 		};
@@ -83,9 +83,9 @@ namespace flaw {
 	class StructuredBuffer {
 	public:
 		struct Descriptor {
+			MemoryProperty usage;
 			uint32_t elmSize;
 			uint32_t count;
-			uint32_t accessFlags;
 			uint32_t bindFlags;
 			const void* initialData;
 		};

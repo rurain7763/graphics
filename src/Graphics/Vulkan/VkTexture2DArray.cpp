@@ -12,13 +12,17 @@ namespace flaw {
     VkTexture2DArray::VkTexture2DArray(VkContext& context, const Descriptor& descriptor)
         : _context(context) 
         , _format(descriptor.format)
-        , _usage(descriptor.usage)
-        , _bindFlags(descriptor.bindFlags)
+        , _memProperty(descriptor.memProperty)
+        , _imageUsages(descriptor.imageUsages)
         , _mipLevels(descriptor.mipLevels)
         , _arraySize(descriptor.arraySize)
         , _sampleCount(descriptor.sampleCount)
+		, _shaderStages(descriptor.shaderStages)
         , _width(descriptor.width)
         , _height(descriptor.height)
+		, _currentLayout(vk::ImageLayout::eUndefined)
+		, _currentAccessFlags(vk::AccessFlagBits::eNone)
+		, _currentPipelineStage(vk::PipelineStageFlagBits::eTopOfPipe)
     {
         const uint8_t* data = descriptor.data;
         if (!descriptor.fromMemory && !descriptor.textures.empty()) {
@@ -35,33 +39,21 @@ namespace flaw {
 
         auto& vkCmdQueue = static_cast<VkCommandQueue&>(_context.GetCommandQueue());
 
-        vk::ImageLayout initialLayout = vk::ImageLayout::eUndefined;
-        vk::AccessFlags srcAccessMask = vk::AccessFlagBits::eNone;
-        vk::PipelineStageFlags srcStageMask = vk::PipelineStageFlagBits::eTopOfPipe;
-
         vkCmdQueue.BeginOneTimeCommands();
 
         if (data) {
             if (!PullMemory(descriptor.data)) {
                 return;
             }
-
-            initialLayout = vk::ImageLayout::eTransferDstOptimal;
-            srcAccessMask = vk::AccessFlagBits::eTransferWrite;
-            srcStageMask = vk::PipelineStageFlagBits::eTransfer;
         }
 
         if (descriptor.mipLevels > 1) {
             if (!GenerateMipmaps()) {
                 return;
             }
-
-            initialLayout = vk::ImageLayout::eTransferSrcOptimal;
-            srcAccessMask = vk::AccessFlagBits::eTransferRead;
-            srcStageMask = vk::PipelineStageFlagBits::eTransfer;
         }
 
-        if (!TransitionImageLayout(initialLayout, srcAccessMask, srcStageMask)) {
+        if (!TransitionFinalImageLayout()) {
             return;
         }
 
@@ -100,7 +92,7 @@ namespace flaw {
         imageInfo.arrayLayers = _arraySize;
         imageInfo.samples = ConvertToVkSampleCount(_sampleCount);
         imageInfo.tiling = vk::ImageTiling::eOptimal;
-        imageInfo.usage = ConvertToVkImageUsageFlags(_bindFlags);
+        imageInfo.usage = ConvertToVkImageUsageFlags(_imageUsages);
         if (hasData) {
             imageInfo.usage |= vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eTransferSrc;
         }
@@ -122,7 +114,7 @@ namespace flaw {
         vk::MemoryRequirements memRequirements = _context.GetVkDevice().getImageMemoryRequirements(_image);
 
         vk::MemoryPropertyFlags properties;
-        GetRequiredVkMemoryPropertyFlags(_usage, properties);
+        GetRequiredVkMemoryPropertyFlags(_memProperty, properties);
 
         vk::MemoryAllocateInfo allocInfo;
         allocInfo.allocationSize = memRequirements.size;
@@ -167,7 +159,7 @@ namespace flaw {
 
         vkCmdQueue.TransitionImageLayout(
             _image,
-            ConvertToVkImageAspectFlags(_bindFlags),
+            ConvertToVkImageAspectFlags(_format),
             vk::ImageLayout::eUndefined,
             vk::ImageLayout::eTransferDstOptimal,
             vk::AccessFlagBits::eNone,
@@ -176,6 +168,10 @@ namespace flaw {
             vk::PipelineStageFlagBits::eTransfer
         );
         vkCmdQueue.CopyBuffer(stagingBuffer.buffer, _image, _width, _height, 0, 0, _arraySize);
+
+		_currentLayout = vk::ImageLayout::eTransferDstOptimal;
+		_currentAccessFlags = vk::AccessFlagBits::eTransferWrite;
+		_currentPipelineStage = vk::PipelineStageFlagBits::eTransfer;
 
         _context.AddDelayedDeletionTasks([&context = _context, stagingBuffer]() {
             context.GetVkDevice().destroyBuffer(stagingBuffer.buffer);
@@ -188,42 +184,58 @@ namespace flaw {
     bool VkTexture2DArray::GenerateMipmaps() {
         auto& vkCmdQueue = static_cast<VkCommandQueue&>(_context.GetCommandQueue());
 
-        vkCmdQueue.GenerateMipmaps(_image, ConvertToVkImageAspectFlags(_bindFlags), ConvertToVkFormat(_format), _width, _height, _arraySize, _mipLevels);
+        vkCmdQueue.GenerateMipmaps(
+            _image, 
+            ConvertToVkImageAspectFlags(_format), 
+            ConvertToVkFormat(_format), 
+            _width, _height, 
+            _arraySize, 
+            _mipLevels,
+			_currentLayout,
+			_currentAccessFlags,
+			_currentPipelineStage
+        );
 
         return true;
     }
 
-    bool VkTexture2DArray::TransitionImageLayout(vk::ImageLayout oldLayout, vk::AccessFlags srcAccessMask, vk::PipelineStageFlags srcStageMask) {
+    bool VkTexture2DArray::TransitionFinalImageLayout() {
         auto& vkCmdQueue = static_cast<VkCommandQueue&>(_context.GetCommandQueue());
 
-        vk::AccessFlags finalAccessFlags;
+        vk::ImageLayout finalLayout = ConvertToVkImageLayout(_imageUsages);
+        vk::PipelineStageFlags finalPipelineStage = ConvertToVkPipelineStageFlags(_imageUsages, _shaderStages);
 
-        if (_bindFlags & BindFlag::ShaderResource) {
+        vk::AccessFlags finalAccessFlags;
+        if (_imageUsages & TextureUsage::ShaderResource) {
             finalAccessFlags |= vk::AccessFlagBits::eShaderRead;
-        } 
-        
-        if (_bindFlags & BindFlag::RenderTarget) {
+        }
+
+        if (_imageUsages & TextureUsage::RenderTarget) {
             finalAccessFlags |= vk::AccessFlagBits::eColorAttachmentWrite;
         }
-        
-        if (_bindFlags & BindFlag::DepthStencil) {
+
+        if (_imageUsages & TextureUsage::DepthStencil) {
             finalAccessFlags |= vk::AccessFlagBits::eDepthStencilAttachmentWrite;
         }
 
-        if (_bindFlags & BindFlag::UnorderedAccess) {
+        if (_imageUsages & TextureUsage::UnorderedAccess) {
             finalAccessFlags |= vk::AccessFlagBits::eShaderWrite | vk::AccessFlagBits::eShaderRead;
         }
 
         vkCmdQueue.TransitionImageLayout(
             _image,
-            ConvertToVkImageAspectFlags(_bindFlags),
-            oldLayout,
-            ConvertToVkImageLayout(_bindFlags),
-            srcAccessMask,
+            ConvertToVkImageAspectFlags(_format),
+            _currentLayout,
+            finalLayout,
+            _currentAccessFlags,
             finalAccessFlags,
-            srcStageMask,
-            ConvertToVkPipelineStageFlags(_bindFlags, ShaderCompileFlag::Pixel)
+            _currentPipelineStage,
+            finalPipelineStage
         );
+
+        _currentLayout = finalLayout;
+        _currentAccessFlags = finalAccessFlags;
+        _currentPipelineStage = finalPipelineStage;
 
         return true;
     }
@@ -233,7 +245,7 @@ namespace flaw {
         viewInfo.image = _image;
         viewInfo.viewType = vk::ImageViewType::e2DArray;
         viewInfo.format = ConvertToVkFormat(_format);
-        viewInfo.subresourceRange.aspectMask = ConvertToVkImageAspectFlags(_bindFlags);
+        viewInfo.subresourceRange.aspectMask = ConvertToVkImageAspectFlags(_format);
         viewInfo.subresourceRange.baseMipLevel = 0;
         viewInfo.subresourceRange.levelCount = _mipLevels;
         viewInfo.subresourceRange.baseArrayLayer = 0;

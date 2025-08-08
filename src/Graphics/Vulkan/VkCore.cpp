@@ -86,13 +86,13 @@ namespace flaw {
         }
     }
 
-    vk::ShaderStageFlagBits ConvertToVkShaderStage(ShaderCompileFlag flag) {
+    vk::ShaderStageFlagBits ConvertToVkShaderStage(ShaderStage flag) {
         switch (flag) {
-        case ShaderCompileFlag::Vertex: return vk::ShaderStageFlagBits::eVertex;
-        case ShaderCompileFlag::Pixel: return vk::ShaderStageFlagBits::eFragment;
-        case ShaderCompileFlag::Geometry: return vk::ShaderStageFlagBits::eGeometry;
-        case ShaderCompileFlag::Hull: return vk::ShaderStageFlagBits::eTessellationControl;
-        case ShaderCompileFlag::Domain: return vk::ShaderStageFlagBits::eTessellationEvaluation;
+        case ShaderStage::Vertex: return vk::ShaderStageFlagBits::eVertex;
+        case ShaderStage::Pixel: return vk::ShaderStageFlagBits::eFragment;
+        case ShaderStage::Geometry: return vk::ShaderStageFlagBits::eGeometry;
+        case ShaderStage::Hull: return vk::ShaderStageFlagBits::eTessellationControl;
+        case ShaderStage::Domain: return vk::ShaderStageFlagBits::eTessellationEvaluation;
         default:
             throw std::runtime_error("Unknown shader compile flag");
         }
@@ -119,42 +119,36 @@ namespace flaw {
     }
 
     vk::ImageLayout ConvertToVkImageLayout(uint32_t bindFlags) {
-        if (bindFlags & BindFlag::RenderTarget) {
+        if (bindFlags & TextureUsage::RenderTarget) {
             return vk::ImageLayout::eColorAttachmentOptimal;
         }
         
-        if (bindFlags & BindFlag::DepthStencil) {
+        if (bindFlags & TextureUsage::DepthStencil) {
             return vk::ImageLayout::eDepthStencilAttachmentOptimal;
         }
 
-        if (bindFlags & BindFlag::UnorderedAccess) {
+        if (bindFlags & TextureUsage::UnorderedAccess) {
             return vk::ImageLayout::eGeneral;
         }
 
-        if (bindFlags & BindFlag::ShaderResource) {
+        if (bindFlags & TextureUsage::ShaderResource) {
             return vk::ImageLayout::eShaderReadOnlyOptimal;
         }
 
         return vk::ImageLayout::eUndefined;
     }
 
-    vk::ImageAspectFlags ConvertToVkImageAspectFlags(uint32_t bindFlags) {
+    vk::ImageAspectFlags ConvertToVkImageAspectFlags(PixelFormat pixelForamt) {
         vk::ImageAspectFlags aspectFlags = {};
 
-        if (bindFlags & BindFlag::DepthStencil) {
-            aspectFlags |= vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil;
-        }
-
-        if (bindFlags & BindFlag::DepthOnly) {
-            aspectFlags |= vk::ImageAspectFlagBits::eDepth;
-        }
-
-        if (bindFlags & BindFlag::StencilOnly) {
-            aspectFlags |= vk::ImageAspectFlagBits::eStencil;
-        }
-
-        if (bindFlags & (BindFlag::RenderTarget | BindFlag::ShaderResource | BindFlag::UnorderedAccess)) {
-            aspectFlags |= vk::ImageAspectFlagBits::eColor;
+        switch (pixelForamt) {
+            case PixelFormat::D24S8_UINT:
+            case PixelFormat::D32F_S8UI:
+                aspectFlags = vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil;
+                break;
+            default:
+                aspectFlags = vk::ImageAspectFlagBits::eColor;
+                break;
         }
 
         return aspectFlags;
@@ -163,28 +157,20 @@ namespace flaw {
     vk::ImageUsageFlags ConvertToVkImageUsageFlags(uint32_t bindFlags) {
         vk::ImageUsageFlags usageFlags = {};
 
-        if (bindFlags & BindFlag::RenderTarget) {
+        if (bindFlags & TextureUsage::RenderTarget) {
             usageFlags |= vk::ImageUsageFlagBits::eColorAttachment;
         }
 
-        if (bindFlags & BindFlag::DepthStencil) {
+        if (bindFlags & TextureUsage::DepthStencil) {
             usageFlags |= vk::ImageUsageFlagBits::eDepthStencilAttachment;
         }
 
-        if (bindFlags & BindFlag::ShaderResource) {
+        if (bindFlags & TextureUsage::ShaderResource) {
             usageFlags |= vk::ImageUsageFlagBits::eSampled;
         }
 
-        if (bindFlags & BindFlag::UnorderedAccess) {
+        if (bindFlags & TextureUsage::UnorderedAccess) {
             usageFlags |= vk::ImageUsageFlagBits::eStorage;
-        }
-
-        if (bindFlags & BindFlag::DepthOnly) {
-            usageFlags |= vk::ImageUsageFlagBits::eDepthStencilAttachment;
-        }
-
-        if (bindFlags & BindFlag::StencilOnly) {
-            usageFlags |= vk::ImageUsageFlagBits::eDepthStencilAttachment;
         }
 
         return usageFlags;
@@ -229,11 +215,11 @@ namespace flaw {
 
     vk::ShaderStageFlags ConvertToVkShaderStages(uint32_t compileFlags) {
         vk::ShaderStageFlags stages = {};
-        if (compileFlags & ShaderCompileFlag::Vertex) stages |= vk::ShaderStageFlagBits::eVertex;
-        if (compileFlags & ShaderCompileFlag::Pixel) stages |= vk::ShaderStageFlagBits::eFragment;
-        if (compileFlags & ShaderCompileFlag::Geometry) stages |= vk::ShaderStageFlagBits::eGeometry;
-        if (compileFlags & ShaderCompileFlag::Hull) stages |= vk::ShaderStageFlagBits::eTessellationControl;
-        if (compileFlags & ShaderCompileFlag::Domain) stages |= vk::ShaderStageFlagBits::eTessellationEvaluation;
+        if (compileFlags & ShaderStage::Vertex) stages |= vk::ShaderStageFlagBits::eVertex;
+        if (compileFlags & ShaderStage::Pixel) stages |= vk::ShaderStageFlagBits::eFragment;
+        if (compileFlags & ShaderStage::Geometry) stages |= vk::ShaderStageFlagBits::eGeometry;
+        if (compileFlags & ShaderStage::Hull) stages |= vk::ShaderStageFlagBits::eTessellationControl;
+        if (compileFlags & ShaderStage::Domain) stages |= vk::ShaderStageFlagBits::eTessellationEvaluation;
         return stages;
     }
 
@@ -279,39 +265,39 @@ namespace flaw {
         }
     }
 
-    vk::PipelineStageFlags ConvertToVkPipelineStageFlags(uint32_t bindFlags, uint32_t bindableShaderStages) {
+    vk::PipelineStageFlags ConvertToVkPipelineStageFlags(uint32_t bindFlags, uint32_t shaderStages) {
         vk::PipelineStageFlags stageFlags = {};
 
-        if (bindFlags & BindFlag::RenderTarget) {
+        if (bindFlags & TextureUsage::RenderTarget) {
             stageFlags |= vk::PipelineStageFlagBits::eColorAttachmentOutput;
         }
 
-        if (bindFlags & BindFlag::DepthStencil) {
+        if (bindFlags & TextureUsage::DepthStencil) {
             stageFlags |= vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests;
         }
 
-        if (bindFlags & (BindFlag::ShaderResource | BindFlag::UnorderedAccess)) {
-            if (bindableShaderStages & ShaderCompileFlag::Vertex) {
+        if (bindFlags & (TextureUsage::ShaderResource | TextureUsage::UnorderedAccess)) {
+            if (shaderStages & ShaderStage::Vertex) {
                 stageFlags |= vk::PipelineStageFlagBits::eVertexShader;
             }
 
-            if (bindableShaderStages & ShaderCompileFlag::Pixel) {
+            if (shaderStages & ShaderStage::Pixel) {
                 stageFlags |= vk::PipelineStageFlagBits::eFragmentShader;
             }
 
-            if (bindableShaderStages & ShaderCompileFlag::Geometry) {
+            if (shaderStages & ShaderStage::Geometry) {
                 stageFlags |= vk::PipelineStageFlagBits::eGeometryShader;
             }
 
-            if (bindableShaderStages & ShaderCompileFlag::Hull) {
+            if (shaderStages & ShaderStage::Hull) {
                 stageFlags |= vk::PipelineStageFlagBits::eTessellationControlShader;
             }
 
-            if (bindableShaderStages & ShaderCompileFlag::Domain) {
+            if (shaderStages & ShaderStage::Domain) {
                 stageFlags |= vk::PipelineStageFlagBits::eTessellationEvaluationShader;
             }
 
-            if (bindableShaderStages & ShaderCompileFlag::Compute) {
+            if (shaderStages & ShaderStage::Compute) {
                 stageFlags |= vk::PipelineStageFlagBits::eComputeShader;
             }
         }
@@ -319,36 +305,27 @@ namespace flaw {
         return stageFlags;
     }
 
-    void GetRequiredVkBufferUsageFlags(UsageFlag usage, vk::BufferUsageFlags& usageFlags) {
-        if (usage == UsageFlag::Static) {
+    void GetRequiredVkBufferUsageFlags(MemoryProperty usage, vk::BufferUsageFlags& usageFlags) {
+        if (usage == MemoryProperty::Static) {
             usageFlags |= vk::BufferUsageFlagBits::eTransferDst;
         }
-        else if (usage == UsageFlag::Dynamic) {
+        else if (usage == MemoryProperty::Dynamic) {
             usageFlags |= vk::BufferUsageFlagBits::eTransferDst;
         }
-        else if (usage == UsageFlag::Staging) {
+        else if (usage == MemoryProperty::Staging) {
             usageFlags |= vk::BufferUsageFlagBits::eTransferSrc | vk::BufferUsageFlagBits::eTransferDst;
         }
     }
 
-    void GetRequiredVkBufferUsageFlags(uint32_t accessFlags, vk::BufferUsageFlags& usageFlags) {
-        if (accessFlags & AccessFlag::Read) {
-            usageFlags |= vk::BufferUsageFlagBits::eTransferSrc;
-        }
-        if (accessFlags & AccessFlag::Write) {
-            usageFlags |= vk::BufferUsageFlagBits::eTransferDst;
-        }
-    }
-
-    void GetRequiredVkMemoryPropertyFlags(UsageFlag flags, vk::MemoryPropertyFlags& memoryFlags) {
+    void GetRequiredVkMemoryPropertyFlags(MemoryProperty flags, vk::MemoryPropertyFlags& memoryFlags) {
         switch (flags) {
-        case UsageFlag::Static:
+        case MemoryProperty::Static:
             memoryFlags |= vk::MemoryPropertyFlagBits::eDeviceLocal;
             break;
-        case UsageFlag::Dynamic:
+        case MemoryProperty::Dynamic:
             memoryFlags |= vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
             break;
-        case UsageFlag::Staging:
+        case MemoryProperty::Staging:
             memoryFlags |= vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
             break;
         default:

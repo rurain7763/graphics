@@ -33,8 +33,8 @@ namespace flaw {
 		
 		virtual void SetComputePipeline(const Ref<ComputePipeline>& pipeline) = 0;
 		virtual void SetComputeConstantBuffer(const Ref<ConstantBuffer>& constantBuffer, uint32_t slot) = 0;
-		virtual void SetComputeTexture(const Ref<Texture>& texture, BindFlag bindFlag, uint32_t slot) = 0;
-		virtual void SetComputeStructuredBuffer(const Ref<StructuredBuffer>& buffer, BindFlag bindFlag, uint32_t slot) = 0;
+		virtual void SetComputeTexture(const Ref<Texture>& texture, TextureUsage bindFlag, uint32_t slot) = 0;
+		virtual void SetComputeStructuredBuffer(const Ref<StructuredBuffer>& buffer, TextureUsage bindFlag, uint32_t slot) = 0;
 		virtual void Dispatch(uint32_t x, uint32_t y, uint32_t z) = 0;
 	};
 }

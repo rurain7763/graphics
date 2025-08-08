@@ -16,9 +16,10 @@ namespace flaw {
 		virtual uint32_t GetWidth() const = 0;
 		virtual uint32_t GetHeight() const = 0;
 		virtual PixelFormat GetPixelFormat() const = 0;
-		virtual UsageFlag GetUsage() const = 0;
+		virtual MemoryProperty GetUsage() const = 0;
 		virtual uint32_t GetBindFlags() const = 0;
 		virtual uint32_t GetSampleCount() const = 0;
+		virtual uint32_t GetShaderStages() const = 0;
 	};
 
 	class Texture2D : public Texture {
@@ -27,10 +28,11 @@ namespace flaw {
 			const uint8_t* data = nullptr;
 			PixelFormat format = PixelFormat::UNDEFINED;
 			uint32_t width = 0, height = 0;
-			UsageFlag usage = UsageFlag::Static;
-			uint32_t bindFlags = 0;
+			MemoryProperty memProperty = MemoryProperty::Static;
+			uint32_t imageUsages = 0;
 			uint32_t mipLevels = 1;
 			uint32_t sampleCount = 1;
+			uint32_t shaderStages = 0;
 		};
 
 		Texture2D() = default;
@@ -50,11 +52,12 @@ namespace flaw {
 			const uint8_t* data = nullptr;
 			PixelFormat format = PixelFormat::UNDEFINED;
 			uint32_t width = 0, height = 0;
-			UsageFlag usage = UsageFlag::Static;
-			uint32_t bindFlags = 0;
+			MemoryProperty memProperty = MemoryProperty::Static;
+			uint32_t imageUsages = 0;
 			uint32_t arraySize = 0;
 			uint32_t mipLevels = 1;
 			uint32_t sampleCount = 1;
+			uint32_t shaderStages = 0;
 		};
 
 		Texture2DArray() = default;
@@ -79,10 +82,11 @@ namespace flaw {
 			const uint8_t* data = nullptr;
 			PixelFormat format = PixelFormat::UNDEFINED;
 			uint32_t width = 0, height = 0;
-			UsageFlag usage = UsageFlag::Static;
-			uint32_t bindFlags = 0;
+			MemoryProperty memProperty = MemoryProperty::Static;
+			uint32_t imageUsages = 0;
 			uint32_t mipLevels = 1;
 			uint32_t sampleCount = 1;
+			uint32_t shaderStages = 0;
 		};
 
 		TextureCube() = default;

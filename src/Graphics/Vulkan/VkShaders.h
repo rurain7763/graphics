@@ -51,6 +51,8 @@ namespace flaw {
 		VkContext& _context;
 
 		vk::DescriptorSet _descriptorSet;
+
+		Ref<VkShaderResourcesLayout> _layout;
 	};
 
 	class VkGraphicsShader : public GraphicsShader {
@@ -63,7 +65,7 @@ namespace flaw {
         void GetVkShaderStages(std::vector<vk::PipelineShaderStageCreateInfo>& shaderStages) const;
 
 	private:
-		void CreateShader(const std::string& filePath, const std::string& entryPoint, ShaderCompileFlag complileFlag);
+		void CreateShader(const std::string& filePath, const std::string& entryPoint, ShaderStage complileFlag);
 
 	private:
 		VkContext& _context;

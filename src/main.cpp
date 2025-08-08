@@ -80,6 +80,8 @@ std::vector<uint8_t> GenerateTextureCubeData(Ref<GraphicsContext> g_graphicsCont
     return textureData;
 }
 
+bool windowMinimized = false;
+
 Ref<VkContext> g_graphicsContext;
 
 Ref<ConstantBuffer> g_cameraConstants;
@@ -100,7 +102,7 @@ void ReleaseComputeShaderRayTracingResources();
 
 int main() {
     Log::Initialize();
-    
+
     Log::Info("Application started successfully.");
     Log::Info("Current working directory: %s", std::filesystem::current_path().string().c_str());
 
@@ -120,14 +122,25 @@ int main() {
         g_graphicsContext->Resize(event.frameBufferWidth, event.frameBufferHeight);
     }, 0);
 
+    eventDispatcher.Register<WindowIconifyEvent>([&](const WindowIconifyEvent& event) {
+        windowMinimized = event.iconified;
+        if (windowMinimized) {
+            Log::Info("Window minimized.");
+        }
+        else {
+            Log::Info("Window restored.");
+        }
+    }, 0);
+
     Image faceImg("./assets/textures/face.jpg", 4);
     Texture2D::Descriptor faceDesc;
     faceDesc.width = faceImg.Width();
     faceDesc.height = faceImg.Height();
     faceDesc.data = faceImg.Data().data();
-    faceDesc.usage = UsageFlag::Static;
-    faceDesc.bindFlags = BindFlag::ShaderResource;
+    faceDesc.memProperty = MemoryProperty::Static;
+    faceDesc.imageUsages = TextureUsage::ShaderResource;
     faceDesc.format = PixelFormat::RGBA8;
+	faceDesc.shaderStages = ShaderStage::Pixel;
 
     Ref<Texture2D> faceTexture = g_graphicsContext->CreateTexture2D(faceDesc);
 
@@ -136,10 +149,11 @@ int main() {
     hausDesc.width = hausImg.Width();
     hausDesc.height = hausImg.Height();
     hausDesc.data = hausImg.Data().data();
-    hausDesc.usage = UsageFlag::Static;
-    hausDesc.bindFlags = BindFlag::ShaderResource;
+    hausDesc.memProperty = MemoryProperty::Static;
+    hausDesc.imageUsages = TextureUsage::ShaderResource;
     hausDesc.format = PixelFormat::RGBA8;
     hausDesc.mipLevels = GetMaxMipLevels(hausDesc.width, hausDesc.height);
+	hausDesc.shaderStages = ShaderStage::Pixel;
 
     Ref<Texture2D> hausTexture = g_graphicsContext->CreateTexture2D(hausDesc);
 
@@ -153,16 +167,16 @@ int main() {
 
     ShaderResourcesLayout::Descriptor shaderResourceLayoutDesc;
     shaderResourceLayoutDesc.bindings = {
-        { 0, ResourceType::ConstantBuffer, ShaderCompileFlag::Vertex, 1 },
-        { 1, ResourceType::ConstantBuffer, ShaderCompileFlag::Pixel, 1 },
-        { 2, ResourceType::StructuredBuffer, ShaderCompileFlag::Vertex, 1 }
+        { 0, ResourceType::ConstantBuffer, ShaderStage::Vertex, 1 },
+        { 1, ResourceType::ConstantBuffer, ShaderStage::Pixel, 1 },
+        { 2, ResourceType::StructuredBuffer, ShaderStage::Vertex, 1 }
     };
 
     auto shaderResourceLayout = g_graphicsContext->CreateShaderResourcesLayout(shaderResourceLayoutDesc);
 
     ShaderResourcesLayout::Descriptor textureResourceLayoutDesc;
     textureResourceLayoutDesc.bindings = {
-        { 0, ResourceType::Texture2D, ShaderCompileFlag::Pixel, 1 }
+        { 0, ResourceType::Texture2D, ShaderStage::Pixel, 1 }
     };
 
     auto textureResourceLayout = g_graphicsContext->CreateShaderResourcesLayout(textureResourceLayoutDesc);
@@ -198,7 +212,7 @@ int main() {
     std::vector<uint32_t> modelIndices = currentModel.GetIndices();
 
     VertexBuffer::Descriptor vertexBufferDesc;
-    vertexBufferDesc.usage = UsageFlag::Static;
+    vertexBufferDesc.usage = MemoryProperty::Static;
     vertexBufferDesc.elmSize = sizeof(TexturedVertex);
     vertexBufferDesc.bufferSize = sizeof(TexturedVertex) * modelVertices.size();
     vertexBufferDesc.initialData = modelVertices.data();
@@ -206,7 +220,7 @@ int main() {
     auto modelVertexBuffer = g_graphicsContext->CreateVertexBuffer(vertexBufferDesc);
 
     IndexBuffer::Descriptor indexBufferDesc;
-    indexBufferDesc.usage = UsageFlag::Static;
+    indexBufferDesc.usage = MemoryProperty::Static;
     indexBufferDesc.bufferSize = sizeof(uint32_t) * modelIndices.size();
     indexBufferDesc.initialData = modelIndices.data();
 
@@ -250,8 +264,7 @@ int main() {
     StructuredBuffer::Descriptor structuredBufferDesc;
     structuredBufferDesc.elmSize = sizeof(glm::mat4);
     structuredBufferDesc.count = 1;
-    structuredBufferDesc.accessFlags = AccessFlag::Write;
-    structuredBufferDesc.bindFlags = BindFlag::ShaderResource;
+    structuredBufferDesc.bindFlags = TextureUsage::ShaderResource;
     structuredBufferDesc.initialData = &modelMatrices;
 
     auto structuredBuffer = g_graphicsContext->CreateStructuredBuffer(structuredBufferDesc);
@@ -298,6 +311,10 @@ int main() {
 
         modelMatrices = ModelMatrix(modelPosition, modelRotation, modelScale);
         structuredBuffer->Update(&modelMatrices, sizeof(glm::mat4));
+
+		if (windowMinimized) {
+			continue; // Skip rendering if the window is minimized
+		}
 
         if (g_graphicsContext->Prepare()) {
             commandQueue.BeginRenderPass();
@@ -365,10 +382,11 @@ void MakeSkyboxResources() {
     skyboxDesc.height = left.Height();
     skyboxDesc.data = textureData.data();
     skyboxDesc.format = PixelFormat::RGBA8;
-    skyboxDesc.usage = UsageFlag::Static;
-    skyboxDesc.bindFlags = BindFlag::ShaderResource;
+    skyboxDesc.memProperty = MemoryProperty::Static;
+    skyboxDesc.imageUsages = TextureUsage::ShaderResource;
     skyboxDesc.layout = TextureCube::Layout::Horizontal;
     skyboxDesc.mipLevels = GetMaxMipLevels(skyboxDesc.width, skyboxDesc.height);
+	skyboxDesc.shaderStages = ShaderStage::Pixel;
 
     g_skybox = g_graphicsContext->CreateTextureCube(skyboxDesc);
 
@@ -382,14 +400,14 @@ void MakeSkyboxResources() {
 
     ShaderResourcesLayout::Descriptor skyboxResourceLayoutDesc0;
     skyboxResourceLayoutDesc0.bindings = {
-        { 0, ResourceType::ConstantBuffer, ShaderCompileFlag::Vertex, 1 }
+        { 0, ResourceType::ConstantBuffer, ShaderStage::Vertex, 1 }
     };
 
     g_skyboxResourcesLayout0 = g_graphicsContext->CreateShaderResourcesLayout(skyboxResourceLayoutDesc0);
 
     ShaderResourcesLayout::Descriptor skyboxResourceLayoutDesc1;
     skyboxResourceLayoutDesc1.bindings = {
-        { 0, ResourceType::TextureCube, ShaderCompileFlag::Pixel, 1 }
+        { 0, ResourceType::TextureCube, ShaderStage::Pixel, 1 }
     };
 
     g_skyboxResourcesLayout1 = g_graphicsContext->CreateShaderResourcesLayout(skyboxResourceLayoutDesc1);
@@ -434,9 +452,10 @@ void MakeComputeShaderRayTracingResources() {
     storageTextureDesc.width = 1024;
     storageTextureDesc.height = 1024;
     storageTextureDesc.format = PixelFormat::RGBA8;
-    storageTextureDesc.usage = UsageFlag::Static;
-    storageTextureDesc.bindFlags = BindFlag::UnorderedAccess | BindFlag::ShaderResource;
+    storageTextureDesc.memProperty = MemoryProperty::Static;
+    storageTextureDesc.imageUsages = TextureUsage::UnorderedAccess | TextureUsage::ShaderResource;
     storageTextureDesc.sampleCount = 1;
+	storageTextureDesc.shaderStages = ShaderStage::Compute | ShaderStage::Pixel;
 
     g_storageTexture = g_graphicsContext->CreateTexture2D(storageTextureDesc);
 }

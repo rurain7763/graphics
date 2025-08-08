@@ -25,11 +25,11 @@ namespace flaw {
         }
 
         if (descriptor.initialData) {
-            if (descriptor.usage == UsageFlag::Static) {
+            if (descriptor.usage == MemoryProperty::Static) {
                 auto& vkCommandQueue = static_cast<VkCommandQueue&>(context.GetCommandQueue());
     
                 Descriptor stagingDesc;
-                stagingDesc.usage = UsageFlag::Staging;
+                stagingDesc.usage = MemoryProperty::Staging;
                 stagingDesc.elmSize = descriptor.elmSize;
                 stagingDesc.bufferSize = descriptor.bufferSize;
                 stagingDesc.initialData = descriptor.initialData;

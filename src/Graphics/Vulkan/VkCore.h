@@ -41,11 +41,11 @@ namespace flaw {
     vk::PolygonMode ConvertToVkFillMode(FillMode fillMode);
     vk::CullModeFlags ConvertToVkCullMode(CullMode cullMode);
     vk::CompareOp ConvertToVkDepthTest(DepthTest depthTest);
-    vk::ShaderStageFlagBits ConvertToVkShaderStage(ShaderCompileFlag flag);
+    vk::ShaderStageFlagBits ConvertToVkShaderStage(ShaderStage flag);
     vk::VertexInputRate ConvertToVkVertexInputRate(VertexInputRate rate);
     vk::ImageLayout ConvertToVkImageLayout(TextureLayout layout);
     vk::ImageLayout ConvertToVkImageLayout(uint32_t bindFlags);
-    vk::ImageAspectFlags ConvertToVkImageAspectFlags(uint32_t bindFlags);
+    vk::ImageAspectFlags ConvertToVkImageAspectFlags(PixelFormat pixelForamt);
     vk::ImageUsageFlags ConvertToVkImageUsageFlags(uint32_t bindFlags);
     vk::Format ConvertToVkFormat(ElementType type, uint32_t count);
     vk::DescriptorType ConvertToVkDescriptorType(ResourceType resourceType);
@@ -54,10 +54,9 @@ namespace flaw {
     vk::AttachmentLoadOp ConvertToVkAttachmentLoadOp(AttachmentLoadOp loadOp);
     vk::AttachmentStoreOp ConvertToVkAttachmentStoreOp(AttachmentStoreOp storeOp);
     vk::SampleCountFlagBits ConvertToVkSampleCount(uint32_t sampleCount);
-    vk::PipelineStageFlags ConvertToVkPipelineStageFlags(uint32_t bindFlags, uint32_t bindableShaderStages);
-    void GetRequiredVkBufferUsageFlags(UsageFlag usage, vk::BufferUsageFlags& usageFlags);
-    void GetRequiredVkBufferUsageFlags(uint32_t accessFlags, vk::BufferUsageFlags& usageFlags);
-    void GetRequiredVkMemoryPropertyFlags(UsageFlag flags, vk::MemoryPropertyFlags& memoryFlags);
+    vk::PipelineStageFlags ConvertToVkPipelineStageFlags(uint32_t bindFlags, uint32_t shaderStages);
+    void GetRequiredVkBufferUsageFlags(MemoryProperty usage, vk::BufferUsageFlags& usageFlags);
+    void GetRequiredVkMemoryPropertyFlags(MemoryProperty flags, vk::MemoryPropertyFlags& memoryFlags);
     bool CheckSupportedInstanceExtensions(const std::vector<const char*>& requiredExtensions);
     bool CheckSupportedInstanceLayers(const std::vector<const char*>& requiredLayers);
     bool CheckSupportedPhysicalDeviceExtensions(const vk::PhysicalDevice& device, const std::vector<const char*>& requiredExtensions);

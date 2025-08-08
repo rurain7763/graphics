@@ -390,11 +390,11 @@ namespace flaw {
         // Set the compute constant buffer for the command queue
     }
 
-    void VkCommandQueue::SetComputeTexture(const Ref<Texture>& texture, BindFlag bindFlag, uint32_t slot) {
+    void VkCommandQueue::SetComputeTexture(const Ref<Texture>& texture, TextureUsage bindFlag, uint32_t slot) {
         // Set the compute texture for the command
     }
 
-    void VkCommandQueue::SetComputeStructuredBuffer(const Ref<StructuredBuffer>& buffer, BindFlag bindFlag, uint32_t slot) {
+    void VkCommandQueue::SetComputeStructuredBuffer(const Ref<StructuredBuffer>& buffer, TextureUsage bindFlag, uint32_t slot) {
         // Set the compute structured buffer for the command queue
     }
 
@@ -527,7 +527,15 @@ namespace flaw {
         _oneTimeCommandBuffer.pipelineBarrier(srcStageMask, dstStageMask, vk::DependencyFlags(), nullptr, nullptr, barrier);
     }
 
-    void VkCommandQueue::GenerateMipmaps(const vk::Image& image, vk::ImageAspectFlags aspectMask, vk::Format format, uint32_t width, uint32_t height, uint32_t arrayLayer, uint32_t mipLevels) {
+	void VkCommandQueue::GenerateMipmaps(const vk::Image& image,
+		                                vk::ImageAspectFlags aspectMask,
+		                                vk::Format format, uint32_t width, uint32_t height,
+		                                uint32_t arrayLayer,
+		                                uint32_t mipLevels,
+		                                vk::ImageLayout& oldLayout,
+		                                vk::AccessFlags& srcAccessMask,
+		                                vk::PipelineStageFlags& srcStageMask)
+    {
         vk::FormatProperties formatProperties;
         _context.GetVkPhysicalDevice().getFormatProperties(format, &formatProperties);
         if (!(formatProperties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eSampledImageFilterLinear)) {
@@ -546,16 +554,16 @@ namespace flaw {
         barrier.subresourceRange.aspectMask = aspectMask;
         barrier.subresourceRange.baseArrayLayer = 0;
         barrier.subresourceRange.layerCount = arrayLayer;
-        barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+		barrier.srcAccessMask = srcAccessMask;
         barrier.dstAccessMask = vk::AccessFlagBits::eTransferRead;
 
         // 초기 상태: 밉 레벨 0을 TRANSFER_DST_OPTIMAL에서 TRANSFER_SRC_OPTIMAL로 전환
         // 이 상태는 밉 레벨 0이 첫 번째 블리팅의 소스가 되기 위함입니다.
         barrier.subresourceRange.baseMipLevel = 0;
         barrier.subresourceRange.levelCount = 1;
-        barrier.oldLayout = vk::ImageLayout::eTransferDstOptimal;
+		barrier.oldLayout = oldLayout;
         barrier.newLayout = vk::ImageLayout::eTransferSrcOptimal;
-        _oneTimeCommandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, {}, nullptr, nullptr, barrier);
+        _oneTimeCommandBuffer.pipelineBarrier(srcStageMask, vk::PipelineStageFlagBits::eTransfer, {}, nullptr, nullptr, barrier);
 
         int32_t mipWidth = static_cast<int32_t>(width);
         int32_t mipHeight = static_cast<int32_t>(height);
@@ -580,15 +588,19 @@ namespace flaw {
             blitRegion.dstSubresource.baseArrayLayer = 0;
             blitRegion.dstSubresource.layerCount = arrayLayer;
 
-            _oneTimeCommandBuffer.blitImage(image, vk::ImageLayout::eTransferSrcOptimal, image, vk::ImageLayout::eTransferDstOptimal, 1, &blitRegion, vk::Filter::eLinear);
+            _oneTimeCommandBuffer.blitImage(image, vk::ImageLayout::eTransferSrcOptimal, image, oldLayout, 1, &blitRegion, vk::Filter::eLinear);
 
             // 현재 밉 레벨(i)을 다음 반복의 소스로 사용하기 위해 TRANSFER_SRC_OPTIMAL로 전환합니다.
             barrier.subresourceRange.baseMipLevel = i;
             barrier.subresourceRange.levelCount = 1;
-            barrier.oldLayout = vk::ImageLayout::eTransferDstOptimal;
+            barrier.oldLayout = oldLayout;
             barrier.newLayout = vk::ImageLayout::eTransferSrcOptimal;
-            _oneTimeCommandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, {}, nullptr, nullptr, barrier);
+            _oneTimeCommandBuffer.pipelineBarrier(srcStageMask, vk::PipelineStageFlagBits::eTransfer, {}, nullptr, nullptr, barrier);
         }
+
+		oldLayout = vk::ImageLayout::eTransferSrcOptimal;
+		srcAccessMask = vk::AccessFlagBits::eTransferRead;
+        srcStageMask = vk::PipelineStageFlagBits::eTransfer;
     }
 }
 

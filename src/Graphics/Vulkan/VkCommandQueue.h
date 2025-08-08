@@ -43,8 +43,8 @@ namespace flaw {
 
         void SetComputePipeline(const Ref<ComputePipeline>& pipeline) override;
         void SetComputeConstantBuffer(const Ref<ConstantBuffer>& constantBuffer, uint32_t slot) override;
-        void SetComputeTexture(const Ref<Texture>& texture, BindFlag bindFlag, uint32_t slot) override;
-        void SetComputeStructuredBuffer(const Ref<StructuredBuffer>& buffer, BindFlag bindFlag, uint32_t slot) override;
+        void SetComputeTexture(const Ref<Texture>& texture, TextureUsage bindFlag, uint32_t slot) override;
+        void SetComputeStructuredBuffer(const Ref<StructuredBuffer>& buffer, TextureUsage bindFlag, uint32_t slot) override;
         void Dispatch(uint32_t x, uint32_t y, uint32_t z) override;
 
         void BeginOneTimeCommands();
@@ -62,7 +62,14 @@ namespace flaw {
                                     vk::PipelineStageFlags srcStageMask,
                                     vk::PipelineStageFlags dstStageMask );
 
-        void GenerateMipmaps(const vk::Image& image, vk::ImageAspectFlags aspectMask, vk::Format format, uint32_t width, uint32_t height, uint32_t arrayLayer, uint32_t mipLevels);
+        void GenerateMipmaps( const vk::Image& image, 
+                              vk::ImageAspectFlags aspectMask, 
+                              vk::Format format, uint32_t width, uint32_t height, 
+                              uint32_t arrayLayer, 
+                              uint32_t mipLevels,
+                              vk::ImageLayout& oldLayout,
+			                  vk::AccessFlags& srcAccessMask,
+                              vk::PipelineStageFlags& srcStageMask);
 
     private:
         bool CreateCommandBuffers();
