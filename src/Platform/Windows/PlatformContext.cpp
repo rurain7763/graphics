@@ -365,6 +365,11 @@ namespace flaw {
 		return internalData->height;
 	}
 
+	WindowSizeState PlatformContext::GetWindowSizeState() const {
+		auto* internalData = static_cast<PlatformContextInternalData*>(_internalData);
+		return internalData->windowSizeState;
+	}
+
 	void PlatformContext::GetFrameBufferSize(int32_t& width, int32_t& height) {
 		auto* internalData = static_cast<PlatformContextInternalData*>(_internalData);
 		width = internalData->frameBufferWidth;

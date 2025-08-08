@@ -80,8 +80,6 @@ std::vector<uint8_t> GenerateTextureCubeData(Ref<GraphicsContext> g_graphicsCont
     return textureData;
 }
 
-bool windowMinimized = false;
-
 Ref<VkContext> g_graphicsContext;
 
 Ref<ConstantBuffer> g_cameraConstants;
@@ -120,16 +118,6 @@ int main() {
 
     eventDispatcher.Register<WindowResizeEvent>([&](const WindowResizeEvent& event) {
         g_graphicsContext->Resize(event.frameBufferWidth, event.frameBufferHeight);
-    }, 0);
-
-    eventDispatcher.Register<WindowIconifyEvent>([&](const WindowIconifyEvent& event) {
-        windowMinimized = event.iconified;
-        if (windowMinimized) {
-            Log::Info("Window minimized.");
-        }
-        else {
-            Log::Info("Window restored.");
-        }
     }, 0);
 
     Image faceImg("./assets/textures/face.jpg", 4);
@@ -299,7 +287,7 @@ int main() {
         context->SetTitle(title.c_str());
 
         int32_t width, height;
-        g_graphicsContext->GetSize(width, height);
+        context->GetFrameBufferSize(width, height);
 
         CameraConstants cameraConstants;
         cameraConstants.view_matrix = ViewMatrix(cameraPosition, cameraRotation);
@@ -312,7 +300,7 @@ int main() {
         modelMatrices = ModelMatrix(modelPosition, modelRotation, modelScale);
         structuredBuffer->Update(&modelMatrices, sizeof(glm::mat4));
 
-		if (windowMinimized) {
+		if (context->GetWindowSizeState() == WindowSizeState::Minimized) {
 			continue; // Skip rendering if the window is minimized
 		}
 

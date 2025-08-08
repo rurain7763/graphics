@@ -40,6 +40,8 @@ namespace flaw {
 		int32_t GetWidth() const;
 		int32_t GetHeight() const;
 
+		WindowSizeState GetWindowSizeState() const;
+
 	#ifdef _WIN32
 		void SetUserWndProc(const std::function<LRESULT(HWND, UINT, WPARAM, LPARAM)>& userWndProc);
 		

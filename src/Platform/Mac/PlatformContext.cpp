@@ -21,7 +21,9 @@ namespace flaw {
 		GLFWwindow* window;
 		int32_t x, y, width, height;
 		int32_t frameBufferWidth, frameBufferHeight;
+
 		WindowSizeState windowSizeState;
+		std::chrono::steady_clock::time_point lastResizeTime;
 	};
 
 	static void GLFWErrorCallback(int error, const char* description) {
@@ -71,7 +73,19 @@ namespace flaw {
 			internalData->height = height;
 			glfwGetFramebufferSize(window, &internalData->frameBufferWidth, &internalData->frameBufferHeight);
 			
-			internalData->_eventDispatcher->Dispatch<WindowResizeEvent>(width, height, internalData->frameBufferWidth, internalData->frameBufferHeight);
+			internalData->lastResizeTime = std::chrono::steady_clock::now();
+		});
+
+		glfwSetWindowIconifyCallback(internalData->window, [](GLFWwindow* window, int iconified) {
+			auto* internalData = static_cast<PlatformContextInternalData*>(glfwGetWindowUserPointer(window));
+			internalData->windowSizeState = iconified ? WindowSizeState::Minimized : WindowSizeState::Normal;
+			internalData->_eventDispatcher->Dispatch<WindowIconifyEvent>(iconified);
+		});
+
+		glfwSetWindowMaximizeCallback(internalData->window, [](GLFWwindow* window, int maximized) {
+			auto* internalData = static_cast<PlatformContextInternalData*>(glfwGetWindowUserPointer(window));
+			internalData->windowSizeState = maximized ? WindowSizeState::Maximized : WindowSizeState::Normal;
+			internalData->_eventDispatcher->Dispatch<WindowResizeEvent>(internalData->width, internalData->height, internalData->frameBufferWidth, internalData->frameBufferHeight);
 		});
 	}
 
@@ -92,7 +106,16 @@ namespace flaw {
 
 	bool PlatformContext::PollEvents() {
 		auto* internalData = static_cast<PlatformContextInternalData*>(_internalData);
+
 		glfwPollEvents();
+
+		if (internalData->lastResizeTime.time_since_epoch().count() > 0) {
+			if (std::chrono::steady_clock::now() - internalData->lastResizeTime > std::chrono::milliseconds(10)) {
+				internalData->_eventDispatcher->Dispatch<WindowResizeEvent>(internalData->width, internalData->height, internalData->frameBufferWidth, internalData->frameBufferHeight);
+				internalData->lastResizeTime = std::chrono::steady_clock::time_point();
+			}
+		}
+
 		return !glfwWindowShouldClose(internalData->window);
 	}
 
@@ -107,6 +130,12 @@ namespace flaw {
 		glfwSetWindowTitle(internalData->window, title);
 	}
 
+	WindowSizeState PlatformContext::GetWindowSizeState() const {
+		auto* internalData = static_cast<PlatformContextInternalData*>(_internalData);
+		return internalData->windowSizeState;
+	}
+
+	#ifdef SUPPORT_VULKAN
 	void PlatformContext::GetVkRequiredExtensions(std::vector<const char*>& extensions) const {
 		uint32_t count;
 		const char** exts = glfwGetRequiredInstanceExtensions(&count);
@@ -125,6 +154,7 @@ namespace flaw {
 
 		throw std::runtime_error("Failed to create Vulkan surface.");
 	}
+	#endif
 }
 
 #endif

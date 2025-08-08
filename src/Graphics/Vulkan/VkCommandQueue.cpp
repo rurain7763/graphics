@@ -110,12 +110,18 @@ namespace flaw {
 
         auto acquireWrapper = _context.GetVkDevice().acquireNextImageKHR(_context.GetVkSwapchain().GetNativeVkSwapchain(), UINT64_MAX, _presentCompleteSemaphores[_currentCommandBufferIndex], nullptr);
         if (acquireWrapper.result == vk::Result::eSuboptimalKHR) {
-            Log::Warn("Vulkan swapchain is in a suboptimal state: %s", vk::to_string(acquireWrapper.result).c_str());
+            LOG_WARN("Vulkan swapchain is in a suboptimal state");
+        }
+        else if (acquireWrapper.result == vk::Result::eErrorOutOfDateKHR) {
+            LOG_ERROR("Vulkan swapchain is out of date: %s", vk::to_string(acquireWrapper.result).c_str());
             return false;
-        } else if (acquireWrapper.result != vk::Result::eSuccess) {
-            Log::Fatal("Failed to acquire next image from Vulkan swapchain: %s", vk::to_string(acquireWrapper.result).c_str());
+        } 
+        else if (acquireWrapper.result != vk::Result::eSuccess) {
+            LOG_FATAL("Failed to acquire next image from Vulkan swapchain: %s", vk::to_string(acquireWrapper.result).c_str());
             return false;
         }
+
+        _context.GetVkDevice().resetFences(1, &_inFlightFences[_currentCommandBufferIndex]);
 
         _currentFrameIndex = acquireWrapper.value;
 
@@ -354,7 +360,6 @@ namespace flaw {
         submitInfo.signalSemaphoreCount = 1;
         submitInfo.pSignalSemaphores = signalSemaphores;
 
-        _context.GetVkDevice().resetFences(1, &_inFlightFences[_currentCommandBufferIndex]);
         result = _context.GetVkGraphicsQueue().submit(1, &submitInfo, _inFlightFences[_currentCommandBufferIndex]);
         if (result != vk::Result::eSuccess) {
             Log::Fatal("Failed to submit Vulkan command buffer: %s", vk::to_string(result).c_str());
@@ -375,8 +380,14 @@ namespace flaw {
         presentInfo.pImageIndices = &_currentFrameIndex;
 
         auto result = _context.GetVkPresentQueue().presentKHR(presentInfo);
-        if (result != vk::Result::eSuccess) {
-            Log::Fatal("Failed to present Vulkan swapchain: %s", vk::to_string(result).c_str());
+        if (result == vk::Result::eSuboptimalKHR) {
+            LOG_WARN("Vulkan swapchain is in a suboptimal state");
+        } 
+        else if (result == vk::Result::eErrorOutOfDateKHR) {
+            LOG_ERROR("Vulkan swapchain is out of date: %s", vk::to_string(result).c_str());
+        }
+        else if (result != vk::Result::eSuccess) {
+            LOG_FATAL("Failed to present Vulkan swapchain: %s", vk::to_string(result).c_str());
         }
 
         _currentCommandBufferIndex = (_currentCommandBufferIndex + 1) % _graphicsFrameCommandBuffers.size();
