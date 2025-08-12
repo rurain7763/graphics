@@ -16,10 +16,9 @@ namespace flaw {
 		virtual uint32_t GetWidth() const = 0;
 		virtual uint32_t GetHeight() const = 0;
 		virtual PixelFormat GetPixelFormat() const = 0;
-		virtual MemoryProperty GetUsage() const = 0;
-		virtual uint32_t GetBindFlags() const = 0;
+		virtual TextureUsages GetUsages() const = 0;
 		virtual uint32_t GetSampleCount() const = 0;
-		virtual uint32_t GetShaderStages() const = 0;
+		virtual ShaderStages GetShaderStages() const = 0;
 	};
 
 	class Texture2D : public Texture {
@@ -29,10 +28,10 @@ namespace flaw {
 			PixelFormat format = PixelFormat::UNDEFINED;
 			uint32_t width = 0, height = 0;
 			MemoryProperty memProperty = MemoryProperty::Static;
-			uint32_t imageUsages = 0;
+			TextureUsages texUsages = 0;
 			uint32_t mipLevels = 1;
 			uint32_t sampleCount = 1;
-			uint32_t shaderStages = 0;
+			ShaderStages shaderStages = 0;
 		};
 
 		Texture2D() = default;
@@ -47,23 +46,21 @@ namespace flaw {
 	class Texture2DArray : public Texture {
 	public:
 		struct Descriptor {
-			bool fromMemory = false;
-			std::vector<Ref<Texture2D>> textures;
 			const uint8_t* data = nullptr;
 			PixelFormat format = PixelFormat::UNDEFINED;
 			uint32_t width = 0, height = 0;
 			MemoryProperty memProperty = MemoryProperty::Static;
-			uint32_t imageUsages = 0;
+			TextureUsages texUsages = 0;
 			uint32_t arraySize = 0;
 			uint32_t mipLevels = 1;
 			uint32_t sampleCount = 1;
-			uint32_t shaderStages = 0;
+			ShaderStages shaderStages = 0;
 		};
 
 		Texture2DArray() = default;
 		virtual ~Texture2DArray() = default;
 
-		virtual void FetchAll(void* outData) const = 0;
+		virtual void Fetch(void* outData, const uint32_t size) const = 0;
 
 		virtual void CopyTo(Ref<Texture2DArray>& target) const = 0;
 
@@ -72,21 +69,15 @@ namespace flaw {
 
 	class TextureCube : public Texture {
 	public:
-		enum class Layout {
-			Horizontal,
-			HorizontalCross,
-		};
-
 		struct Descriptor {
-			Layout layout = Layout::Horizontal;
 			const uint8_t* data = nullptr;
 			PixelFormat format = PixelFormat::UNDEFINED;
 			uint32_t width = 0, height = 0;
 			MemoryProperty memProperty = MemoryProperty::Static;
-			uint32_t imageUsages = 0;
+			TextureUsages texUsages = 0;
 			uint32_t mipLevels = 1;
 			uint32_t sampleCount = 1;
-			uint32_t shaderStages = 0;
+			ShaderStages shaderStages = 0;
 		};
 
 		TextureCube() = default;

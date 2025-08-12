@@ -221,7 +221,7 @@ namespace flaw {
         desc.height = _extent.height;
         desc.format = _depthStencilFormat;
         desc.memProperty = MemoryProperty::Static;
-        desc.imageUsages = TextureUsage::DepthStencil;
+        desc.texUsages = TextureUsage::DepthStencil;
         desc.sampleCount = _context.GetMSAAState() ? _context.GetMSAASampleCount() : 1;
 
         _depthStencilTextures.reserve(_renderTextures.size());
@@ -244,7 +244,7 @@ namespace flaw {
             desc.height = _extent.height;
             desc.format = PixelFormat::BGRA8;
             desc.memProperty = MemoryProperty::Static;
-            desc.imageUsages = TextureUsage::RenderTarget;
+            desc.texUsages = TextureUsage::RenderTarget;
             desc.sampleCount = _context.GetMSAASampleCount();
 
             _msaaColorTextures.push_back(CreateRef<VkTexture2D>(_context, desc));
@@ -259,11 +259,11 @@ namespace flaw {
         
         if (!_context.GetMSAAState()) {
             renderPassLayoutDesc.sampleCount = 1;
-            renderPassLayoutDesc.colorAttachments = { { PixelFormat::BGRA8, BlendMode::Default, false } };
+            renderPassLayoutDesc.colorAttachments = { { PixelFormat::BGRA8, BlendMode::Default } };
             renderPassLayoutDesc.depthStencilAttachment = { _depthStencilFormat };
         } else {
             renderPassLayoutDesc.sampleCount = _context.GetMSAASampleCount();
-            renderPassLayoutDesc.colorAttachments = { { PixelFormat::BGRA8, BlendMode::Default, false } };
+            renderPassLayoutDesc.colorAttachments = { { PixelFormat::BGRA8, BlendMode::Default } };
             renderPassLayoutDesc.depthStencilAttachment = { _depthStencilFormat };
             renderPassLayoutDesc.resolveAttachment = { PixelFormat::BGRA8 };
         }
@@ -273,38 +273,38 @@ namespace flaw {
         GraphicsRenderPass::Descriptor renderPassDesc;
         renderPassDesc.layout = _renderPassLayout;
 
-        renderPassDesc.depthStencilAttachmentOperation = {
+        renderPassDesc.depthStencilAttachmentOp = {
             { TextureLayout::Undefined, TextureLayout::DepthStencil, AttachmentLoadOp::Clear, AttachmentStoreOp::Store, AttachmentLoadOp::DontCare, AttachmentStoreOp::DontCare }
         };
 
         if (_context.GetMSAAState()) {
-            renderPassDesc.colorAttachmentOperations = {
+            renderPassDesc.colorAttachmentOps = {
                 { TextureLayout::Undefined, TextureLayout::Color, AttachmentLoadOp::Clear, AttachmentStoreOp::Store }
             };
-            renderPassDesc.resolveAttachmentOperation = {
+            renderPassDesc.resolveAttachmentOp = {
                 { TextureLayout::Undefined, TextureLayout::Present, AttachmentLoadOp::Clear, AttachmentStoreOp::Store }
             };
         } else {
-            renderPassDesc.colorAttachmentOperations = {
+            renderPassDesc.colorAttachmentOps = {
                 { TextureLayout::Undefined, TextureLayout::Present, AttachmentLoadOp::Clear, AttachmentStoreOp::Store }
             };
         }
 
         _clearOpRenderPass = CreateRef<VkRenderPass>(_context, renderPassDesc);
 
-        renderPassDesc.depthStencilAttachmentOperation = {
+        renderPassDesc.depthStencilAttachmentOp = {
             { TextureLayout::DepthStencil, TextureLayout::DepthStencil, AttachmentLoadOp::Load, AttachmentStoreOp::Store, AttachmentLoadOp::DontCare, AttachmentStoreOp::DontCare }
         };
 
         if (_context.GetMSAAState()) {
-            renderPassDesc.colorAttachmentOperations = {
+            renderPassDesc.colorAttachmentOps = {
                 { TextureLayout::Color, TextureLayout::Color, AttachmentLoadOp::Load, AttachmentStoreOp::Store }
             };
-            renderPassDesc.resolveAttachmentOperation = {
+            renderPassDesc.resolveAttachmentOp = {
                 { TextureLayout::Present, TextureLayout::Present, AttachmentLoadOp::Load, AttachmentStoreOp::Store }
             };
         } else {
-            renderPassDesc.colorAttachmentOperations = {
+            renderPassDesc.colorAttachmentOps = {
                 { TextureLayout::Present, TextureLayout::Present, AttachmentLoadOp::Load, AttachmentStoreOp::Store }
             };
         }

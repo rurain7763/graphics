@@ -13,7 +13,7 @@ namespace flaw {
         : _context(context) 
         , _format(descriptor.format)
         , _memProperty(descriptor.memProperty)
-        , _imageUsages(descriptor.imageUsages)
+        , _texUsages(descriptor.texUsages)
         , _mipLevels(descriptor.mipLevels)
         , _arraySize(descriptor.arraySize)
         , _sampleCount(descriptor.sampleCount)
@@ -24,12 +24,7 @@ namespace flaw {
 		, _currentAccessFlags(vk::AccessFlagBits::eNone)
 		, _currentPipelineStage(vk::PipelineStageFlagBits::eTopOfPipe)
     {
-        const uint8_t* data = descriptor.data;
-        if (!descriptor.fromMemory && !descriptor.textures.empty()) {
-            // TODO: merge textures into a single data block  
-        }
-
-        if (!CreateImage(data)) {
+        if (!CreateImage(descriptor.data)) {
             return;
         }
 
@@ -41,7 +36,7 @@ namespace flaw {
 
         vkCmdQueue.BeginOneTimeCommands();
 
-        if (data) {
+        if (descriptor.data) {
             if (!PullMemory(descriptor.data)) {
                 return;
             }
@@ -92,7 +87,7 @@ namespace flaw {
         imageInfo.arrayLayers = _arraySize;
         imageInfo.samples = ConvertToVkSampleCount(_sampleCount);
         imageInfo.tiling = vk::ImageTiling::eOptimal;
-        imageInfo.usage = ConvertToVkImageUsageFlags(_imageUsages);
+        imageInfo.usage = ConvertToVkImageUsageFlags(_texUsages);
         if (hasData) {
             imageInfo.usage |= vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eTransferSrc;
         }
@@ -202,23 +197,23 @@ namespace flaw {
     bool VkTexture2DArray::TransitionFinalImageLayout() {
         auto& vkCmdQueue = static_cast<VkCommandQueue&>(_context.GetCommandQueue());
 
-        vk::ImageLayout finalLayout = ConvertToVkImageLayout(_imageUsages);
-        vk::PipelineStageFlags finalPipelineStage = ConvertToVkPipelineStageFlags(_imageUsages, _shaderStages);
+        vk::ImageLayout finalLayout = ConvertToVkImageLayout(_texUsages);
+        vk::PipelineStageFlags finalPipelineStage = ConvertToVkPipelineStageFlags(_texUsages, _shaderStages);
 
         vk::AccessFlags finalAccessFlags;
-        if (_imageUsages & TextureUsage::ShaderResource) {
+        if (_texUsages & TextureUsage::ShaderResource) {
             finalAccessFlags |= vk::AccessFlagBits::eShaderRead;
         }
 
-        if (_imageUsages & TextureUsage::RenderTarget) {
+        if (_texUsages & TextureUsage::RenderTarget) {
             finalAccessFlags |= vk::AccessFlagBits::eColorAttachmentWrite;
         }
 
-        if (_imageUsages & TextureUsage::DepthStencil) {
+        if (_texUsages & TextureUsage::DepthStencil) {
             finalAccessFlags |= vk::AccessFlagBits::eDepthStencilAttachmentWrite;
         }
 
-        if (_imageUsages & TextureUsage::UnorderedAccess) {
+        if (_texUsages & TextureUsage::UnorderedAccess) {
             finalAccessFlags |= vk::AccessFlagBits::eShaderWrite | vk::AccessFlagBits::eShaderRead;
         }
 

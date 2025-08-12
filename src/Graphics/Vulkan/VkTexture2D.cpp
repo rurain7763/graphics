@@ -14,7 +14,7 @@ namespace flaw {
         , _isExternalImage(false)
         , _format(descriptor.format)
         , _memProperty(descriptor.memProperty)
-        , _imageUsages(descriptor.imageUsages)
+        , _texUsages(descriptor.texUsages)
         , _mipLevels(descriptor.mipLevels)
         , _sampleCount(descriptor.sampleCount)
 		, _shaderStages(descriptor.shaderStages)
@@ -75,7 +75,7 @@ namespace flaw {
         , _height(height)
         , _format(format)
         , _memProperty(usage)
-        , _imageUsages(bindFlags)
+        , _texUsages(bindFlags)
         , _sampleCount(sampleCount)
         , _mipLevels(mipLevels)
 		, _shaderStages(shaderStages)
@@ -113,7 +113,7 @@ namespace flaw {
         imageInfo.arrayLayers = 1;
         imageInfo.samples = ConvertToVkSampleCount(_sampleCount);
         imageInfo.tiling = vk::ImageTiling::eOptimal;
-        imageInfo.usage = ConvertToVkImageUsageFlags(_imageUsages) | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eTransferSrc;
+        imageInfo.usage = ConvertToVkImageUsageFlags(_texUsages) | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eTransferSrc;
         imageInfo.sharingMode = vk::SharingMode::eExclusive;
         imageInfo.initialLayout = vk::ImageLayout::eUndefined;
 
@@ -217,23 +217,23 @@ namespace flaw {
     bool VkTexture2D::TransitionFinalImageLayout() {
         auto& vkCmdQueue = static_cast<VkCommandQueue&>(_context.GetCommandQueue());
 
-		vk::ImageLayout finalLayout = ConvertToVkImageLayout(_imageUsages);
-		vk::PipelineStageFlags finalPipelineStage = ConvertToVkPipelineStageFlags(_imageUsages, _shaderStages);
+		vk::ImageLayout finalLayout = ConvertToVkImageLayout(_texUsages);
+		vk::PipelineStageFlags finalPipelineStage = ConvertToVkPipelineStageFlags(_texUsages, _shaderStages);
 
         vk::AccessFlags finalAccessFlags;
-        if (_imageUsages & TextureUsage::ShaderResource) {
+        if (_texUsages & TextureUsage::ShaderResource) {
             finalAccessFlags |= vk::AccessFlagBits::eShaderRead;
         } 
         
-        if (_imageUsages & TextureUsage::RenderTarget) {
+        if (_texUsages & TextureUsage::RenderTarget) {
             finalAccessFlags |= vk::AccessFlagBits::eColorAttachmentWrite;
         }
         
-        if (_imageUsages & TextureUsage::DepthStencil) {
+        if (_texUsages & TextureUsage::DepthStencil) {
             finalAccessFlags |= vk::AccessFlagBits::eDepthStencilAttachmentWrite;
         }
 
-        if (_imageUsages & TextureUsage::UnorderedAccess) {
+        if (_texUsages & TextureUsage::UnorderedAccess) {
             finalAccessFlags |= vk::AccessFlagBits::eShaderWrite | vk::AccessFlagBits::eShaderRead;
         }
 

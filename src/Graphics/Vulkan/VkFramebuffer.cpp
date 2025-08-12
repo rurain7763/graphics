@@ -34,9 +34,13 @@ namespace flaw {
             Log::Fatal("Failed to create Vulkan framebuffer.");
             return;
         }
+
+		_context.AddOnResizeHandler(PID(this), std::bind(&VkFramebuffer::Resize, this, std::placeholders::_1, std::placeholders::_2));
     }
 
     VkFramebuffer::~VkFramebuffer() {
+		_context.RemoveOnResizeHandler(PID(this));
+
         _context.AddDelayedDeletionTasks([&context = _context, framebuffer = _framebuffer]() {
             context.GetVkDevice().destroyFramebuffer(framebuffer, nullptr);
         });
@@ -51,22 +55,16 @@ namespace flaw {
 
         if (_colorResizeHandler) {
             for (uint32_t i = 0; i < _colorAttachments.size(); ++i) {
-                auto newAttachment = _colorResizeHandler(i, width, height);
-                needRecreate |= newAttachment != _colorAttachments[i];
-                _colorAttachments[i] = newAttachment;
+				needRecreate |= _colorResizeHandler(_colorAttachments[i], width, height);
             }
         }
         
         if (_depthStencilResizeHandler && _depthStencilAttachment) {
-            auto newAttachment = _depthStencilResizeHandler(width, height);
-            needRecreate |= newAttachment != _depthStencilAttachment;
-            _depthStencilAttachment = newAttachment;
+			needRecreate |= _depthStencilResizeHandler(_depthStencilAttachment, width, height);
         }
 
         if (_resolveResizeHandler && _resolveAttachment) {
-            auto newAttachment = _resolveResizeHandler(width, height);
-            needRecreate |= newAttachment != _resolveAttachment;
-            _resolveAttachment = newAttachment;
+			needRecreate |= _resolveResizeHandler(_resolveAttachment, width, height);
         }
 
         if (!needRecreate) {
@@ -93,9 +91,9 @@ namespace flaw {
         GraphicsRenderPass::Descriptor renderPassDesc;
         renderPassDesc.layout = _renderPassLayout;
 
-        renderPassDesc.colorAttachmentOperations.resize(_renderPassLayout->GetColorAttachmentCount());
-        for (uint32_t i = 0; i < renderPassDesc.colorAttachmentOperations.size(); ++i) {
-            auto& op = renderPassDesc.colorAttachmentOperations[i];
+        renderPassDesc.colorAttachmentOps.resize(_renderPassLayout->GetColorAttachmentCount());
+        for (uint32_t i = 0; i < renderPassDesc.colorAttachmentOps.size(); ++i) {
+            auto& op = renderPassDesc.colorAttachmentOps[i];
             op.initialLayout = TextureLayout::Undefined;
             op.finalLayout = TextureLayout::Color;
             op.loadOp = AttachmentLoadOp::Clear;
@@ -103,7 +101,7 @@ namespace flaw {
         }
 
         if (_renderPassLayout->HasDepthStencilAttachment()) {
-            renderPassDesc.depthStencilAttachmentOperation = {
+            renderPassDesc.depthStencilAttachmentOp = {
                 TextureLayout::Undefined,
                 TextureLayout::DepthStencil,
                 AttachmentLoadOp::Clear,
@@ -114,7 +112,7 @@ namespace flaw {
         }
 
         if (_renderPassLayout->HasResolveAttachment()) {
-            renderPassDesc.resolveAttachmentOperation = {
+            renderPassDesc.resolveAttachmentOp = {
                 TextureLayout::Undefined,
                 TextureLayout::Color,
                 AttachmentLoadOp::Clear,

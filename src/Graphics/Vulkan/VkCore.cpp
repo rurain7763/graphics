@@ -118,20 +118,20 @@ namespace flaw {
         }
     }
 
-    vk::ImageLayout ConvertToVkImageLayout(uint32_t bindFlags) {
-        if (bindFlags & TextureUsage::RenderTarget) {
+    vk::ImageLayout ConvertToVkImageLayout(TextureUsages texUsages) {
+        if (texUsages & TextureUsage::RenderTarget) {
             return vk::ImageLayout::eColorAttachmentOptimal;
         }
         
-        if (bindFlags & TextureUsage::DepthStencil) {
+        if (texUsages & TextureUsage::DepthStencil) {
             return vk::ImageLayout::eDepthStencilAttachmentOptimal;
         }
 
-        if (bindFlags & TextureUsage::UnorderedAccess) {
+        if (texUsages & TextureUsage::UnorderedAccess) {
             return vk::ImageLayout::eGeneral;
         }
 
-        if (bindFlags & TextureUsage::ShaderResource) {
+        if (texUsages & TextureUsage::ShaderResource) {
             return vk::ImageLayout::eShaderReadOnlyOptimal;
         }
 
@@ -154,22 +154,22 @@ namespace flaw {
         return aspectFlags;
     }
 
-    vk::ImageUsageFlags ConvertToVkImageUsageFlags(uint32_t bindFlags) {
+    vk::ImageUsageFlags ConvertToVkImageUsageFlags(TextureUsages texUsages) {
         vk::ImageUsageFlags usageFlags = {};
 
-        if (bindFlags & TextureUsage::RenderTarget) {
+        if (texUsages & TextureUsage::RenderTarget) {
             usageFlags |= vk::ImageUsageFlagBits::eColorAttachment;
         }
 
-        if (bindFlags & TextureUsage::DepthStencil) {
+        if (texUsages & TextureUsage::DepthStencil) {
             usageFlags |= vk::ImageUsageFlagBits::eDepthStencilAttachment;
         }
 
-        if (bindFlags & TextureUsage::ShaderResource) {
+        if (texUsages & TextureUsage::ShaderResource) {
             usageFlags |= vk::ImageUsageFlagBits::eSampled;
         }
 
-        if (bindFlags & TextureUsage::UnorderedAccess) {
+        if (texUsages & TextureUsage::UnorderedAccess) {
             usageFlags |= vk::ImageUsageFlagBits::eStorage;
         }
 
@@ -213,13 +213,13 @@ namespace flaw {
         }
     }
 
-    vk::ShaderStageFlags ConvertToVkShaderStages(uint32_t compileFlags) {
+    vk::ShaderStageFlags ConvertToVkShaderStages(ShaderStages shaderStages) {
         vk::ShaderStageFlags stages = {};
-        if (compileFlags & ShaderStage::Vertex) stages |= vk::ShaderStageFlagBits::eVertex;
-        if (compileFlags & ShaderStage::Pixel) stages |= vk::ShaderStageFlagBits::eFragment;
-        if (compileFlags & ShaderStage::Geometry) stages |= vk::ShaderStageFlagBits::eGeometry;
-        if (compileFlags & ShaderStage::Hull) stages |= vk::ShaderStageFlagBits::eTessellationControl;
-        if (compileFlags & ShaderStage::Domain) stages |= vk::ShaderStageFlagBits::eTessellationEvaluation;
+        if (shaderStages & ShaderStage::Vertex) stages |= vk::ShaderStageFlagBits::eVertex;
+        if (shaderStages & ShaderStage::Pixel) stages |= vk::ShaderStageFlagBits::eFragment;
+        if (shaderStages & ShaderStage::Geometry) stages |= vk::ShaderStageFlagBits::eGeometry;
+        if (shaderStages & ShaderStage::Hull) stages |= vk::ShaderStageFlagBits::eTessellationControl;
+        if (shaderStages & ShaderStage::Domain) stages |= vk::ShaderStageFlagBits::eTessellationEvaluation;
         return stages;
     }
 
@@ -265,18 +265,18 @@ namespace flaw {
         }
     }
 
-    vk::PipelineStageFlags ConvertToVkPipelineStageFlags(uint32_t bindFlags, uint32_t shaderStages) {
+    vk::PipelineStageFlags ConvertToVkPipelineStageFlags(TextureUsages texUsages, ShaderStages shaderStages) {
         vk::PipelineStageFlags stageFlags = {};
 
-        if (bindFlags & TextureUsage::RenderTarget) {
+        if (texUsages & TextureUsage::RenderTarget) {
             stageFlags |= vk::PipelineStageFlagBits::eColorAttachmentOutput;
         }
 
-        if (bindFlags & TextureUsage::DepthStencil) {
+        if (texUsages & TextureUsage::DepthStencil) {
             stageFlags |= vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests;
         }
 
-        if (bindFlags & (TextureUsage::ShaderResource | TextureUsage::UnorderedAccess)) {
+        if (texUsages & (TextureUsage::ShaderResource | TextureUsage::UnorderedAccess)) {
             if (shaderStages & ShaderStage::Vertex) {
                 stageFlags |= vk::PipelineStageFlagBits::eVertexShader;
             }

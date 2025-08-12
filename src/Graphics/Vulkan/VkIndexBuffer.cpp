@@ -10,7 +10,7 @@
 namespace flaw {
     VkIndexBuffer::VkIndexBuffer(VkContext& context, const Descriptor& descriptor)
         : _context(context)
-        , _usage(descriptor.usage)
+        , _memProperty(descriptor.memProperty)
         , _size(descriptor.bufferSize)
         , _indexCount(descriptor.bufferSize / sizeof(uint32_t))
     {
@@ -19,11 +19,11 @@ namespace flaw {
         }
 
         if (descriptor.initialData) {
-            if (_usage == MemoryProperty::Static) {
+            if (_memProperty == MemoryProperty::Static) {
                 auto& vkCommandQueue = static_cast<VkCommandQueue&>(context.GetCommandQueue());
 
                 Descriptor stagingDesc;
-                stagingDesc.usage = MemoryProperty::Staging;
+                stagingDesc.memProperty = MemoryProperty::Staging;
                 stagingDesc.bufferSize = descriptor.bufferSize;
                 stagingDesc.initialData = descriptor.initialData;
 
@@ -72,15 +72,12 @@ namespace flaw {
         }
     }
 
-    void VkIndexBuffer::Bind() {
-    }
-
     bool VkIndexBuffer::CreateBuffer() {
         vk::BufferUsageFlags usageFlags = vk::BufferUsageFlagBits::eIndexBuffer;
-        GetRequiredVkBufferUsageFlags(_usage, usageFlags);
+        GetRequiredVkBufferUsageFlags(_memProperty, usageFlags);
 
         vk::MemoryPropertyFlags memoryFlags;
-        GetRequiredVkMemoryPropertyFlags(_usage, memoryFlags);
+        GetRequiredVkMemoryPropertyFlags(_memProperty, memoryFlags);
 
         VkBufferWrapper buffer = CreateVkBuffer(
             _context.GetVkPhysicalDevice(),

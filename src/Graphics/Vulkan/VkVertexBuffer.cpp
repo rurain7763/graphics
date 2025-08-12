@@ -10,7 +10,7 @@
 namespace flaw {
     VkVertexBuffer::VkVertexBuffer(VkContext& context, const Descriptor& descriptor)
         : _context(context)
-        , _usage(descriptor.usage)
+        , _memProperty(descriptor.memProperty)
         , _elmSize(descriptor.elmSize)
         , _size(descriptor.bufferSize)
     {
@@ -25,11 +25,11 @@ namespace flaw {
         }
 
         if (descriptor.initialData) {
-            if (descriptor.usage == MemoryProperty::Static) {
+            if (descriptor.memProperty == MemoryProperty::Static) {
                 auto& vkCommandQueue = static_cast<VkCommandQueue&>(context.GetCommandQueue());
     
                 Descriptor stagingDesc;
-                stagingDesc.usage = MemoryProperty::Staging;
+                stagingDesc.memProperty = MemoryProperty::Staging;
                 stagingDesc.elmSize = descriptor.elmSize;
                 stagingDesc.bufferSize = descriptor.bufferSize;
                 stagingDesc.initialData = descriptor.initialData;
@@ -49,7 +49,7 @@ namespace flaw {
 
                 _mappedData = mappedDataWrapper.value;
 
-                Update(descriptor.initialData, _elmSize, _size / _elmSize);
+                Update(descriptor.initialData, _size);
             }
         }
     }
@@ -66,29 +66,19 @@ namespace flaw {
         });
     }
 
-    void VkVertexBuffer::Update(const void* data, uint32_t elmSize, uint32_t count) {
-        if (elmSize != _elmSize) {
-            Log::Error("Element size mismatch in vertex buffer update.");
-            return;
-        }
-
-        uint32_t requiredSize = count * elmSize;
-        if (requiredSize > _size) {
+    void VkVertexBuffer::Update(const void* data, uint32_t size) {
+        if (size > _size) {
             Log::Error("Data size exceeds vertex buffer size.");
             return;
         }
 
         if (_mappedData) {
-            memcpy(_mappedData, data, requiredSize);
+            memcpy(_mappedData, data, size);
         }
         else {
             Log::Error("Vertex buffer is not mapped for updating.");
             return;
         }
-    }
-
-    void VkVertexBuffer::Bind() {
-        // Bind buffer logic here
     }
 
     void VkVertexBuffer::CopyTo(Ref<VertexBuffer> dstBuffer, uint32_t srcOffset, uint32_t dstOffset) {
@@ -104,7 +94,7 @@ namespace flaw {
         vk::BufferCreateInfo bufferInfo;
         bufferInfo.size = _size;
         bufferInfo.usage = vk::BufferUsageFlagBits::eVertexBuffer;
-        GetRequiredVkBufferUsageFlags(_usage, bufferInfo.usage);
+        GetRequiredVkBufferUsageFlags(_memProperty, bufferInfo.usage);
         bufferInfo.sharingMode = vk::SharingMode::eExclusive;
 
         auto bufferWrapper = _context.GetVkDevice().createBuffer(bufferInfo, nullptr);
@@ -122,7 +112,7 @@ namespace flaw {
         vk::MemoryRequirements memRequirements = _context.GetVkDevice().getBufferMemoryRequirements(_buffer);
 
         vk::MemoryPropertyFlags memoryFlags;
-        GetRequiredVkMemoryPropertyFlags(_usage, memoryFlags);
+        GetRequiredVkMemoryPropertyFlags(_memProperty, memoryFlags);
 
         vk::MemoryAllocateInfo allocInfo;
         allocInfo.allocationSize = memRequirements.size;

@@ -130,7 +130,7 @@ namespace flaw {
         vk::CommandBufferBeginInfo beginInfo;
         auto result = commandBuffer.begin(beginInfo);
         if (result != vk::Result::eSuccess) {
-            Log::Fatal("Failed to begin Vulkan command buffer: %s", vk::to_string(result).c_str());
+            LOG_FATAL("Failed to begin Vulkan command buffer: %s", vk::to_string(result).c_str());
             return false;
         }
   
@@ -401,11 +401,11 @@ namespace flaw {
         // Set the compute constant buffer for the command queue
     }
 
-    void VkCommandQueue::SetComputeTexture(const Ref<Texture>& texture, TextureUsage bindFlag, uint32_t slot) {
+    void VkCommandQueue::SetComputeTexture(const Ref<Texture>& texture, TextureUsages texUsages, uint32_t slot) {
         // Set the compute texture for the command
     }
 
-    void VkCommandQueue::SetComputeStructuredBuffer(const Ref<StructuredBuffer>& buffer, TextureUsage bindFlag, uint32_t slot) {
+    void VkCommandQueue::SetComputeStructuredBuffer(const Ref<StructuredBuffer>& buffer, BufferUsages bufUsages, uint32_t slot) {
         // Set the compute structured buffer for the command queue
     }
 

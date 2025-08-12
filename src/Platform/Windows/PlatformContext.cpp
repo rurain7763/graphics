@@ -161,17 +161,19 @@ namespace flaw {
 		}
 		case WM_SIZE:
 		{
+			if (wParam == SIZE_MINIMIZED) {
+				internalData->windowSizeState = WindowSizeState::Minimized;
+				internalData->eventDispatcher->Dispatch<WindowIconifyEvent>(true);
+				break;
+			}
+
 			RECT rect;
 			GetClientRect(hWnd, &rect);
 			internalData->width = rect.right - rect.left;
 			internalData->height = rect.bottom - rect.top;
 			context->CalculateFrameBufferSize();
 
-			if (wParam == SIZE_MINIMIZED) {
-				internalData->windowSizeState = WindowSizeState::Minimized;
-				internalData->eventDispatcher->Dispatch<WindowIconifyEvent>(true);
-			}
-			else if (wParam == SIZE_MAXIMIZED) {
+			if (wParam == SIZE_MAXIMIZED) {
 				if (internalData->windowSizeState == WindowSizeState::Minimized) {
 					internalData->eventDispatcher->Dispatch<WindowIconifyEvent>(false);
 				}

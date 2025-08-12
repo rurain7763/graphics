@@ -17,7 +17,7 @@ namespace flaw {
 		GraphicsPipeline() = default;
 		virtual ~GraphicsPipeline() = default;
 
-		virtual void SetVertexInputLayout(const Ref<GraphicsVertexInputLayout>& vertexInputLayout) = 0;
+		virtual void SetVertexInputLayout(const Ref<VertexInputLayout>& vertexInputLayout) = 0;
 
 		virtual void SetPrimitiveTopology(PrimitiveTopology primitiveTopology) = 0;
 		virtual void SetViewport(float x, float y, float width, float height) = 0;

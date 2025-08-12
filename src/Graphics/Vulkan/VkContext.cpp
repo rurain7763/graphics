@@ -357,7 +357,7 @@ namespace flaw {
         return true;
     }
 
-    Ref<GraphicsVertexInputLayout> VkContext::CreateVertexInputLayout(const GraphicsVertexInputLayout::Descriptor& descriptor) {
+    Ref<VertexInputLayout> VkContext::CreateVertexInputLayout(const VertexInputLayout::Descriptor& descriptor) {
         return CreateRef<VkVertexInputLayout>(*this, descriptor);
     }
 
@@ -385,8 +385,8 @@ namespace flaw {
         return CreateRef<VkGraphicsPipeline>(*this);
 	}
 
-	Ref<ConstantBuffer> VkContext::CreateConstantBuffer(uint32_t size) {
-		return CreateRef<VkConstantBuffer>(*this, size);
+	Ref<ConstantBuffer> VkContext::CreateConstantBuffer(const ConstantBuffer::Descriptor& desc) {
+		return CreateRef<VkConstantBuffer>(*this, desc);
 	}
 
 	Ref<StructuredBuffer> VkContext::CreateStructuredBuffer(const StructuredBuffer::Descriptor& desc) {
@@ -467,6 +467,10 @@ namespace flaw {
 
         _swapchain->Destroy();
         _swapchain->Create(_renderWidth, _renderHeight);
+
+		for (const auto& handler : _onResizeHandlers) {
+			handler.second(_renderWidth, _renderHeight);
+		}
     }
 
     bool VkContext::GetMSAAState() const {
@@ -479,6 +483,14 @@ namespace flaw {
 
 	Ref<ComputePipeline> VkContext::CreateComputePipeline() {
         return CreateRef<VkComputePipeline>(*this);
+	}
+
+	void VkContext::AddOnResizeHandler(uint32_t id, const std::function<void(int32_t, int32_t)>& handler) {
+		_onResizeHandlers[id] = handler;
+	}
+
+	void VkContext::RemoveOnResizeHandler(uint32_t id) {
+		_onResizeHandlers.erase(id);
 	}
 
     void VkContext::AddDelayedDeletionTasks(const std::function<void()>& task) {

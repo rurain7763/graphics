@@ -14,6 +14,7 @@ namespace flaw {
 		virtual ~GraphicsCommandQueue() = default;
 		
 		virtual void SetPipeline(const Ref<GraphicsPipeline>& pipeline) = 0;
+
 		virtual void SetVertexBuffer(const Ref<VertexBuffer>& vertexBuffer) = 0;
 		virtual void SetShaderResources(const Ref<ShaderResources>& shaderResources, uint32_t set = 0) = 0;
 		
@@ -25,6 +26,7 @@ namespace flaw {
 		virtual void BeginRenderPass() = 0;
 		virtual void BeginRenderPass(const Ref<GraphicsRenderPass>& beginRenderPass, const Ref<GraphicsRenderPass>& resumeRenderPass, const Ref<GraphicsFramebuffer>& framebuffer) = 0;
 		virtual void EndRenderPass() = 0;
+
 		virtual void Submit() = 0;
 		
 		virtual void Present() = 0;
@@ -33,8 +35,9 @@ namespace flaw {
 		
 		virtual void SetComputePipeline(const Ref<ComputePipeline>& pipeline) = 0;
 		virtual void SetComputeConstantBuffer(const Ref<ConstantBuffer>& constantBuffer, uint32_t slot) = 0;
-		virtual void SetComputeTexture(const Ref<Texture>& texture, TextureUsage bindFlag, uint32_t slot) = 0;
-		virtual void SetComputeStructuredBuffer(const Ref<StructuredBuffer>& buffer, TextureUsage bindFlag, uint32_t slot) = 0;
+		virtual void SetComputeTexture(const Ref<Texture>& texture, TextureUsages texUsages, uint32_t slot) = 0;
+		virtual void SetComputeStructuredBuffer(const Ref<StructuredBuffer>& buffer, BufferUsages bufUsages, uint32_t slot) = 0;
+		
 		virtual void Dispatch(uint32_t x, uint32_t y, uint32_t z) = 0;
 	};
 }

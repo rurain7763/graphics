@@ -4,7 +4,7 @@
 #include "GraphicsType.h"
 
 namespace flaw {	
- 	class GraphicsVertexInputLayout {
+ 	class VertexInputLayout {
     public:
         struct InputElement {
             std::string name;
@@ -18,13 +18,13 @@ namespace flaw {
             std::vector<InputElement> inputElements;
         }; 
     
-        virtual ~GraphicsVertexInputLayout() = default;        
+        virtual ~VertexInputLayout() = default;        
     };
 
 	class VertexBuffer {
 	public:
 		struct Descriptor {
-			MemoryProperty usage;
+			MemoryProperty memProperty;
 			uint32_t elmSize;
 			uint32_t bufferSize;
 			const void* initialData;
@@ -33,11 +33,9 @@ namespace flaw {
 		VertexBuffer() = default;
 		virtual ~VertexBuffer() = default;
 
-		virtual void Update(const void* data, uint32_t elmSize, uint32_t count) = 0;
+		virtual void Update(const void* data, uint32_t size) = 0;
 
 		virtual void CopyTo(Ref<VertexBuffer> dstBuffer, uint32_t srcOffset = 0, uint32_t dstOffset = 0) = 0;
-
-		virtual void Bind() = 0;
 
 		virtual uint32_t Size() const = 0;
 	};
@@ -45,7 +43,7 @@ namespace flaw {
 	class IndexBuffer {
 	public:
 		struct Descriptor {
-			MemoryProperty usage; 
+			MemoryProperty memProperty; 
 			uint32_t bufferSize;
 			const uint32_t* initialData;
 		};
@@ -55,8 +53,6 @@ namespace flaw {
 
 		virtual void Update(const uint32_t* indices, uint32_t count) = 0;
 
-		virtual void Bind() = 0;
-
 		virtual uint32_t IndexCount() const = 0;
 	};
 
@@ -65,14 +61,16 @@ namespace flaw {
 	// allighn size with 16
 	class ConstantBuffer {
 	public:
+		struct Descriptor {
+			MemoryProperty memProperty;
+			uint32_t bufferSize;
+			const void* initialData;
+		};
+
 		ConstantBuffer() = default;
 		virtual ~ConstantBuffer() = default;
+
 		virtual void Update(const void* data, int32_t size) = 0;
-
-		virtual void BindToGraphicsShader(const uint32_t slot) = 0;
-		virtual void BindToComputeShader(const uint32_t slot) = 0;
-
-		virtual void Unbind() = 0;
 
 		virtual uint32_t Size() const = 0;
 	};
@@ -83,10 +81,10 @@ namespace flaw {
 	class StructuredBuffer {
 	public:
 		struct Descriptor {
-			MemoryProperty usage;
+			MemoryProperty memProperty;
+			BufferUsages bufferUsages;
 			uint32_t elmSize;
-			uint32_t count;
-			uint32_t bindFlags;
+			uint32_t bufferSize;
 			const void* initialData;
 		};
 
@@ -95,6 +93,9 @@ namespace flaw {
 
 		virtual void Update(const void* data, uint32_t size) = 0;
 		virtual void Fetch(void* data, uint32_t size) = 0;
+
+		virtual void CopyTo(Ref<StructuredBuffer> dstBuffer, uint32_t srcOffset = 0, uint32_t dstOffset = 0) = 0;
+		virtual void CopyFrom(Ref<StructuredBuffer> srcBuffer, uint32_t srcOffset = 0, uint32_t dstOffset = 0) = 0;
 
 		virtual uint32_t Size() const = 0;
 	};

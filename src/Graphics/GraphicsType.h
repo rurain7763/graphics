@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 namespace flaw {
 	using ShaderResourceView = void*;
 	using UnorderedAccessView = void*;
@@ -12,12 +14,95 @@ namespace flaw {
 		Staging, // CPU only, used for transferring data to GPU
 	};
 
-	enum TextureUsage {
+	enum class TextureUsage {
 		ShaderResource = 0x1,
 		UnorderedAccess = 0x2,
 		RenderTarget = 0x4,
 		DepthStencil = 0x8,
 	};
+
+	struct TextureUsages {
+		uint32_t value;
+
+		TextureUsages() : value(0) {}
+		TextureUsages(TextureUsage usage) : value(static_cast<uint32_t>(usage)) {}
+		TextureUsages(uint32_t v) : value(v) {}
+
+		TextureUsages operator|(TextureUsage usage) const {
+			return TextureUsages(value | static_cast<uint32_t>(usage));
+		}
+
+		TextureUsages operator&(TextureUsage usage) const {
+			return TextureUsages(value & static_cast<uint32_t>(usage));
+		}
+
+		TextureUsages& operator|=(TextureUsage usage) {
+			value |= static_cast<uint32_t>(usage);
+			return *this;
+		}
+
+		TextureUsages& operator&=(TextureUsage usage) {
+			value &= static_cast<uint32_t>(usage);
+			return *this;
+		}
+
+		TextureUsages& operator=(TextureUsage usage) {
+			value = static_cast<uint32_t>(usage);
+			return *this;
+		}
+
+		operator uint32_t() const {
+			return value;
+		}
+	};
+
+	inline TextureUsages operator|(TextureUsage a, TextureUsage b) {
+		return TextureUsages(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+	}
+
+	enum class BufferUsage {
+		ShaderResource = 0x1,
+		UnorderedAccess = 0x2,
+	};
+
+	struct BufferUsages {
+		uint32_t value;
+
+		BufferUsages() : value(0) {}
+		BufferUsages(BufferUsage usage) : value(static_cast<uint32_t>(usage)) {}
+		BufferUsages(uint32_t v) : value(v) {}
+
+		BufferUsages operator|(BufferUsage usage) const {
+			return BufferUsages(value | static_cast<uint32_t>(usage));
+		}
+
+		BufferUsages operator&(BufferUsage usage) const {
+			return BufferUsages(value & static_cast<uint32_t>(usage));
+		}
+
+		BufferUsages& operator|=(BufferUsage usage) {
+			value |= static_cast<uint32_t>(usage);
+			return *this;
+		}
+
+		BufferUsages& operator&=(BufferUsage usage) {
+			value &= static_cast<uint32_t>(usage);
+			return *this;
+		}
+
+		BufferUsages& operator=(BufferUsage usage) {
+			value = static_cast<uint32_t>(usage);
+			return *this;
+		}
+
+		operator uint32_t() const {
+			return value;
+		}
+	};
+
+	inline BufferUsages operator|(BufferUsage a, BufferUsage b) {
+		return BufferUsages(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+	}
 
 	enum class PrimitiveTopology {
 		TriangleList,
@@ -107,7 +192,7 @@ namespace flaw {
 		Count
 	};
 
-	enum ShaderStage {
+	enum class ShaderStage {
 		Vertex = 0x1,
 		Pixel = 0x2,
 		Geometry = 0x4,
@@ -115,6 +200,45 @@ namespace flaw {
 		Domain = 0x10,
 		Compute = 0x20,
 	};
+
+	struct ShaderStages {
+		uint32_t value;
+
+		ShaderStages() : value(0) {}
+		ShaderStages(ShaderStage stage) : value(static_cast<uint32_t>(stage)) {}
+		ShaderStages(uint32_t v) : value(v) {}
+
+		ShaderStages operator|(ShaderStage stage) const {
+			return ShaderStages(value | static_cast<uint32_t>(stage));
+		}
+
+		ShaderStages operator&(ShaderStage stage) const {
+			return ShaderStages(value & static_cast<uint32_t>(stage));
+		}
+
+		ShaderStages& operator|=(ShaderStage stage) {
+			value |= static_cast<uint32_t>(stage);
+			return *this;
+		}
+
+		ShaderStages& operator&=(ShaderStage stage) {
+			value &= static_cast<uint32_t>(stage);
+			return *this;
+		}
+
+		ShaderStages& operator=(ShaderStage stage) {
+			value = static_cast<uint32_t>(stage);
+			return *this;
+		}
+
+		operator uint32_t() const {
+			return value;
+		}
+	};
+
+	inline ShaderStages operator|(ShaderStage a, ShaderStage b) {
+		return ShaderStages(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+	}
 
 	enum class PipelineType {
 		Graphics,

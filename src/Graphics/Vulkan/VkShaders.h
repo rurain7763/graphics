@@ -39,9 +39,14 @@ namespace flaw {
 		~VkShaderResources();
 
 		void BindTexture2D(const Ref<Texture2D>& texture, uint32_t binding) override;
+		void BindTexture2DUA(const Ref<Texture2D>& texture, uint32_t binding) override {}
+
 		void BindTextureCube(const Ref<TextureCube>& texture, uint32_t binding) override;
+
 		void BindConstantBuffer(const Ref<ConstantBuffer>& constantBuffer, uint32_t binding) override;
+
 		void BindStructuredBuffer(const Ref<StructuredBuffer>& structuredBuffer, uint32_t binding) override;
+		void BindStructuredBufferUA(const Ref<StructuredBuffer>& structuredBuffer, uint32_t binding) override {}
 
 		inline const vk::DescriptorSet& GetVkDescriptorSet() const {
 			return _descriptorSet;
@@ -60,8 +65,6 @@ namespace flaw {
 		VkGraphicsShader(VkContext& context, const Descriptor& descriptor);
 		~VkGraphicsShader();
 
-		void Bind() override;
-
         void GetVkShaderStages(std::vector<vk::PipelineShaderStageCreateInfo>& shaderStages) const;
 
 	private:
@@ -70,7 +73,7 @@ namespace flaw {
 	private:
 		VkContext& _context;
 
-        uint32_t _compileFlags;
+        ShaderStages _compileFlags;
 
 		struct ShaderEntry {
 			vk::ShaderModule module;
@@ -85,8 +88,6 @@ namespace flaw {
 	public:
 		VkComputeShader(VkContext& context, const Descriptor& descriptor);
 		~VkComputeShader();
-
-		void Dispatch(uint32_t x = 1, uint32_t y = 1, uint32_t z = 1) override {}
 	
 		void GetVkShaderStage(vk::PipelineShaderStageCreateInfo& shaderStage) const;
 

@@ -75,10 +75,6 @@ namespace flaw {
         }
     }
 
-    void VkGraphicsShader::Bind() {
-        // Implementation for binding the shader
-    }
-
     void VkGraphicsShader::GetVkShaderStages(std::vector<vk::PipelineShaderStageCreateInfo>& shaderStages) const {
         shaderStages.resize(_shaderEntries.size());
         std::transform(_shaderEntries.begin(), _shaderEntries.end(), shaderStages.begin(),

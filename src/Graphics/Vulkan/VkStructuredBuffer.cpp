@@ -9,9 +9,9 @@
 namespace flaw {
     VkStructuredBuffer::VkStructuredBuffer(VkContext& context, const Descriptor& desc)
         : _context(context)
-		, _usage(desc.usage)
+		, _memProperty(desc.memProperty)
         , _elmSize(desc.elmSize)
-        , _size(desc.elmSize * desc.count)
+        , _size(desc.bufferSize)
     {
         if (!CreateBuffer()) {
             Log::Fatal("Failed to create structured buffer.");
@@ -74,7 +74,7 @@ namespace flaw {
         vk::BufferCreateInfo bufferInfo;
         bufferInfo.size = _size;
         bufferInfo.usage = vk::BufferUsageFlagBits::eStorageBuffer;
-        GetRequiredVkBufferUsageFlags(_usage, bufferInfo.usage);
+        GetRequiredVkBufferUsageFlags(_memProperty, bufferInfo.usage);
         bufferInfo.sharingMode = vk::SharingMode::eExclusive;
 
         auto bufferWrapper = _context.GetVkDevice().createBuffer(bufferInfo, nullptr);

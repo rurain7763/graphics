@@ -13,7 +13,7 @@ namespace flaw {
         : _context(context) 
         , _format(descriptor.format)
         , _memProperty(descriptor.memProperty)
-        , _imageUsages(descriptor.imageUsages)
+        , _texUsages(descriptor.texUsages)
         , _mipLevels(descriptor.mipLevels)
         , _sampleCount(descriptor.sampleCount)
 		, _shaderStages(descriptor.shaderStages)
@@ -87,7 +87,7 @@ namespace flaw {
         imageInfo.arrayLayers = 6;
         imageInfo.samples = ConvertToVkSampleCount(_sampleCount);
         imageInfo.tiling = vk::ImageTiling::eOptimal;
-        imageInfo.usage = ConvertToVkImageUsageFlags(_imageUsages);
+        imageInfo.usage = ConvertToVkImageUsageFlags(_texUsages);
         if (hasData) {
             imageInfo.usage |= vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eTransferSrc;
         }
@@ -196,23 +196,23 @@ namespace flaw {
     bool VkTextureCube::TransitionFinalImageLayout() {
         auto& vkCmdQueue = static_cast<VkCommandQueue&>(_context.GetCommandQueue());
 
-		vk::ImageLayout finalLayout = ConvertToVkImageLayout(_imageUsages);
-		vk::PipelineStageFlags finalPipelineStage = ConvertToVkPipelineStageFlags(_imageUsages, _shaderStages);
+		vk::ImageLayout finalLayout = ConvertToVkImageLayout(_texUsages);
+		vk::PipelineStageFlags finalPipelineStage = ConvertToVkPipelineStageFlags(_texUsages, _shaderStages);
 
         vk::AccessFlags finalAccessFlags;
-        if (_imageUsages & TextureUsage::ShaderResource) {
+        if (_texUsages & TextureUsage::ShaderResource) {
             finalAccessFlags |= vk::AccessFlagBits::eShaderRead;
         } 
         
-        if (_imageUsages & TextureUsage::RenderTarget) {
+        if (_texUsages & TextureUsage::RenderTarget) {
             finalAccessFlags |= vk::AccessFlagBits::eColorAttachmentWrite;
         }
         
-        if (_imageUsages & TextureUsage::DepthStencil) {
+        if (_texUsages & TextureUsage::DepthStencil) {
             finalAccessFlags |= vk::AccessFlagBits::eDepthStencilAttachmentWrite;
         }
 
-        if (_imageUsages & TextureUsage::UnorderedAccess) {
+        if (_texUsages & TextureUsage::UnorderedAccess) {
             finalAccessFlags |= vk::AccessFlagBits::eShaderWrite | vk::AccessFlagBits::eShaderRead;
         }
 

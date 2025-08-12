@@ -48,9 +48,9 @@ namespace flaw {
         Ref<VkRenderPassLayout> _renderPassLayout;
         Ref<VkRenderPass> _renderpass;
 
-        std::function<Ref<Texture>(uint32_t, uint32_t, uint32_t)> _colorResizeHandler;
-        std::function<Ref<Texture>(uint32_t, uint32_t)> _depthStencilResizeHandler;
-        std::function<Ref<Texture>(uint32_t, uint32_t)> _resolveResizeHandler;
+        std::function<bool(Ref<Texture>&, uint32_t, uint32_t)> _colorResizeHandler;
+        std::function<bool(Ref<Texture>&, uint32_t, uint32_t)> _depthStencilResizeHandler;
+        std::function<bool(Ref<Texture>&, uint32_t, uint32_t)> _resolveResizeHandler;
     };
 }
 

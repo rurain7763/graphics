@@ -28,6 +28,14 @@ project "graphics"
         vulkan_sdk .. "/Include",
     }
 
+    filter "system:windows"
+        links {
+            "d3d11.lib",
+            "d3dcompiler.lib",
+            "Ws2_32.lib",
+            "winmm.lib",
+        }
+
     filter "configurations:Debug"
         runtime "Debug"
         symbols "on"

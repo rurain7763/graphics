@@ -25,7 +25,7 @@ namespace flaw {
 		VkGraphicsPipeline(VkContext& context);
         ~VkGraphicsPipeline();
 
-        void SetVertexInputLayout(const Ref<GraphicsVertexInputLayout>& vertexInputLayout) override;
+        void SetVertexInputLayout(const Ref<VertexInputLayout>& vertexInputLayout) override;
 
         void SetPrimitiveTopology(PrimitiveTopology primitiveTopology) override;
 		void SetViewport(float x, float y, float width, float height) override;
@@ -60,8 +60,8 @@ namespace flaw {
     private:
         VkContext& _context;
 
-        bool _needRecreatePipeline;
-         
+		bool _needRecreatePipeline;
+
         vk::Pipeline _pipeline;
 
         Ref<VkVertexInputLayout> _vertexInputLayout;

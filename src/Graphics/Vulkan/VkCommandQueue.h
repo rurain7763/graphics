@@ -43,8 +43,8 @@ namespace flaw {
 
         void SetComputePipeline(const Ref<ComputePipeline>& pipeline) override;
         void SetComputeConstantBuffer(const Ref<ConstantBuffer>& constantBuffer, uint32_t slot) override;
-        void SetComputeTexture(const Ref<Texture>& texture, TextureUsage bindFlag, uint32_t slot) override;
-        void SetComputeStructuredBuffer(const Ref<StructuredBuffer>& buffer, TextureUsage bindFlag, uint32_t slot) override;
+        void SetComputeTexture(const Ref<Texture>& texture, TextureUsages texUsages, uint32_t slot) override;
+        void SetComputeStructuredBuffer(const Ref<StructuredBuffer>& buffer, BufferUsages bufUsages, uint32_t slot) override;
         void Dispatch(uint32_t x, uint32_t y, uint32_t z) override;
 
         void BeginOneTimeCommands();

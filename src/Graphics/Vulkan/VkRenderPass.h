@@ -38,6 +38,7 @@ namespace flaw {
         vk::PipelineBindPoint _pipelineBindPoint;
 
         uint32_t _sampleCount;
+
         std::vector<ColorAttachment> _colorAttachments;
         std::optional<DepthStencilAttachment> _depthStencilAttachment;
         std::optional<ResolveAttachment> _resolveAttachment;
@@ -71,9 +72,9 @@ namespace flaw {
         VkContext& _context;
 
         vk::RenderPass _renderPass;
-        std::vector<ColorAttachmentOperation> _colorOperations;
-        std::optional<DepthStencilAttachmentOperation> _depthStencilOperation;
-        std::optional<ResolveAttachmentOperation> _resolveAttachmentOperation;
+        std::vector<ColorAttachmentOperation> _colorAttachmentOp;
+        std::optional<DepthStencilAttachmentOperation> _depthStencilOp;
+        std::optional<ResolveAttachmentOperation> _resolveAttachmentOp;
     };
 }
 

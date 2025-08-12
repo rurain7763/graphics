@@ -10,6 +10,7 @@
 #ifdef _WIN32
 
 #define SUPPORT_VULKAN
+#define SUPPORT_DX11
 
 #ifdef FL_DYNAMIC_LIB
 	#ifdef FL_DLL_EXPORT

@@ -18,7 +18,7 @@ namespace flaw {
 
 		virtual bool Prepare() = 0;
 
-		virtual Ref<GraphicsVertexInputLayout> CreateVertexInputLayout(const GraphicsVertexInputLayout::Descriptor& descriptor) = 0;
+		virtual Ref<VertexInputLayout> CreateVertexInputLayout(const VertexInputLayout::Descriptor& descriptor) = 0;
 
 		virtual Ref<VertexBuffer> CreateVertexBuffer(const VertexBuffer::Descriptor& descriptor) = 0;
 		virtual Ref<IndexBuffer> CreateIndexBuffer(const IndexBuffer::Descriptor& descriptor) = 0;
@@ -28,7 +28,7 @@ namespace flaw {
 		virtual Ref<GraphicsShader> CreateGraphicsShader(const GraphicsShader::Descriptor& descriptor) = 0;
 		virtual Ref<GraphicsPipeline> CreateGraphicsPipeline() = 0;
 
-		virtual Ref<ConstantBuffer> CreateConstantBuffer(uint32_t size) = 0;
+		virtual Ref<ConstantBuffer> CreateConstantBuffer(const ConstantBuffer::Descriptor& desc) = 0;
 		virtual Ref<StructuredBuffer> CreateStructuredBuffer(const StructuredBuffer::Descriptor& desc) = 0;
 
 		virtual Ref<Texture2D> CreateTexture2D(const Texture2D::Descriptor& descriptor) = 0;

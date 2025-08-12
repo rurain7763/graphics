@@ -20,7 +20,7 @@ namespace flaw {
 
 		bool Prepare() override;
 
-		Ref<GraphicsVertexInputLayout> CreateVertexInputLayout(const GraphicsVertexInputLayout::Descriptor& descriptor) override;
+		Ref<VertexInputLayout> CreateVertexInputLayout(const VertexInputLayout::Descriptor& descriptor) override;
 
 		Ref<VertexBuffer> CreateVertexBuffer(const VertexBuffer::Descriptor& descriptor) override;
 		Ref<IndexBuffer> CreateIndexBuffer(const IndexBuffer::Descriptor& descriptor) override;
@@ -30,8 +30,7 @@ namespace flaw {
 		Ref<GraphicsShader> CreateGraphicsShader(const GraphicsShader::Descriptor& descriptor) override;
 		Ref<GraphicsPipeline> CreateGraphicsPipeline() override;
 
-		Ref<ConstantBuffer> CreateConstantBuffer(uint32_t size) override;
-
+		Ref<ConstantBuffer> CreateConstantBuffer(const ConstantBuffer::Descriptor& desc) override;
 		Ref<StructuredBuffer> CreateStructuredBuffer(const StructuredBuffer::Descriptor& desc) override;
 
 		Ref<Texture2D> CreateTexture2D(const Texture2D::Descriptor& descriptor) override;
@@ -56,6 +55,9 @@ namespace flaw {
 
 		Ref<ComputeShader> CreateComputeShader(const ComputeShader::Descriptor& descriptor) override;
 		Ref<ComputePipeline> CreateComputePipeline() override;
+
+		void AddOnResizeHandler(uint32_t id, const std::function<void(int32_t, int32_t)>& handler);
+		void RemoveOnResizeHandler(uint32_t id);
 
 		void AddDelayedDeletionTasks(const std::function<void()>& task);
 
@@ -121,6 +123,8 @@ namespace flaw {
 		int32_t _renderWidth, _renderHeight;
 		uint32_t _frameCount;
 		bool _msaaEnabled;
+
+		std::unordered_map<uint32_t, std::function<void(int32_t, int32_t)>> _onResizeHandlers;
 
 		uint32_t _currentDeletionCounter;
 		struct DelayedDeletionTask {

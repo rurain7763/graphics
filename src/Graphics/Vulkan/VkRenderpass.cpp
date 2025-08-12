@@ -114,9 +114,9 @@ namespace flaw {
             return;
         }
 
-        _colorOperations = descriptor.colorAttachmentOperations;
-        _depthStencilOperation = descriptor.depthStencilAttachmentOperation;
-		_resolveAttachmentOperation = descriptor.resolveAttachmentOperation;
+        _colorAttachmentOp = descriptor.colorAttachmentOps;
+        _depthStencilOp = descriptor.depthStencilAttachmentOp;
+		_resolveAttachmentOp = descriptor.resolveAttachmentOp;
     }
 
     VkRenderPass::~VkRenderPass() {
@@ -126,27 +126,27 @@ namespace flaw {
     }
 
     uint32_t VkRenderPass::GetColorAttachmentOpCount() const {
-        return _colorOperations.size();
+        return _colorAttachmentOp.size();
     }
 
     const GraphicsRenderPass::ColorAttachmentOperation& VkRenderPass::GetColorAttachmentOp(uint32_t index) const {
-        return _colorOperations.at(index);
+        return _colorAttachmentOp.at(index);
     }
 
     bool VkRenderPass::HasDepthStencilAttachmentOp() const {
-        return _depthStencilOperation.has_value();
+        return _depthStencilOp.has_value();
     }
 
     const GraphicsRenderPass::DepthStencilAttachmentOperation& VkRenderPass::GetDepthStencilAttachmentOp() const {
-        return _depthStencilOperation.value();
+        return _depthStencilOp.value();
     }
 
     bool VkRenderPass::HasResolveAttachmentOp() const {
-        return _resolveAttachmentOperation.has_value();
+        return _resolveAttachmentOp.has_value();
     }
 
     const GraphicsRenderPass::ResolveAttachmentOperation& VkRenderPass::GetResolveAttachmentOp() const {
-        return _resolveAttachmentOperation.value();
+        return _resolveAttachmentOp.value();
     }
 
     bool VkRenderPass::CreateRenderPass(const Descriptor &descriptor) {
@@ -164,7 +164,7 @@ namespace flaw {
         std::vector<vk::AttachmentReference> colorAttachmentRefs = vkRenderPassLayout->GetVkColorAttachmentRefs();
         for (uint32_t i = 0; i < colorAttachmentRefs.size(); ++i) {
             auto &attachment = attachments[i];
-            auto &operation = descriptor.colorAttachmentOperations[i];
+            auto &operation = descriptor.colorAttachmentOps[i];
 
             attachment.loadOp = ConvertToVkAttachmentLoadOp(operation.loadOp);
             attachment.storeOp = ConvertToVkAttachmentStoreOp(operation.storeOp);
@@ -178,11 +178,11 @@ namespace flaw {
         subpassDescription.pColorAttachments = colorAttachmentRefs.data();
 
         vk::AttachmentReference depthStencilAttachmentRef;
-        if (vkRenderPassLayout->HasDepthStencilAttachment() && descriptor.depthStencilAttachmentOperation.has_value()) {
+        if (vkRenderPassLayout->HasDepthStencilAttachment() && descriptor.depthStencilAttachmentOp.has_value()) {
             depthStencilAttachmentRef = vkRenderPassLayout->GetVkDepthAttachmentRef();
 
             auto &attachment = *(attachments.begin() + colorAttachmentRefs.size());
-            auto &operation = descriptor.depthStencilAttachmentOperation.value();
+            auto &operation = descriptor.depthStencilAttachmentOp.value();
 
             attachment.loadOp = ConvertToVkAttachmentLoadOp(operation.loadOp);
             attachment.storeOp = ConvertToVkAttachmentStoreOp(operation.storeOp);
@@ -195,11 +195,11 @@ namespace flaw {
         }
 
         vk::AttachmentReference resolveAttachmentRef;
-        if (vkRenderPassLayout->HasResolveAttachment() && descriptor.resolveAttachmentOperation.has_value()) {
+        if (vkRenderPassLayout->HasResolveAttachment() && descriptor.resolveAttachmentOp.has_value()) {
             resolveAttachmentRef = vkRenderPassLayout->GetVkResolveAttachmentRef();
 
             auto &attachment = *(attachments.begin() + colorAttachmentRefs.size() + (vkRenderPassLayout->HasDepthStencilAttachment() ? 1 : 0));
-            auto &operation = descriptor.resolveAttachmentOperation.value();
+            auto &operation = descriptor.resolveAttachmentOp.value();
 
             attachment.loadOp = ConvertToVkAttachmentLoadOp(operation.loadOp);
             attachment.storeOp = ConvertToVkAttachmentStoreOp(operation.storeOp);

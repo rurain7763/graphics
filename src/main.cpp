@@ -6,15 +6,18 @@
 #include "Graphics/Vulkan/VkContext.h"
 #include "Graphics/Vulkan/VkPipelines.h"
 #include "Graphics/Vulkan/VkCommandQueue.h"
+#include "Graphics/DX11/DXContext.h"
 #include "Time/Time.h"
 #include "Math/Math.h"
 #include "Image/Image.h"
 #include "Model/Model.h"
-#include "Graphics/GraphicsFunc.h"
 
 #include <filesystem>
 
 using namespace flaw;
+
+#define USE_VULKAN 0
+#define USE_DX11 1
 
 struct PushConstants {
     glm::mat4 model_matrix;
@@ -45,7 +48,7 @@ struct TexturedVertex {
     glm::vec3 normal;
 };
 
-std::vector<uint8_t> GenerateTextureCubeData(Ref<GraphicsContext> g_graphicsContext, Image& left, Image& right, Image& top, Image& bottom, Image& front, Image& back) {
+std::vector<uint8_t> GenerateTextureCubeData(Ref<GraphicsContext> graphicsContext, Image& left, Image& right, Image& top, Image& bottom, Image& front, Image& back) {
     std::vector<uint8_t> textureData;
 
     uint32_t width = left.Width();
@@ -54,7 +57,7 @@ std::vector<uint8_t> GenerateTextureCubeData(Ref<GraphicsContext> g_graphicsCont
 
     Image* images[6];
 
-    if (auto vkContext = dynamic_cast<VkContext*>(g_graphicsContext.get())) {
+    if (auto vkContext = std::static_pointer_cast<VkContext>(graphicsContext)) {
         images[0] = &right; // +X (Right)
         images[1] = &left;  // -X (Left)
         images[2] = &top;   // +Y (Top)
@@ -62,6 +65,14 @@ std::vector<uint8_t> GenerateTextureCubeData(Ref<GraphicsContext> g_graphicsCont
         images[4] = &front; // +Z (Front)
         images[5] = &back;  // -Z (Back)
     }
+	else if (auto dxContext = std::static_pointer_cast<DXContext>(graphicsContext)) {
+		images[0] = &left;  // +X (Right)
+		images[1] = &right; // -X (Left)
+		images[2] = &top;   // +Y (Top)
+		images[3] = &bottom;// -Y (Bottom)
+		images[4] = &front; // +Z (Front)
+		images[5] = &back;  // -Z (Back)
+	}
     else {
         Log::Error("Unsupported graphics context type for texture cube generation.");
         return textureData;
@@ -80,7 +91,7 @@ std::vector<uint8_t> GenerateTextureCubeData(Ref<GraphicsContext> g_graphicsCont
     return textureData;
 }
 
-Ref<VkContext> g_graphicsContext;
+Ref<GraphicsContext> g_graphicsContext;
 
 Ref<ConstantBuffer> g_cameraConstants;
 
@@ -110,11 +121,15 @@ int main() {
     const int32_t windowHeight = 600;
 
     auto context = CreateRef<PlatformContext>("Flaw Application", windowWidth, windowHeight, eventDispatcher);
+#if USE_VULKAN
     g_graphicsContext = CreateRef<VkContext>(*context, windowWidth, windowHeight);
-
-    // Set vulkan specific parameters
     MathParams::InvertYAxis = true;
     ModelParams::LeftHanded = true;
+#elif USE_DX11
+	g_graphicsContext = CreateRef<DXContext>(*context, windowWidth, windowHeight);
+	MathParams::InvertYAxis = false;
+	ModelParams::LeftHanded = true;
+#endif
 
     eventDispatcher.Register<WindowResizeEvent>([&](const WindowResizeEvent& event) {
         g_graphicsContext->Resize(event.frameBufferWidth, event.frameBufferHeight);
@@ -126,7 +141,7 @@ int main() {
     faceDesc.height = faceImg.Height();
     faceDesc.data = faceImg.Data().data();
     faceDesc.memProperty = MemoryProperty::Static;
-    faceDesc.imageUsages = TextureUsage::ShaderResource;
+    faceDesc.texUsages = TextureUsage::ShaderResource;
     faceDesc.format = PixelFormat::RGBA8;
 	faceDesc.shaderStages = ShaderStage::Pixel;
 
@@ -138,7 +153,7 @@ int main() {
     hausDesc.height = hausImg.Height();
     hausDesc.data = hausImg.Data().data();
     hausDesc.memProperty = MemoryProperty::Static;
-    hausDesc.imageUsages = TextureUsage::ShaderResource;
+    hausDesc.texUsages = TextureUsage::ShaderResource;
     hausDesc.format = PixelFormat::RGBA8;
     hausDesc.mipLevels = GetMaxMipLevels(hausDesc.width, hausDesc.height);
 	hausDesc.shaderStages = ShaderStage::Pixel;
@@ -146,13 +161,21 @@ int main() {
     Ref<Texture2D> hausTexture = g_graphicsContext->CreateTexture2D(hausDesc);
 
     GraphicsShader::Descriptor shaderDesc;
+#if USE_VULKAN
     shaderDesc.vertexShaderFile = "./assets/shaders/shader.vert.spv";
     shaderDesc.vertexShaderEntry = "main";
     shaderDesc.pixelShaderFile = "./assets/shaders/shader.frag.spv";
     shaderDesc.pixelShaderEntry = "main";
+#elif USE_DX11
+	shaderDesc.vertexShaderFile = "./assets/shaders/shader.fx";
+	shaderDesc.vertexShaderEntry = "VSMain";
+	shaderDesc.pixelShaderFile = "./assets/shaders/shader.fx";
+	shaderDesc.pixelShaderEntry = "PSMain";
+#endif
 
     auto graphicsShader = g_graphicsContext->CreateGraphicsShader(shaderDesc);
 
+#if USE_VULKAN
     ShaderResourcesLayout::Descriptor shaderResourceLayoutDesc;
     shaderResourceLayoutDesc.bindings = {
         { 0, ResourceType::ConstantBuffer, ShaderStage::Vertex, 1 },
@@ -168,14 +191,25 @@ int main() {
     };
 
     auto textureResourceLayout = g_graphicsContext->CreateShaderResourcesLayout(textureResourceLayoutDesc);
+#elif USE_DX11
+    ShaderResourcesLayout::Descriptor shaderResourceLayoutDesc;
+    shaderResourceLayoutDesc.bindings = {
+        { 0, ResourceType::ConstantBuffer, ShaderStage::Vertex, 1 },
+        { 1, ResourceType::ConstantBuffer, ShaderStage::Pixel, 1 },
+        { 0, ResourceType::StructuredBuffer, ShaderStage::Vertex, 1 },
+	    { 1, ResourceType::Texture2D, ShaderStage::Pixel, 1 },
+    };
 
-    GraphicsVertexInputLayout::Descriptor vertexInputLayoutDesc;
+    auto shaderResourceLayout = g_graphicsContext->CreateShaderResourcesLayout(shaderResourceLayoutDesc);
+#endif  
+
+    VertexInputLayout::Descriptor vertexInputLayoutDesc;
     vertexInputLayoutDesc.binding = 0;
     vertexInputLayoutDesc.vertexInputRate = VertexInputRate::Vertex;
     vertexInputLayoutDesc.inputElements = {
         { "POSITION", ElementType::Float, 3 },
         { "COLOR", ElementType::Float, 4 },
-        { "TEX_COORD", ElementType::Float, 2 },
+        { "TEXCOORD", ElementType::Float, 2 },
         { "NORMAL", ElementType::Float, 3 }
     };
 
@@ -200,7 +234,7 @@ int main() {
     std::vector<uint32_t> modelIndices = currentModel.GetIndices();
 
     VertexBuffer::Descriptor vertexBufferDesc;
-    vertexBufferDesc.usage = MemoryProperty::Static;
+    vertexBufferDesc.memProperty = MemoryProperty::Static;
     vertexBufferDesc.elmSize = sizeof(TexturedVertex);
     vertexBufferDesc.bufferSize = sizeof(TexturedVertex) * modelVertices.size();
     vertexBufferDesc.initialData = modelVertices.data();
@@ -208,15 +242,19 @@ int main() {
     auto modelVertexBuffer = g_graphicsContext->CreateVertexBuffer(vertexBufferDesc);
 
     IndexBuffer::Descriptor indexBufferDesc;
-    indexBufferDesc.usage = MemoryProperty::Static;
+    indexBufferDesc.memProperty = MemoryProperty::Static;
     indexBufferDesc.bufferSize = sizeof(uint32_t) * modelIndices.size();
     indexBufferDesc.initialData = modelIndices.data();
 
     auto modelIndexBuffer = g_graphicsContext->CreateIndexBuffer(indexBufferDesc);
 
     auto graphicsPipeline = std::static_pointer_cast<VkGraphicsPipeline>(g_graphicsContext->CreateGraphicsPipeline());
+#if USE_VULKAN
     graphicsPipeline->AddShaderResourcesLayout(shaderResourceLayout);
     graphicsPipeline->AddShaderResourcesLayout(textureResourceLayout);
+#elif USE_DX11
+	graphicsPipeline->AddShaderResourcesLayout(shaderResourceLayout);
+#endif
     graphicsPipeline->SetShader(graphicsShader);
     graphicsPipeline->SetPrimitiveTopology(PrimitiveTopology::TriangleList);
     graphicsPipeline->SetVertexInputLayout(vertexInputLayout);
@@ -233,14 +271,24 @@ int main() {
     glm::vec3 cameraRotation = { 0.0f, 0.0f, 0.0f };
 
     // Create Constant Buffers
-    g_cameraConstants = g_graphicsContext->CreateConstantBuffer(sizeof(CameraConstants));
+	ConstantBuffer::Descriptor cameraConstantsDesc;
+	cameraConstantsDesc.memProperty = MemoryProperty::Dynamic;
+	cameraConstantsDesc.bufferSize = sizeof(CameraConstants);
+    cameraConstantsDesc.initialData = nullptr;
+    
+    g_cameraConstants = g_graphicsContext->CreateConstantBuffer(cameraConstantsDesc);
 
     LightConstants lightConstants;
     lightConstants.intensity = 1.0f;
     lightConstants.color = glm::vec3(1.0f, 1.0f, 1.0f);
     lightConstants.direction = QRotate(glm::vec3(0.f, glm::radians(75.f), 0.0f), Forward);
+
+	ConstantBuffer::Descriptor lightConstantsDesc;
+	lightConstantsDesc.memProperty = MemoryProperty::Dynamic;
+	lightConstantsDesc.bufferSize = sizeof(LightConstants);
+	lightConstantsDesc.initialData = &lightConstants;
     
-    auto lightConstantBuffer = g_graphicsContext->CreateConstantBuffer(sizeof(LightConstants));
+    auto lightConstantBuffer = g_graphicsContext->CreateConstantBuffer(lightConstantsDesc);
     lightConstantBuffer->Update(&lightConstants, sizeof(LightConstants));
 
     glm::vec3 modelPosition = { 0.0f, 0.0f, 0.0f };
@@ -250,13 +298,15 @@ int main() {
     glm::mat4 modelMatrices = ModelMatrix(modelPosition, modelRotation, modelScale);
 
     StructuredBuffer::Descriptor structuredBufferDesc;
+    structuredBufferDesc.memProperty = MemoryProperty::Dynamic;
     structuredBufferDesc.elmSize = sizeof(glm::mat4);
-    structuredBufferDesc.count = 1;
-    structuredBufferDesc.bindFlags = TextureUsage::ShaderResource;
+	structuredBufferDesc.bufferSize = sizeof(glm::mat4);
+    structuredBufferDesc.bufferUsages = BufferUsage::ShaderResource;
     structuredBufferDesc.initialData = &modelMatrices;
 
     auto structuredBuffer = g_graphicsContext->CreateStructuredBuffer(structuredBufferDesc);
 
+#if USE_VULKAN
     ShaderResources::Descriptor shaderResourcesDesc;
     shaderResourcesDesc.layout = shaderResourceLayout;
 
@@ -269,13 +319,23 @@ int main() {
 
     auto textureResources = g_graphicsContext->CreateShaderResources(shaderResourcesDesc);
     textureResources->BindTexture2D(hausTexture, 0);
+#elif USE_DX11
+	ShaderResources::Descriptor shaderResourcesDesc;
+	shaderResourcesDesc.layout = shaderResourceLayout;
+
+	auto shaderResources = g_graphicsContext->CreateShaderResources(shaderResourcesDesc);
+	shaderResources->BindConstantBuffer(g_cameraConstants, 0);
+	shaderResources->BindConstantBuffer(lightConstantBuffer, 1);
+	shaderResources->BindStructuredBuffer(structuredBuffer, 0);
+    shaderResources->BindTexture2D(hausTexture, 1);
+#endif
 
     shaderResourcesDesc.layout = nullptr;
 
     MakeSkyboxResources();
     MakeComputeShaderRayTracingResources();
 
-    auto& commandQueue = static_cast<VkCommandQueue&>(g_graphicsContext->GetCommandQueue());
+    auto& commandQueue = g_graphicsContext->GetCommandQueue();
     
     Time::Start();
     while (context->PollEvents()) {
@@ -309,12 +369,16 @@ int main() {
 
             commandQueue.SetPipeline(g_skyboxPipeline);
             commandQueue.SetShaderResources(g_skyboxResources0, 0);
+#if USE_VULKAN
             commandQueue.SetShaderResources(g_skyboxResources1, 1);
+#endif
             commandQueue.Draw(6);
 
             commandQueue.SetPipeline(graphicsPipeline);
             commandQueue.SetShaderResources(shaderResources, 0);
+#if USE_VULKAN
             commandQueue.SetShaderResources(textureResources, 1);
+#endif
             commandQueue.SetVertexBuffer(modelVertexBuffer);
             
             for (const auto& mesh : currentModel.GetMeshs()) {
@@ -331,8 +395,6 @@ int main() {
 
     ReleaseComputeShaderRayTracingResources();
     ReleaseSkyboxResources();
-    shaderResources.reset();
-    textureResources.reset();
     structuredBuffer.reset();
     lightConstantBuffer.reset();
     g_cameraConstants.reset();
@@ -340,7 +402,11 @@ int main() {
     modelIndexBuffer.reset();
     modelVertexBuffer.reset();
     vertexInputLayout.reset();
+#if USE_VULKAN
+    textureResources.reset();
     textureResourceLayout.reset();
+#endif
+    shaderResources.reset();
     shaderResourceLayout.reset();
     graphicsShader.reset();
     hausTexture.reset();
@@ -371,21 +437,28 @@ void MakeSkyboxResources() {
     skyboxDesc.data = textureData.data();
     skyboxDesc.format = PixelFormat::RGBA8;
     skyboxDesc.memProperty = MemoryProperty::Static;
-    skyboxDesc.imageUsages = TextureUsage::ShaderResource;
-    skyboxDesc.layout = TextureCube::Layout::Horizontal;
+    skyboxDesc.texUsages = TextureUsage::ShaderResource;
     skyboxDesc.mipLevels = GetMaxMipLevels(skyboxDesc.width, skyboxDesc.height);
 	skyboxDesc.shaderStages = ShaderStage::Pixel;
 
     g_skybox = g_graphicsContext->CreateTextureCube(skyboxDesc);
 
     GraphicsShader::Descriptor skyboxShaderDesc;
+#if USE_VULKAN
     skyboxShaderDesc.vertexShaderFile = "./assets/shaders/sky.vert.spv";
     skyboxShaderDesc.vertexShaderEntry = "main";
     skyboxShaderDesc.pixelShaderFile = "./assets/shaders/sky.frag.spv";
     skyboxShaderDesc.pixelShaderEntry = "main";
+#elif USE_DX11
+	skyboxShaderDesc.vertexShaderFile = "./assets/shaders/sky.fx";
+	skyboxShaderDesc.vertexShaderEntry = "VSMain";
+	skyboxShaderDesc.pixelShaderFile = "./assets/shaders/sky.fx";
+	skyboxShaderDesc.pixelShaderEntry = "PSMain";
+#endif
 
     g_skyboxShader = g_graphicsContext->CreateGraphicsShader(skyboxShaderDesc);
 
+#if USE_VULKAN
     ShaderResourcesLayout::Descriptor skyboxResourceLayoutDesc0;
     skyboxResourceLayoutDesc0.bindings = {
         { 0, ResourceType::ConstantBuffer, ShaderStage::Vertex, 1 }
@@ -411,11 +484,29 @@ void MakeSkyboxResources() {
 
     g_skyboxResources1 = g_graphicsContext->CreateShaderResources(skyboxResourcesDesc1);
     g_skyboxResources1->BindTextureCube(g_skybox, 0);
+#elif USE_DX11
+	ShaderResourcesLayout::Descriptor skyboxResourceLayoutDesc;
+	skyboxResourceLayoutDesc.bindings = {
+		{ 0, ResourceType::ConstantBuffer, ShaderStage::Vertex, 1 },
+		{ 0, ResourceType::TextureCube, ShaderStage::Pixel, 1 }
+	};
+
+	g_skyboxResourcesLayout0 = g_graphicsContext->CreateShaderResourcesLayout(skyboxResourceLayoutDesc);
+
+	ShaderResources::Descriptor skyboxResourcesDesc;
+	skyboxResourcesDesc.layout = g_skyboxResourcesLayout0;
+
+	g_skyboxResources0 = g_graphicsContext->CreateShaderResources(skyboxResourcesDesc);
+	g_skyboxResources0->BindConstantBuffer(g_cameraConstants, 0);
+	g_skyboxResources0->BindTextureCube(g_skybox, 0);
+#endif
 
     g_skyboxPipeline = g_graphicsContext->CreateGraphicsPipeline();
     g_skyboxPipeline->SetShader(g_skyboxShader);
     g_skyboxPipeline->AddShaderResourcesLayout(g_skyboxResourcesLayout0);
+#if USE_VULKAN
     g_skyboxPipeline->AddShaderResourcesLayout(g_skyboxResourcesLayout1);
+#endif
     g_skyboxPipeline->SetDepthTest(DepthTest::LessEqual, false);
     g_skyboxPipeline->SetBehaviorStates(
         GraphicsPipeline::BehaviorFlag::AutoResizeViewport |
@@ -441,7 +532,7 @@ void MakeComputeShaderRayTracingResources() {
     storageTextureDesc.height = 1024;
     storageTextureDesc.format = PixelFormat::RGBA8;
     storageTextureDesc.memProperty = MemoryProperty::Static;
-    storageTextureDesc.imageUsages = TextureUsage::UnorderedAccess | TextureUsage::ShaderResource;
+    storageTextureDesc.texUsages = TextureUsage::UnorderedAccess | TextureUsage::ShaderResource;
     storageTextureDesc.sampleCount = 1;
 	storageTextureDesc.shaderStages = ShaderStage::Compute | ShaderStage::Pixel;
 

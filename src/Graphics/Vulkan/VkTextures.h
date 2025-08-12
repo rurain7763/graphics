@@ -31,10 +31,9 @@ namespace flaw {
 		uint32_t GetWidth() const override { return _width; }
 		uint32_t GetHeight() const override { return _height; }
 		PixelFormat GetPixelFormat() const override { return _format; }
-		MemoryProperty GetUsage() const override { return _memProperty; }
-		uint32_t GetBindFlags() const override { return _imageUsages; }
+		TextureUsages GetUsages() const override { return _texUsages; }
 		uint32_t GetSampleCount() const override { return _sampleCount; }
-		uint32_t GetShaderStages() const override { return _shaderStages; }
+		ShaderStages GetShaderStages() const override { return _shaderStages; }
 
 		inline vk::Image GetVkImage() const { return _image; }
 		inline vk::ImageView GetVkImageView() const { return _imageView; }
@@ -69,10 +68,10 @@ namespace flaw {
 
 		PixelFormat _format;
 		MemoryProperty _memProperty;
-		uint32_t _imageUsages;
+		TextureUsages _texUsages;
 		uint32_t _mipLevels;
 		uint32_t _sampleCount;
-		uint32_t _shaderStages;
+		ShaderStages _shaderStages;
 
 		uint32_t _width;
 		uint32_t _height;
@@ -83,17 +82,16 @@ namespace flaw {
 		VkTexture2DArray(VkContext& context, const Descriptor& descriptor);
 		~VkTexture2DArray();
 
-		void FetchAll(void* outData) const override {}
+		void Fetch(void* outData, const uint32_t size) const override {}
 
 		void CopyTo(Ref<Texture2DArray>& target) const override {}
 
 		uint32_t GetWidth() const override { return _width; }
 		uint32_t GetHeight() const override { return _height; }
 		PixelFormat GetPixelFormat() const override { return _format; }
-		MemoryProperty GetUsage() const override { return _memProperty; }
-		uint32_t GetBindFlags() const override { return _imageUsages; }
+		TextureUsages GetUsages() const override { return _texUsages; }
 		uint32_t GetSampleCount() const override { return _sampleCount; }
-		uint32_t GetShaderStages() const override { return _shaderStages; }
+		ShaderStages GetShaderStages() const override { return _shaderStages; }
 		uint32_t GetArraySize() const override { return _arraySize; }
 
 	private:
@@ -123,11 +121,11 @@ namespace flaw {
 
 		PixelFormat _format;
 		MemoryProperty _memProperty;
-		uint32_t _imageUsages;
+		TextureUsages _texUsages;
 		uint32_t _arraySize;
 		uint32_t _mipLevels;
 		uint32_t _sampleCount;
-		uint32_t _shaderStages;
+		ShaderStages _shaderStages;
 
 		uint32_t _width;
 		uint32_t _height;
@@ -146,10 +144,9 @@ namespace flaw {
 		uint32_t GetWidth() const override { return _width; }
 		uint32_t GetHeight() const override { return _height; }
 		PixelFormat GetPixelFormat() const override { return _format; }
-		MemoryProperty GetUsage() const override { return _memProperty; }
-		uint32_t GetBindFlags() const override { return _imageUsages; }
+		TextureUsages GetUsages() const override { return _texUsages; }
 		uint32_t GetSampleCount() const override { return _sampleCount; }
-		uint32_t GetShaderStages() const override { return _shaderStages; }
+		ShaderStages GetShaderStages() const override { return _shaderStages; }
 
 		inline vk::Image GetVkImage() const { return _image; }
 		inline vk::ImageView GetVkImageView() const { return _imageView; }
@@ -182,10 +179,10 @@ namespace flaw {
 
 		PixelFormat _format;
 		MemoryProperty _memProperty;
-		uint32_t _imageUsages;
+		TextureUsages _texUsages;
 		uint32_t _mipLevels;
 		uint32_t _sampleCount;
-		uint32_t _shaderStages;
+		ShaderStages _shaderStages;
 
 		uint32_t _width;
 		uint32_t _height;

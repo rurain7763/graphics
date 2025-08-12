@@ -7,9 +7,9 @@
 #include "Log/Log.h"
 
 namespace flaw {
-	VkConstantBuffer::VkConstantBuffer(VkContext& context, uint32_t size)
+	VkConstantBuffer::VkConstantBuffer(VkContext& context, const Descriptor& descriptor)
 		: _context(context)
-        , _size(size) 
+		, _size(descriptor.bufferSize)
     {
         if (!CreateBuffer()) {
             return;
@@ -21,9 +21,9 @@ namespace flaw {
 
         _bufferInfo.buffer = _buffer;
         _bufferInfo.offset = 0;
-        _bufferInfo.range = size;
+        _bufferInfo.range = _size;
 
-        auto mappedDataWrapper = _context.GetVkDevice().mapMemory(_memory, 0, size, vk::MemoryMapFlags());
+        auto mappedDataWrapper = _context.GetVkDevice().mapMemory(_memory, 0, _size, vk::MemoryMapFlags());
         if (mappedDataWrapper.result != vk::Result::eSuccess) {
             Log::Error("Failed to map constant buffer memory.");
             return;
@@ -55,18 +55,6 @@ namespace flaw {
         } else {
             Log::Error("Constant buffer memory is not mapped.");
         }
-	}
-
-	void VkConstantBuffer::BindToGraphicsShader(const uint32_t slot) {
-		
-	}
-
-	void VkConstantBuffer::BindToComputeShader(const uint32_t slot) {
-		
-	}
-
-	void VkConstantBuffer::Unbind() {
-		
 	}
 
     bool VkConstantBuffer::CreateBuffer() {

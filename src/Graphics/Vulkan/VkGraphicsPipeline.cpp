@@ -179,7 +179,7 @@ namespace flaw {
         vkShader->GetVkShaderStages(_shaderStages);
     }
 
-    void VkGraphicsPipeline::SetVertexInputLayout(const Ref<GraphicsVertexInputLayout>& vertexInputLayout) {
+    void VkGraphicsPipeline::SetVertexInputLayout(const Ref<VertexInputLayout>& vertexInputLayout) {
         if (_vertexInputLayout == vertexInputLayout) {
             return; // No change needed
         }
@@ -211,9 +211,9 @@ namespace flaw {
 
         GraphicsRenderPass::Descriptor renderPassDesc;
         renderPassDesc.layout = vkRenderPassLayout;
-        renderPassDesc.colorAttachmentOperations.resize(vkRenderPassLayout->GetColorAttachmentCount());
-        for (uint32_t i = 0; i < renderPassDesc.colorAttachmentOperations.size(); ++i) {
-            auto& op = renderPassDesc.colorAttachmentOperations[i];
+        renderPassDesc.colorAttachmentOps.resize(vkRenderPassLayout->GetColorAttachmentCount());
+        for (uint32_t i = 0; i < renderPassDesc.colorAttachmentOps.size(); ++i) {
+            auto& op = renderPassDesc.colorAttachmentOps[i];
             op.initialLayout = TextureLayout::Undefined;
             op.finalLayout = TextureLayout::Color;
             op.loadOp = AttachmentLoadOp::Clear;
@@ -221,7 +221,7 @@ namespace flaw {
         }
 
         if (vkRenderPassLayout->HasDepthStencilAttachment()) {
-            renderPassDesc.depthStencilAttachmentOperation = {
+            renderPassDesc.depthStencilAttachmentOp = {
                 TextureLayout::Undefined,
                 TextureLayout::DepthStencil,
                 AttachmentLoadOp::Clear,
@@ -232,7 +232,7 @@ namespace flaw {
         }
 
         if (vkRenderPassLayout->HasResolveAttachment()) {
-            renderPassDesc.resolveAttachmentOperation = {
+            renderPassDesc.resolveAttachmentOp = {
                 TextureLayout::Undefined,
                 TextureLayout::Color,
                 AttachmentLoadOp::Clear,

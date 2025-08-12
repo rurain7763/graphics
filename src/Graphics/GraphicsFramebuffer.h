@@ -14,11 +14,11 @@ namespace flaw {
             uint32_t width;
             uint32_t height;
             std::vector<Ref<Texture>> colorAttachments;
-            std::function<Ref<Texture>(uint32_t index, uint32_t width, uint32_t height)> colorResizeHandler;
+            std::function<bool(Ref<Texture>& tex, uint32_t width, uint32_t height)> colorResizeHandler;
             std::optional<Ref<Texture>> depthStencilAttachment;
-            std::function<Ref<Texture>(uint32_t width, uint32_t height)> depthStencilResizeHandler;
+            std::function<bool(Ref<Texture>& tex, uint32_t width, uint32_t height)> depthStencilResizeHandler;
             std::optional<Ref<Texture>> resolveAttachment;
-            std::function<Ref<Texture>(uint32_t width, uint32_t height)> resolveResizeHandler;
+            std::function<bool(Ref<Texture>& tex, uint32_t width, uint32_t height)> resolveResizeHandler;
             Ref<GraphicsRenderPassLayout> renderPassLayout;
         };
 
