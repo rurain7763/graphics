@@ -153,14 +153,18 @@ namespace flaw {
         _rasterizationInfo.polygonMode = vkFillMode;
     }
 
-    void VkGraphicsPipeline::AddShaderResourcesLayout(const Ref<ShaderResourcesLayout>& shaderResourceLayout) {
-        auto vkShaderResourceLayout = std::static_pointer_cast<VkShaderResourcesLayout>(shaderResourceLayout);
-        FASSERT(vkShaderResourceLayout, "Invalid shader resource layout type for Vulkan pipeline");
-
+    void VkGraphicsPipeline::SetShaderResourcesLayouts(const std::vector<Ref<ShaderResourcesLayout>>& shaderResourceLayouts) {
         _needRecreatePipeline = true;
 
-        _shaderResourceLayouts.push_back(vkShaderResourceLayout);
-        _descriptorSetLayouts.push_back(vkShaderResourceLayout->GetVkDescriptorSetLayout());
+		_shaderResourceLayouts.clear();
+		_descriptorSetLayouts.clear();
+        for (uint32_t i = 0; i < shaderResourceLayouts.size(); i++) {
+            auto vkShaderResourceLayout = std::static_pointer_cast<VkShaderResourcesLayout>(shaderResourceLayouts[i]);
+            FASSERT(vkShaderResourceLayout, "Invalid shader resource layout type for Vulkan pipeline");
+            
+            _shaderResourceLayouts.push_back(vkShaderResourceLayout);
+            _descriptorSetLayouts.push_back(vkShaderResourceLayout->GetVkDescriptorSetLayout());
+        }
 
         _pipelineLayout = nullptr;
     }
@@ -190,24 +194,28 @@ namespace flaw {
         }
     }
 
-    void VkGraphicsPipeline::SetVertexInputLayout(const Ref<VertexInputLayout>& vertexInputLayout) {
-        if (_vertexInputLayout == vertexInputLayout) {
-            return; // No change needed
-        }
-
-        auto vkVertexInputLayout = std::static_pointer_cast<VkVertexInputLayout>(vertexInputLayout);
-        FASSERT(vkVertexInputLayout, "Invalid vertex input layout type for Vulkan pipeline");
-
+    void VkGraphicsPipeline::SetVertexInputLayouts(const std::vector<Ref<VertexInputLayout>>& vertexInputLayouts) {
         _needRecreatePipeline = true;
 
-        auto& bindingDescription = vkVertexInputLayout->GetVkVertexInputBindingDescription();
-        auto& attributeDescriptions = vkVertexInputLayout->GetVkVertexInputAttributeDescriptions();
+		_vertexInputLayouts.clear();
+        _bindingDescriptions.clear();
+        _attributeDescriptions.clear();
+		for (uint32_t i = 0; i < vertexInputLayouts.size(); ++i) {
+			auto vkVertexInputLayout = std::static_pointer_cast<VkVertexInputLayout>(vertexInputLayouts[i]);
+			FASSERT(vkVertexInputLayout, "Invalid vertex input layout type for Vulkan pipeline");
 
-        _vertexInputLayout = vkVertexInputLayout;
-        _vertexInputState.vertexBindingDescriptionCount = 1;
-        _vertexInputState.pVertexBindingDescriptions = &bindingDescription;
-        _vertexInputState.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
-        _vertexInputState.pVertexAttributeDescriptions = attributeDescriptions.data();
+            const auto& vkBindingDescription = vkVertexInputLayout->GetVkVertexInputBindingDescription();
+            const auto& vkAttributeDescriptions = vkVertexInputLayout->GetVkVertexInputAttributeDescriptions();
+
+			_vertexInputLayouts.push_back(vkVertexInputLayout);
+			_bindingDescriptions.push_back(vkBindingDescription);
+			_attributeDescriptions.insert(_attributeDescriptions.end(), vkAttributeDescriptions.begin(), vkAttributeDescriptions.end());
+		}
+
+		_vertexInputState.vertexBindingDescriptionCount = _bindingDescriptions.size();
+		_vertexInputState.pVertexBindingDescriptions = _bindingDescriptions.data();
+        _vertexInputState.vertexAttributeDescriptionCount = _attributeDescriptions.size();
+        _vertexInputState.pVertexAttributeDescriptions = _attributeDescriptions.data();
     }
 
     void VkGraphicsPipeline::SetRenderPassLayout(const Ref<GraphicsRenderPassLayout>& renderPassLayout) {
@@ -300,21 +308,23 @@ namespace flaw {
         _multisampleInfo.rasterizationSamples = ConvertToVkSampleCount(vkRenderPassLayout->GetSampleCount());
     }
 
-    void VkGraphicsPipeline::AddPushConstantRange(const VkPushConstantRange& pushConstant) {
+    void VkGraphicsPipeline::SetPushConstantRanges(const std::vector<VkPushConstantRange>& pushConstants) {
         _needRecreatePipeline = true;
 
-        if (_pushConstantRanges.size() == 0) {
-            _pushConstantOffset = 0;
+        uint32_t offset = 0;
+        _pushConstantRanges.clear();
+        for (uint32_t i = 0; i < pushConstants.size(); i++) {
+			const auto& pushConstant = pushConstants[i];
+
+            vk::PushConstantRange pushConstantRange;
+            pushConstantRange.stageFlags = ConvertToVkShaderStages(pushConstant.shaderStages);
+            pushConstantRange.offset = offset;
+            pushConstantRange.size = pushConstant.size;
+
+            _pushConstantRanges.push_back(pushConstantRange);
+
+            offset += pushConstant.size;
         }
-
-        vk::PushConstantRange pushConstantRange;
-        pushConstantRange.stageFlags = ConvertToVkShaderStages(pushConstant.shaderStages);
-        pushConstantRange.offset = _pushConstantOffset;
-        pushConstantRange.size = pushConstant.size;
-
-        _pushConstantRanges.push_back(pushConstantRange);
-
-        _pushConstantOffset += pushConstant.size;
 
         _pipelineLayout = nullptr;
     }
@@ -329,10 +339,10 @@ namespace flaw {
         _behaviorFlags = flags;
         _dynamicStates.clear();
 
-        if (flags & BehaviorFlag::AutoResizeViewport) {
+        if (flags & Behavior::AutoResizeViewport) {
             _dynamicStates.push_back(vk::DynamicState::eViewport);
         }
-        if (flags & BehaviorFlag::AutoResizeScissor) {
+        if (flags & Behavior::AutoResizeScissor) {
             _dynamicStates.push_back(vk::DynamicState::eScissor);
         }
 

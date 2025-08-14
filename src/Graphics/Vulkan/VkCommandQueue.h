@@ -24,8 +24,8 @@ namespace flaw {
         void SetPipeline(const Ref<GraphicsPipeline>& pipeline) override;
         void SetPipelinePushConstant(uint32_t rangeIndex, const void* data);
 
-        void SetVertexBuffer(const Ref<VertexBuffer>& vertexBuffer) override;
-        void SetShaderResources(const Ref<ShaderResources>& shaderResources, uint32_t set = 0) override;
+        void SetVertexBuffers(const std::vector<Ref<VertexBuffer>>& vertexBuffers) override;
+        void SetShaderResources(const std::vector<Ref<ShaderResources>>& shaderResources) override;
 
         void Draw(uint32_t vertexCount, uint32_t vertexOffset = 0) override;
         void DrawInstanced(uint32_t vertexCount, uint32_t instanceCount, uint32_t vertexOffset = 0) override;
@@ -100,7 +100,8 @@ namespace flaw {
         vk::Pipeline _currentPipeline;
         vk::PipelineLayout _currentPipelineLayout;
         std::vector<vk::PushConstantRange> _currentPushConstantRanges;
-        Ref<VkVertexBuffer> _currentVertexBuffer;
+		std::vector<vk::Buffer> _currentVertexBuffers;
+		std::vector<vk::DeviceSize> _currentVertexBufferOffsets;
         std::vector<vk::DescriptorSet> _currentDescriptorSets;
 
         vk::Queue _oneTimeCommandQueue;

@@ -15,8 +15,8 @@ namespace flaw {
 		
 		virtual void SetPipeline(const Ref<GraphicsPipeline>& pipeline) = 0;
 
-		virtual void SetVertexBuffer(const Ref<VertexBuffer>& vertexBuffer) = 0;
-		virtual void SetShaderResources(const Ref<ShaderResources>& shaderResources, uint32_t set = 0) = 0;
+		virtual void SetVertexBuffers(const std::vector<Ref<VertexBuffer>>& vertexBuffers) = 0;
+		virtual void SetShaderResources(const std::vector<Ref<ShaderResources>>& shaderResources) = 0;
 		
 		virtual void Draw(uint32_t vertexCount, uint32_t vertexOffset = 0) = 0;
 		virtual void DrawInstanced(uint32_t vertexCount, uint32_t instanceCount, uint32_t vertexOffset = 0) = 0;

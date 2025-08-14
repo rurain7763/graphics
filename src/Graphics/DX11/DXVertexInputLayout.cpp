@@ -11,7 +11,6 @@ namespace flaw {
 	DXVertexInputLayout::DXVertexInputLayout(DXContext& context, const Descriptor& desc) 
 		: _context(context)
 	{
-
 		uint32_t stride = 0;
 		_inputElements.reserve(desc.inputElements.size());
 		for (const auto& element : desc.inputElements) {
@@ -45,25 +44,6 @@ namespace flaw {
 		for (auto& element : _inputElements) {
 			delete[] element.SemanticName;
 		}
-	}
-
-	ComPtr<ID3D11InputLayout> DXVertexInputLayout::GetDXInputLayout(Ref<GraphicsShader> shader) const {
-		auto dxShader = std::static_pointer_cast<DXGraphicsShader>(shader);
-		FASSERT(dxShader, "Invalid shader type for DXVertexInputLayout");
-
-		ComPtr<ID3DBlob> vsBlob = dxShader->GetDXVertexShaderBlob();
-		if (!vsBlob) {
-			LOG_ERROR("Vertex shader blob is null");
-			return nullptr;
-		}
-
-		ComPtr<ID3D11InputLayout> inputLayout;
-		if (FAILED(_context.Device()->CreateInputLayout(_inputElements.data(), _inputElements.size(), vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), inputLayout.GetAddressOf()))) {
-			LOG_ERROR("CreateInputLayout failed");
-			return nullptr;
-		}
-
-		return inputLayout;
 	}
 }
 

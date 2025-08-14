@@ -9,7 +9,7 @@
 namespace flaw {
 	class GraphicsPipeline {
 	public:
-		enum BehaviorFlag {
+		enum Behavior {
 			AutoResizeViewport = 1 << 0,
 			AutoResizeScissor = 1 << 1,
 		};
@@ -17,7 +17,7 @@ namespace flaw {
 		GraphicsPipeline() = default;
 		virtual ~GraphicsPipeline() = default;
 
-		virtual void SetVertexInputLayout(const Ref<VertexInputLayout>& vertexInputLayout) = 0;
+		virtual void SetVertexInputLayouts(const std::vector<Ref<VertexInputLayout>>& vertexInputLayouts) = 0;
 
 		virtual void SetPrimitiveTopology(PrimitiveTopology primitiveTopology) = 0;
 		virtual void SetViewport(float x, float y, float width, float height) = 0;
@@ -27,12 +27,12 @@ namespace flaw {
 		virtual void SetCullMode(CullMode cullMode) = 0;
 		virtual void SetFillMode(FillMode fillMode) = 0;
 
-		virtual void AddShaderResourcesLayout(const Ref<ShaderResourcesLayout>& shaderResourceLayout) = 0;
+		virtual void SetShaderResourcesLayouts(const std::vector<Ref<ShaderResourcesLayout>>& shaderResourceLayouts) = 0;
 		virtual void SetShader(const Ref<GraphicsShader>& shader) = 0;
 
 		virtual void SetRenderPassLayout(const Ref<GraphicsRenderPassLayout>& renderPassLayout) = 0;
 
-		virtual void SetBehaviorStates(uint32_t flags) = 0;
+		virtual void SetBehaviorStates(uint32_t behaviors) = 0;
 		virtual uint32_t GetBehaviorStates() const = 0;
 	};
 

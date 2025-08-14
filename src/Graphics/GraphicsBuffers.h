@@ -13,7 +13,7 @@ namespace flaw {
         };
 
         struct Descriptor {
-            uint32_t binding;
+			uint32_t binding;
             VertexInputRate vertexInputRate;
             std::vector<InputElement> inputElements;
         }; 

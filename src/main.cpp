@@ -15,7 +15,7 @@
 
 using namespace flaw;
 
-#define USE_VULKAN 1 
+#define USE_VULKAN 1
 #define USE_DX11 0
 
 struct CameraConstants {
@@ -219,21 +219,17 @@ int main() {
 
     auto graphicsPipeline = g_graphicsContext->CreateGraphicsPipeline();
 #if USE_VULKAN
-    graphicsPipeline->AddShaderResourcesLayout(shaderResourceLayout);
-    graphicsPipeline->AddShaderResourcesLayout(textureResourceLayout);
+	graphicsPipeline->SetShaderResourcesLayouts({ shaderResourceLayout, textureResourceLayout });
 #elif USE_DX11
-	graphicsPipeline->AddShaderResourcesLayout(shaderResourceLayout);
+    graphicsPipeline->SetShaderResourcesLayouts({ shaderResourceLayout });
 #endif
     graphicsPipeline->SetShader(graphicsShader);
     graphicsPipeline->SetPrimitiveTopology(PrimitiveTopology::TriangleList);
-    graphicsPipeline->SetVertexInputLayout(vertexInputLayout);
+    graphicsPipeline->SetVertexInputLayouts({ vertexInputLayout });
     graphicsPipeline->SetDepthTest(DepthTest::Less, true);
     graphicsPipeline->SetCullMode(CullMode::Back);
     graphicsPipeline->SetFillMode(FillMode::Solid);
-    graphicsPipeline->SetBehaviorStates(
-        GraphicsPipeline::BehaviorFlag::AutoResizeViewport |
-        GraphicsPipeline::BehaviorFlag::AutoResizeScissor
-    );
+    graphicsPipeline->SetBehaviorStates(GraphicsPipeline::Behavior::AutoResizeViewport | GraphicsPipeline::Behavior::AutoResizeScissor);
 
     glm::vec3 cameraPosition = { 0.0f, 0.0f, -5.0f };
     glm::vec3 cameraRotation = { 0.0f, 0.0f, 0.0f };
@@ -336,18 +332,21 @@ int main() {
             commandQueue.BeginRenderPass();
 
             commandQueue.SetPipeline(g_skyboxPipeline);
-            commandQueue.SetShaderResources(g_skyboxResources0, 0);
 #if USE_VULKAN
-            commandQueue.SetShaderResources(g_skyboxResources1, 1);
+            commandQueue.SetShaderResources({ g_skyboxResources0, g_skyboxResources1 });
+#elif USE_DX11
+			commandQueue.SetShaderResources({ g_skyboxResources0 });
 #endif
             commandQueue.Draw(6);
 
             commandQueue.SetPipeline(graphicsPipeline);
-            commandQueue.SetShaderResources(shaderResources, 0);
 #if USE_VULKAN
-            commandQueue.SetShaderResources(textureResources, 1);
+            commandQueue.SetShaderResources({ shaderResources, textureResources });
+#elif USE_DX11
+			commandQueue.SetShaderResources({ shaderResources });
 #endif
-            commandQueue.SetVertexBuffer(modelVertexBuffer);
+
+            commandQueue.SetVertexBuffers({ modelVertexBuffer });
             
             for (const auto& mesh : currentModel.GetMeshs()) {
                 commandQueue.DrawIndexed(modelIndexBuffer, mesh.indexCount, mesh.indexStart, mesh.vertexStart);
@@ -470,15 +469,13 @@ void MakeSkyboxResources() {
 
     g_skyboxPipeline = g_graphicsContext->CreateGraphicsPipeline();
     g_skyboxPipeline->SetShader(g_skyboxShader);
-    g_skyboxPipeline->AddShaderResourcesLayout(g_skyboxResourcesLayout0);
 #if USE_VULKAN
-    g_skyboxPipeline->AddShaderResourcesLayout(g_skyboxResourcesLayout1);
+    g_skyboxPipeline->SetShaderResourcesLayouts({ g_skyboxResourcesLayout0, g_skyboxResourcesLayout1 });
+#elif USE_DX11
+    g_skyboxPipeline->SetShaderResourcesLayouts({ g_skyboxResourcesLayout0 });
 #endif
     g_skyboxPipeline->SetDepthTest(DepthTest::LessEqual, false);
-    g_skyboxPipeline->SetBehaviorStates(
-        GraphicsPipeline::BehaviorFlag::AutoResizeViewport |
-        GraphicsPipeline::BehaviorFlag::AutoResizeScissor
-    );
+    g_skyboxPipeline->SetBehaviorStates(GraphicsPipeline::Behavior::AutoResizeViewport | GraphicsPipeline::Behavior::AutoResizeScissor);
 }
 
 void ReleaseSkyboxResources() {

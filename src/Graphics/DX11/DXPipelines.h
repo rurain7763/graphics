@@ -20,7 +20,7 @@ namespace flaw {
 		DXGraphicsPipeline(DXContext& context);
 		~DXGraphicsPipeline() = default;
 
-		void SetVertexInputLayout(const Ref<VertexInputLayout>& vertexInputLayout) override;
+		void SetVertexInputLayouts(const std::vector<Ref<VertexInputLayout>>& vertexInputLayouts) override;
 
 		void SetPrimitiveTopology(PrimitiveTopology primitiveTopology) override;
 		void SetViewport(float x, float y, float width, float height) override;
@@ -30,12 +30,12 @@ namespace flaw {
 		void SetCullMode(CullMode cullMode) override;
 		void SetFillMode(FillMode fillMode) override;
 
-		void AddShaderResourcesLayout(const Ref<ShaderResourcesLayout>& shaderResourceLayout) override;
+		void SetShaderResourcesLayouts(const std::vector<Ref<ShaderResourcesLayout>>& shaderResourceLayouts) override;
 		void SetShader(const Ref<GraphicsShader>& shader) override;
 
 		void SetRenderPassLayout(const Ref<GraphicsRenderPassLayout>& renderPassLayout) override;
 
-		void SetBehaviorStates(uint32_t flags) override;
+		void SetBehaviorStates(uint32_t behaviors) override;
 		uint32_t GetBehaviorStates() const override;
 
 		ComPtr<ID3D11InputLayout> GetDXInputLayout();
@@ -46,12 +46,12 @@ namespace flaw {
 		ComPtr<ID3D11RasterizerState> GetDXRasterizerState();
 		inline Ref<DXShaderResourcesLayout> GetDXShaderResourcesLayout() const { return _shaderResourcesLayout; }
 		inline Ref<DXGraphicsShader> GetDXShader() const { return _shader; }
-		inline Ref<DXRenderPassLayout> GetDXRenderPassLayout() const { return _renderPassLayout; }
+		ComPtr<ID3D11BlendState> GetDXBlendState() const;
 
 	private:
 		DXContext& _context;
 
-		Ref<DXVertexInputLayout> _vertexInputLayout;
+		std::vector<Ref<DXVertexInputLayout>> _vertexInputLayouts;
 		ComPtr<ID3D11InputLayout> _dxInputLayout;
 		
 		D3D11_PRIMITIVE_TOPOLOGY _primitiveTopology;

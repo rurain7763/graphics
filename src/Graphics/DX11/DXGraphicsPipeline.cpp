@@ -44,16 +44,17 @@ namespace flaw {
 		_scissorRect.right = 800; // Default width
 		_scissorRect.bottom = 600; // Default height
 
-		_renderPassLayout = _context.GetMainRenderPassLayout();
+		_renderPassLayout = std::static_pointer_cast<DXRenderPassLayout>(context.GetMainRenderPassLayout());
 	}
 
-	void DXGraphicsPipeline::SetVertexInputLayout(const Ref<VertexInputLayout>& vertexInputLayout) {
-		if (vertexInputLayout == _vertexInputLayout) {
-			return;
+	void DXGraphicsPipeline::SetVertexInputLayouts(const std::vector<Ref<VertexInputLayout>>& vertexInputLayouts) {
+		_vertexInputLayouts.clear();
+		for (uint32_t i = 0; i < vertexInputLayouts.size(); i++) {
+			auto dxVertexInputLayout = std::static_pointer_cast<DXVertexInputLayout>(vertexInputLayouts[i]);
+			FASSERT(dxVertexInputLayout, "Invalid vertex input layout");
+			
+			_vertexInputLayouts.push_back(dxVertexInputLayout);
 		}
-
-		_vertexInputLayout = std::static_pointer_cast<DXVertexInputLayout>(vertexInputLayout);
-		FASSERT(_vertexInputLayout, "Invalid vertex input layout");
 
 		_dxInputLayout = nullptr;
 	}
@@ -117,12 +118,16 @@ namespace flaw {
 		_rasterizerDesc.FillMode = dxFillMode;
 	}
 
-	void DXGraphicsPipeline::AddShaderResourcesLayout(const Ref<ShaderResourcesLayout>& shaderResourceLayout) {
-		if (_shaderResourcesLayout) {
-			LOG_WARN("DX11 does not support multiple shader resource layouts this job just overrides the previous one");
+	void DXGraphicsPipeline::SetShaderResourcesLayouts(const std::vector<Ref<ShaderResourcesLayout>>& shaderResourceLayouts) {
+		if (shaderResourceLayouts.size() > 1) {
+			LOG_WARN("DX11 does not support multiple shader resource layouts this job use the first one");
 		}
 
-		_shaderResourcesLayout = std::static_pointer_cast<DXShaderResourcesLayout>(shaderResourceLayout);
+		if (shaderResourceLayouts[0] == _shaderResourcesLayout) {
+			return; // Already set
+		}
+
+		_shaderResourcesLayout = std::static_pointer_cast<DXShaderResourcesLayout>(shaderResourceLayouts[0]);
 		FASSERT(_shaderResourcesLayout, "Invalid shader resource layout");
 	}
 
@@ -159,7 +164,7 @@ namespace flaw {
 			return _dxInputLayout;
 		}
 
-		if (!_vertexInputLayout) {
+		if (_vertexInputLayouts.empty()) {
 			return nullptr;
 		}
 
@@ -167,7 +172,22 @@ namespace flaw {
 			return nullptr;
 		}
 
-		_dxInputLayout = _vertexInputLayout->GetDXInputLayout(_shader);
+		ComPtr<ID3DBlob> vsBlob = _shader->GetDXVertexShaderBlob();
+		if (!vsBlob) {
+			LOG_ERROR("Vertex shader blob is null");
+			return nullptr;
+		}
+
+		std::vector<D3D11_INPUT_ELEMENT_DESC> inputElements;
+		for (const auto& layout : _vertexInputLayouts) {
+			const auto& elements = layout->GetInputElements();
+			inputElements.insert(inputElements.end(), elements.begin(), elements.end());
+		}
+
+		if (FAILED(_context.Device()->CreateInputLayout(inputElements.data(), inputElements.size(), vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), _dxInputLayout.GetAddressOf()))) {
+			LOG_ERROR("CreateInputLayout failed");
+			return nullptr;
+		}
 
 		return _dxInputLayout;
 	}
@@ -192,6 +212,10 @@ namespace flaw {
 		}
 
 		return _rasterizerState;
+	}
+
+	ComPtr<ID3D11BlendState> DXGraphicsPipeline::GetDXBlendState() const {
+		return _renderPassLayout->GetDXBlendState();
 	}
 }
 

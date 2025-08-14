@@ -23,8 +23,8 @@ namespace flaw {
 
 		void SetPipeline(const Ref<GraphicsPipeline>& pipeline) override;
 
-		void SetVertexBuffer(const Ref<VertexBuffer>& vertexBuffer) override;
-		void SetShaderResources(const Ref<ShaderResources>& shaderResources, uint32_t set = 0) override;
+		void SetVertexBuffers(const std::vector<Ref<VertexBuffer>>& vertexBuffers) override;
+		void SetShaderResources(const std::vector<Ref<ShaderResources>>& shaderResources) override;
 
 		void Draw(uint32_t vertexCount, uint32_t vertexOffset = 0) override;
 		void DrawInstanced(uint32_t vertexCount, uint32_t instanceCount, uint32_t vertexOffset = 0) override;
@@ -59,8 +59,11 @@ namespace flaw {
 	private:
 		DXContext& _context;
 
-		bool _needBindVertexBuffer;
-		Ref<DXVertexBuffer> _currentVertexBuffer;
+		bool _needBindVertexBuffers;
+		std::vector<Ref<DXVertexBuffer>> _currentVertexBuffers;
+		std::vector<ID3D11Buffer*> _currentDXVertexBuffers;
+		std::vector<UINT> _currentDXVertexBufferStrides;
+		std::vector<UINT> _currentDXVertexBufferOffsets;
 
 		bool _needBindGraphicsPipeline;
 		Ref<DXGraphicsPipeline> _currentGraphicsPipeline;

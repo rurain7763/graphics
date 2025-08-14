@@ -151,11 +151,11 @@ namespace flaw {
 
         const uint32_t behaviorStates = vkPipeline->GetBehaviorStates();
 
-        if (behaviorStates & GraphicsPipeline::BehaviorFlag::AutoResizeViewport) {
+        if (behaviorStates & GraphicsPipeline::Behavior::AutoResizeViewport) {
             commandBuffer.setViewport(0, 1, &_currentViewport);
         }
 
-        if (behaviorStates & GraphicsPipeline::BehaviorFlag::AutoResizeScissor) {
+        if (behaviorStates & GraphicsPipeline::Behavior::AutoResizeScissor) {
             commandBuffer.setScissor(0, 1, &_currentScissor);
         }
     }
@@ -172,18 +172,26 @@ namespace flaw {
         commandBuffer.pushConstants(_currentPipelineLayout, pushConstantRange.stageFlags, pushConstantRange.offset, pushConstantRange.size, data);
     }
 
-    void VkCommandQueue::SetVertexBuffer(const Ref<VertexBuffer>& vertexBuffer) {
-        auto vkVertexBuffer = std::dynamic_pointer_cast<VkVertexBuffer>(vertexBuffer);
-        FASSERT(vkVertexBuffer, "Invalid vertex buffer type for Vulkan command queue");
+    void VkCommandQueue::SetVertexBuffers(const std::vector<Ref<VertexBuffer>>& vertexBuffers) {
+		_currentVertexBuffers.resize(vertexBuffers.size());
+		_currentVertexBufferOffsets.resize(vertexBuffers.size());
+        for (uint32_t i = 0; i < vertexBuffers.size(); i++) {
+			auto vkVertexBuffer = std::static_pointer_cast<VkVertexBuffer>(vertexBuffers[i]);
+			FASSERT(vkVertexBuffer, "Invalid vertex buffer type for Vulkan command queue");
 
-        _currentVertexBuffer = vkVertexBuffer;
+			_currentVertexBuffers[i] = vkVertexBuffer->GetVkBuffer();
+			_currentVertexBufferOffsets[i] = 0; // Assuming no offset for simplicity
+		}
     }
 
-    void VkCommandQueue::SetShaderResources(const Ref<ShaderResources>& shaderResources, uint32_t set) {
-        auto vkShaderResources = std::dynamic_pointer_cast<VkShaderResources>(shaderResources);
-        FASSERT(vkShaderResources, "Invalid shader resources type for Vulkan command queue");
+    void VkCommandQueue::SetShaderResources(const std::vector<Ref<ShaderResources>>& shaderResources) {
+		_currentDescriptorSets.resize(shaderResources.size());
+		for (uint32_t i = 0; i < shaderResources.size(); ++i) {
+            auto vkShaderResources = std::static_pointer_cast<VkShaderResources>(shaderResources[i]);
+            FASSERT(vkShaderResources, "Invalid shader resources type for Vulkan command queue");
 
-        _currentDescriptorSets[set] = vkShaderResources->GetVkDescriptorSet();
+            _currentDescriptorSets[i] = vkShaderResources->GetVkDescriptorSet();
+		}
     }
 
     void VkCommandQueue::Draw(uint32_t vertexCount, uint32_t vertexOffset) {
@@ -197,11 +205,8 @@ namespace flaw {
             commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, _currentPipelineLayout, 0, _currentDescriptorSets.size(), _currentDescriptorSets.data(), 0, nullptr);
         }
 
-        if (_currentVertexBuffer) {
-            vk::Buffer buffers[] = { _currentVertexBuffer->GetVkBuffer() };
-            vk::DeviceSize offsets[] = { 0 };
-    
-            commandBuffer.bindVertexBuffers(0, 1, buffers, offsets);
+        if (!_currentVertexBuffers.empty()) {
+		    commandBuffer.bindVertexBuffers(0, _currentVertexBuffers.size(), _currentVertexBuffers.data(), _currentVertexBufferOffsets.data());
         }
 
         commandBuffer.draw(vertexCount, instanceCount, vertexOffset, 0);
@@ -221,12 +226,11 @@ namespace flaw {
             commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, _currentPipelineLayout, 0, _currentDescriptorSets.size(), _currentDescriptorSets.data(), 0, nullptr);
         }
 
-        vk::Buffer vertexBuffers[] = { _currentVertexBuffer->GetVkBuffer() };
-        vk::DeviceSize offsets[] = { 0 };
-        commandBuffer.bindVertexBuffers(0, 1, vertexBuffers, offsets);
+        if (!_currentVertexBuffers.empty()) {
+            commandBuffer.bindVertexBuffers(0, _currentVertexBuffers.size(), _currentVertexBuffers.data(), _currentVertexBufferOffsets.data());
+        }
 
         commandBuffer.bindIndexBuffer(vkIndexBuffer->GetVkBuffer(), 0, vk::IndexType::eUint32);
-
         commandBuffer.drawIndexed(indexCount, instanceCount, indexOffset, vertexOffset, 0);
     }
 

@@ -16,7 +16,7 @@ namespace flaw {
 		DXVertexInputLayout(DXContext& context, const Descriptor& descriptor);
 		~DXVertexInputLayout() override;
 
-		ComPtr<ID3D11InputLayout> GetDXInputLayout(Ref<GraphicsShader> shader) const;
+		inline const std::vector<D3D11_INPUT_ELEMENT_DESC>& GetInputElements() const { return _inputElements; }
 
 	private:
 		DXContext& _context;

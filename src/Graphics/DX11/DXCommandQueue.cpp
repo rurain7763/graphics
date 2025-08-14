@@ -16,10 +16,9 @@ namespace flaw {
 	DXCommandQueue::DXCommandQueue(DXContext& context)
 		: _context(context)
 		, _currentGraphicsPipeline(nullptr)
-		, _currentVertexBuffer(nullptr)
 		, _currentShaderResources(nullptr)
 		, _needBindGraphicsPipeline(false)
-		, _needBindVertexBuffer(false)
+		, _needBindVertexBuffers(false)
 		, _needBindShaderResources(false)
 	{
 		int32_t width, height;
@@ -50,25 +49,35 @@ namespace flaw {
 		_needBindGraphicsPipeline = true;
 	}
 
-	void DXCommandQueue::SetVertexBuffer(const Ref<VertexBuffer>& vertexBuffer) {
-		if (vertexBuffer == _currentVertexBuffer) {
-			return; // Already set
+	void DXCommandQueue::SetVertexBuffers(const std::vector<Ref<VertexBuffer>>& vertexBuffers) {
+		_needBindVertexBuffers = true;
+
+		_currentVertexBuffers.clear();
+		_currentDXVertexBuffers.clear();
+		_currentDXVertexBufferStrides.clear();
+		_currentDXVertexBufferOffsets.clear();
+		for (uint32_t i = 0; i < vertexBuffers.size(); i++) {
+			auto dxVertexBuffer = std::static_pointer_cast<DXVertexBuffer>(vertexBuffers[i]);
+			FASSERT(dxVertexBuffer, "VertexBuffer is not a DXVertexBuffer");
+
+			_currentVertexBuffers.push_back(dxVertexBuffer);
+			_currentDXVertexBuffers.push_back(dxVertexBuffer->GetNativeDXBuffer().Get());
+			_currentDXVertexBufferStrides.push_back(dxVertexBuffer->ElementSize());
+			_currentDXVertexBufferOffsets.push_back(0); // Offset is always 0 for now
 		}
-
-		auto dxVertexBuffer = std::static_pointer_cast<DXVertexBuffer>(vertexBuffer);
-		FASSERT(dxVertexBuffer, "VertexBuffer is not a DXVertexBuffer");	
-
-		_currentVertexBuffer = dxVertexBuffer;
-		_needBindVertexBuffer = true;
 	}
 
-	void DXCommandQueue::SetShaderResources(const Ref<ShaderResources>& shaderResources, uint32_t set) {
-		if (set != 0) {
+	void DXCommandQueue::SetShaderResources(const std::vector<Ref<ShaderResources>>& shaderResources) {
+		if (shaderResources.size() > 1) {
 			LOG_ERROR("DX11 only support 1 set shader resource");
 			return;
 		}
+
+		if (shaderResources[0] == _currentShaderResources) {
+			return; // Already set
+		}
 		
-		auto dxShaderResources = std::static_pointer_cast<DXShaderResources>(shaderResources);
+		auto dxShaderResources = std::static_pointer_cast<DXShaderResources>(shaderResources[0]);
 		FASSERT(dxShaderResources, "ShaderResources is not a DXShaderResources");
 
 		_currentShaderResources = dxShaderResources;
@@ -82,6 +91,7 @@ namespace flaw {
 			auto primitiveTopology = _currentGraphicsPipeline->GetDXPrimitiveTopology();
 			auto depthStencilState = _currentGraphicsPipeline->GetDXDepthStencilState();
 			auto rasterizerState = _currentGraphicsPipeline->GetDXRasterizerState();
+			auto blendState = _currentGraphicsPipeline->GetDXBlendState();
 
 			_context.DeviceContext()->VSSetShader(shader->GetNativeDXVertexShader().Get(), nullptr, 0);
 			_context.DeviceContext()->PSSetShader(shader->GetPixelShader().Get(), nullptr, 0);
@@ -93,16 +103,17 @@ namespace flaw {
 			_context.DeviceContext()->IASetPrimitiveTopology(primitiveTopology);
 			_context.DeviceContext()->OMSetDepthStencilState(depthStencilState.Get(), 0);
 			_context.DeviceContext()->RSSetState(rasterizerState.Get());
+			_context.DeviceContext()->OMSetBlendState(blendState.Get(), nullptr, 0xFFFFFFFF);
 
 			const uint32_t behaviorStates = _currentGraphicsPipeline->GetBehaviorStates();
-			if (behaviorStates & GraphicsPipeline::BehaviorFlag::AutoResizeScissor) {
+			if (behaviorStates & GraphicsPipeline::Behavior::AutoResizeScissor) {
 				_context.DeviceContext()->RSSetScissorRects(1, &_currentScissor);
 			}
 			else {
 				_context.DeviceContext()->RSSetScissorRects(1, &_currentGraphicsPipeline->GetDXScissorRect());
 			}
 
-			if (behaviorStates & GraphicsPipeline::BehaviorFlag::AutoResizeViewport) {
+			if (behaviorStates & GraphicsPipeline::Behavior::AutoResizeViewport) {
 				_context.DeviceContext()->RSSetViewports(1, &_currentViewport);
 			}
 			else {
@@ -112,78 +123,57 @@ namespace flaw {
 			_needBindGraphicsPipeline = false;
 		}
 
-		if (_needBindVertexBuffer) {
-			uint32_t offset = 0;
-			uint32_t elmSize = _currentVertexBuffer->ElementSize();
-			_context.DeviceContext()->IASetVertexBuffers(0, 1, _currentVertexBuffer->GetNativeDXBuffer().GetAddressOf(), &elmSize, &offset);
-			
-			_needBindVertexBuffer = false;
+		if (_needBindVertexBuffers) {
+			_context.DeviceContext()->IASetVertexBuffers(0, _currentDXVertexBuffers.size(), _currentDXVertexBuffers.data(), _currentDXVertexBufferStrides.data(), _currentDXVertexBufferOffsets.data());
+
+			_needBindVertexBuffers = false;
 		}
 
 		if (_needBindShaderResources) {
-			std::vector<ID3D11ShaderResourceView*> nullSRVs(D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT, nullptr);
-			_context.DeviceContext()->VSSetShaderResources(0, nullSRVs.size(), nullSRVs.data());
-			_context.DeviceContext()->PSSetShaderResources(0, nullSRVs.size(), nullSRVs.data());
-			_context.DeviceContext()->GSSetShaderResources(0, nullSRVs.size(), nullSRVs.data());
-			_context.DeviceContext()->HSSetShaderResources(0, nullSRVs.size(), nullSRVs.data());
-			_context.DeviceContext()->DSSetShaderResources(0, nullSRVs.size(), nullSRVs.data());
-			_context.DeviceContext()->CSSetShaderResources(0, nullSRVs.size(), nullSRVs.data());
-
-			std::vector<ID3D11UnorderedAccessView*> nullUAVs(D3D11_PS_CS_UAV_REGISTER_COUNT, nullptr);
-			_context.DeviceContext()->CSSetUnorderedAccessViews(0, nullUAVs.size(), nullUAVs.data(), nullptr);
-
-			std::vector<ID3D11Buffer*> nullCBs(D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT, nullptr);
-			_context.DeviceContext()->VSSetConstantBuffers(0, nullCBs.size(), nullCBs.data());
-			_context.DeviceContext()->PSSetConstantBuffers(0, nullCBs.size(), nullCBs.data());
-			_context.DeviceContext()->GSSetConstantBuffers(0, nullCBs.size(), nullCBs.data());
-			_context.DeviceContext()->HSSetConstantBuffers(0, nullCBs.size(), nullCBs.data());
-			_context.DeviceContext()->DSSetConstantBuffers(0, nullCBs.size(), nullCBs.data());
-			_context.DeviceContext()->CSSetConstantBuffers(0, nullCBs.size(), nullCBs.data());
-
 			auto dxShaderResourcesLayout = _currentShaderResources->GetLayout();
 
-			const auto& tRegistryBinding = dxShaderResourcesLayout->GetTRegistryBindings();
+			const auto& tRegistryBindings = dxShaderResourcesLayout->GetTRegistryBindings();
 			const auto& tRegistryResources = _currentShaderResources->GetTRegistryResources();
 
 			for (const auto& [slot, resource] : tRegistryResources) {
-				const auto& bindings = tRegistryBinding.at(slot);
+				const auto& binding = tRegistryBindings.at(slot);
 
-				if (bindings.shaderStages & ShaderStage::Vertex) {
+				if (binding.shaderStages & ShaderStage::Vertex) {
 					_context.DeviceContext()->VSSetShaderResources(slot, 1, resource.GetAddressOf());
 				}
-				if (bindings.shaderStages & ShaderStage::Pixel) {
+				if (binding.shaderStages & ShaderStage::Pixel) {
 					_context.DeviceContext()->PSSetShaderResources(slot, 1, resource.GetAddressOf());
 				}
-				if (bindings.shaderStages & ShaderStage::Geometry) {
+				if (binding.shaderStages & ShaderStage::Geometry) {
 					_context.DeviceContext()->GSSetShaderResources(slot, 1, resource.GetAddressOf());
 				}
-				if (bindings.shaderStages & ShaderStage::Hull) {
+				if (binding.shaderStages & ShaderStage::Hull) {
 					_context.DeviceContext()->HSSetShaderResources(slot, 1, resource.GetAddressOf());
 				}
-				if (bindings.shaderStages & ShaderStage::Domain) {
+				if (binding.shaderStages & ShaderStage::Domain) {
 					_context.DeviceContext()->DSSetShaderResources(slot, 1, resource.GetAddressOf());
 				}
 			}
 
-			const auto& cRegistryBinding = dxShaderResourcesLayout->GetCRegistryBindings();
+			const auto& cRegistryBindings = dxShaderResourcesLayout->GetCRegistryBindings();
 			const auto& cRegistryResources = _currentShaderResources->GetCRegistryResources();
 
 			for (const auto& [slot, resource] : cRegistryResources) {
-				const auto& bindings = cRegistryBinding.at(slot);
+				const auto& binding = cRegistryBindings.at(slot);
 
-				if (bindings.shaderStages & ShaderStage::Vertex) {
+				if (binding.shaderStages & ShaderStage::Vertex) {
 					_context.DeviceContext()->VSSetConstantBuffers(slot, 1, resource.GetAddressOf());
 				}
-				if (bindings.shaderStages & ShaderStage::Pixel) {
+				if (binding.shaderStages & ShaderStage::Pixel) {
 					_context.DeviceContext()->PSSetConstantBuffers(slot, 1, resource.GetAddressOf());
 				}
-				if (bindings.shaderStages & ShaderStage::Geometry) {
+				if (binding.shaderStages & ShaderStage::Geometry) {
 					_context.DeviceContext()->GSSetConstantBuffers(slot, 1, resource.GetAddressOf());
 				}
-				if (bindings.shaderStages & ShaderStage::Hull) {
+				if (binding.shaderStages & ShaderStage::Hull) {
 					_context.DeviceContext()->HSSetConstantBuffers(slot, 1, resource.GetAddressOf());
 				}
-				if (bindings.shaderStages & ShaderStage::Domain) {
+				if (binding.shaderStages & ShaderStage::Domain) {
 					_context.DeviceContext()->DSSetConstantBuffers(slot, 1, resource.GetAddressOf());
 				}
 			}
@@ -248,7 +238,7 @@ namespace flaw {
 			}
 		}
 
-		_context.DeviceContext()->OMSetRenderTargets(static_cast<UINT>(rtvs.size()), rtvs.data(), dsv);
+		_context.DeviceContext()->OMSetRenderTargets(rtvs.size(), rtvs.data(), dsv);
 	}
 
 	void DXCommandQueue::BeginRenderPass() {
@@ -289,6 +279,7 @@ namespace flaw {
 	void DXCommandQueue::EndRenderPass() {
 		_currentBeginInfoStack.pop_back();
 		if (_currentBeginInfoStack.empty()) {
+			_context.DeviceContext()->OMSetRenderTargets(0, nullptr, nullptr);
 			return;
 		}
 

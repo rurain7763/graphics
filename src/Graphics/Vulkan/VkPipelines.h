@@ -25,7 +25,7 @@ namespace flaw {
 		VkGraphicsPipeline(VkContext& context);
         ~VkGraphicsPipeline();
 
-        void SetVertexInputLayout(const Ref<VertexInputLayout>& vertexInputLayout) override;
+        void SetVertexInputLayouts(const std::vector<Ref<VertexInputLayout>>& vertexInputLayouts) override;
 
         void SetPrimitiveTopology(PrimitiveTopology primitiveTopology) override;
 		void SetViewport(float x, float y, float width, float height) override;
@@ -35,20 +35,19 @@ namespace flaw {
 		void SetCullMode(CullMode cullMode) override;
 		void SetFillMode(FillMode fillMode) override;
 
-        void AddShaderResourcesLayout(const Ref<ShaderResourcesLayout>& shaderResourceLayout) override;
+        void SetShaderResourcesLayouts(const std::vector<Ref<ShaderResourcesLayout>>& shaderResourceLayouts) override;
         void SetShader(const Ref<GraphicsShader>& shader) override;
 
         void SetRenderPassLayout(const Ref<GraphicsRenderPassLayout>& renderPassLayout) override;
 
-        void SetBehaviorStates(uint32_t flags) override;
+        void SetBehaviorStates(uint32_t behaviors) override;
         uint32_t GetBehaviorStates() const override;
 
-        void AddPushConstantRange(const VkPushConstantRange& pushConstant);
+        void SetPushConstantRanges(const std::vector<VkPushConstantRange>& pushConstants);
 
         vk::Pipeline GetNativeVkGraphicsPipeline();
         inline vk::PipelineLayout GetVkPipelineLayout() const { return _pipelineLayout; }
         inline const std::vector<vk::PushConstantRange>& GetVkPushConstantRanges() const { return _pushConstantRanges; }
-        inline Ref<VkVertexInputLayout> GetVkVertexInputLayout() const { return _vertexInputLayout; }
         inline const std::vector<vk::DescriptorSetLayout>& GetVkDescriptorSetLayouts() const { return _descriptorSetLayouts; }
         inline const vk::Viewport& GetVkViewport() const { return _viewport; }
         inline const vk::Rect2D& GetVkScissor() const { return _scissor; }
@@ -64,7 +63,9 @@ namespace flaw {
 
         vk::Pipeline _pipeline;
 
-        Ref<VkVertexInputLayout> _vertexInputLayout;
+		std::vector<Ref<VkVertexInputLayout>> _vertexInputLayouts;
+		std::vector<vk::VertexInputBindingDescription> _bindingDescriptions;
+		std::vector<vk::VertexInputAttributeDescription> _attributeDescriptions;
         vk::PipelineVertexInputStateCreateInfo _vertexInputState;
 
         vk::PipelineInputAssemblyStateCreateInfo _inputAssemblyInfo;
@@ -92,7 +93,6 @@ namespace flaw {
         vk::PipelineDynamicStateCreateInfo _dynamicStateInfo;
 
         vk::PipelineLayout _pipelineLayout;
-        uint32_t _pushConstantOffset;
         std::vector<vk::PushConstantRange> _pushConstantRanges;
 
         Ref<VkRenderPassLayout> _renderPassLayout;
