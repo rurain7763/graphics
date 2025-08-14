@@ -43,6 +43,8 @@ namespace flaw {
 		_scissorRect.top = 0;
 		_scissorRect.right = 800; // Default width
 		_scissorRect.bottom = 600; // Default height
+
+		_renderPassLayout = _context.GetMainRenderPassLayout();
 	}
 
 	void DXGraphicsPipeline::SetVertexInputLayout(const Ref<VertexInputLayout>& vertexInputLayout) {

@@ -79,8 +79,6 @@ namespace flaw {
 	private:
 		VkContext& _context;
 
-        ShaderStages _shaderStageFlags;
-
 		std::vector<Stage> _shaderStages;
 	};
 

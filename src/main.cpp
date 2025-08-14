@@ -116,18 +116,6 @@ int main() {
         g_graphicsContext->Resize(event.frameBufferWidth, event.frameBufferHeight);
     }, 0);
 
-    Image faceImg("./assets/textures/face.jpg", 4);
-    Texture2D::Descriptor faceDesc;
-    faceDesc.width = faceImg.Width();
-    faceDesc.height = faceImg.Height();
-    faceDesc.data = faceImg.Data().data();
-    faceDesc.memProperty = MemoryProperty::Static;
-    faceDesc.texUsages = TextureUsage::ShaderResource;
-    faceDesc.format = PixelFormat::RGBA8;
-	faceDesc.shaderStages = ShaderStage::Pixel;
-
-    Ref<Texture2D> faceTexture = g_graphicsContext->CreateTexture2D(faceDesc);
-
     Image hausImg("./assets/textures/haus.jpg", 4);
     Texture2D::Descriptor hausDesc;
     hausDesc.width = hausImg.Width();
@@ -242,7 +230,6 @@ int main() {
     graphicsPipeline->SetDepthTest(DepthTest::Less, true);
     graphicsPipeline->SetCullMode(CullMode::Back);
     graphicsPipeline->SetFillMode(FillMode::Solid);
-    graphicsPipeline->SetRenderPassLayout(g_graphicsContext->GetMainRenderPassLayout());
     graphicsPipeline->SetBehaviorStates(
         GraphicsPipeline::BehaviorFlag::AutoResizeViewport |
         GraphicsPipeline::BehaviorFlag::AutoResizeScissor
@@ -391,7 +378,6 @@ int main() {
     shaderResourceLayout.reset();
     graphicsShader.reset();
     hausTexture.reset();
-    faceTexture.reset();
     g_graphicsContext.reset();
     context.reset();
 

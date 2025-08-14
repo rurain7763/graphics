@@ -11,29 +11,23 @@ namespace flaw {
     VkGraphicsShader::VkGraphicsShader(VkContext& context, const Descriptor& descriptor) 
         : _context(context)
     {
-        _shaderStageFlags = 0;
         if (!descriptor.vertexShaderFile.empty()) {
-            _shaderStageFlags |= ShaderStage::Vertex;
             CreateShader(descriptor.vertexShaderFile.c_str(), descriptor.vertexShaderEntry, ShaderStage::Vertex);
         }
 
         if (!descriptor.hullShaderFile.empty()) {
-            _shaderStageFlags |= ShaderStage::Hull;
             CreateShader(descriptor.hullShaderFile.c_str(), descriptor.hullShaderEntry, ShaderStage::Hull);
         }
 
         if (!descriptor.domainShaderFile.empty()) {
-            _shaderStageFlags |= ShaderStage::Domain;
             CreateShader(descriptor.domainShaderFile.c_str(), descriptor.domainShaderEntry, ShaderStage::Domain);
         }
 
         if (!descriptor.geometryShaderFile.empty()) {
-            _shaderStageFlags |= ShaderStage::Geometry;
             CreateShader(descriptor.geometryShaderFile.c_str(), descriptor.geometryShaderEntry, ShaderStage::Geometry);
         }
 
         if (!descriptor.pixelShaderFile.empty()) {
-            _shaderStageFlags |= ShaderStage::Pixel;
             CreateShader(descriptor.pixelShaderFile.c_str(), descriptor.pixelShaderEntry, ShaderStage::Pixel);
         }
     }
