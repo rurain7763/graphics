@@ -11,29 +11,29 @@ namespace flaw {
     VkGraphicsShader::VkGraphicsShader(VkContext& context, const Descriptor& descriptor) 
         : _context(context)
     {
-        _compileFlags = 0;
+        _shaderStageFlags = 0;
         if (!descriptor.vertexShaderFile.empty()) {
-            _compileFlags |= ShaderStage::Vertex;
+            _shaderStageFlags |= ShaderStage::Vertex;
             CreateShader(descriptor.vertexShaderFile.c_str(), descriptor.vertexShaderEntry, ShaderStage::Vertex);
         }
 
         if (!descriptor.hullShaderFile.empty()) {
-            _compileFlags |= ShaderStage::Hull;
+            _shaderStageFlags |= ShaderStage::Hull;
             CreateShader(descriptor.hullShaderFile.c_str(), descriptor.hullShaderEntry, ShaderStage::Hull);
         }
 
         if (!descriptor.domainShaderFile.empty()) {
-            _compileFlags |= ShaderStage::Domain;
+            _shaderStageFlags |= ShaderStage::Domain;
             CreateShader(descriptor.domainShaderFile.c_str(), descriptor.domainShaderEntry, ShaderStage::Domain);
         }
 
         if (!descriptor.geometryShaderFile.empty()) {
-            _compileFlags |= ShaderStage::Geometry;
+            _shaderStageFlags |= ShaderStage::Geometry;
             CreateShader(descriptor.geometryShaderFile.c_str(), descriptor.geometryShaderEntry, ShaderStage::Geometry);
         }
 
         if (!descriptor.pixelShaderFile.empty()) {
-            _compileFlags |= ShaderStage::Pixel;
+            _shaderStageFlags |= ShaderStage::Pixel;
             CreateShader(descriptor.pixelShaderFile.c_str(), descriptor.pixelShaderEntry, ShaderStage::Pixel);
         }
     }
@@ -55,37 +55,24 @@ namespace flaw {
             return;
         }
 
-        ShaderEntry entry;
-        entry.module = moduleWrapper.value;
-        entry.entryPoint = entryPoint;
-        entry.stage = ConvertToVkShaderStage(compileFlag);
+        Stage stage;
+        stage.module = moduleWrapper.value;
+        stage.entryPoint = entryPoint;
+        stage.stage = ConvertToVkShaderStage(compileFlag);
 
-        _shaderEntries.push_back(entry);
+        _shaderStages.push_back(stage);
     }
 
     VkGraphicsShader::~VkGraphicsShader() {
-        for (const auto& shaderEntry : _shaderEntries) {
-            if (!shaderEntry.module) {
+        for (const auto& shaderStage : _shaderStages) {
+            if (!shaderStage.module) {
                 continue;
             }
 
-            _context.AddDelayedDeletionTasks([&context = _context, shaderModule = shaderEntry.module]() {
+            _context.AddDelayedDeletionTasks([&context = _context, shaderModule = shaderStage.module]() {
                 context.GetVkDevice().destroyShaderModule(shaderModule, nullptr);
             });
         }
-    }
-
-    void VkGraphicsShader::GetVkShaderStages(std::vector<vk::PipelineShaderStageCreateInfo>& shaderStages) const {
-        shaderStages.resize(_shaderEntries.size());
-        std::transform(_shaderEntries.begin(), _shaderEntries.end(), shaderStages.begin(),
-            [](const ShaderEntry& entry) {
-                vk::PipelineShaderStageCreateInfo stageInfo;
-                stageInfo.stage = entry.stage;
-                stageInfo.module = entry.module;
-                stageInfo.pName = entry.entryPoint.c_str();
-                return stageInfo;
-            }
-        );
     }
 }
 

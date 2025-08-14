@@ -62,10 +62,16 @@ namespace flaw {
 
 	class VkGraphicsShader : public GraphicsShader {
 	public:
+		struct Stage {
+			vk::ShaderModule module;
+			vk::ShaderStageFlagBits stage;
+			std::string entryPoint;
+		};
+
 		VkGraphicsShader(VkContext& context, const Descriptor& descriptor);
 		~VkGraphicsShader();
 
-        void GetVkShaderStages(std::vector<vk::PipelineShaderStageCreateInfo>& shaderStages) const;
+		const std::vector<Stage>& GetShaderStages() const { return _shaderStages; }
 
 	private:
 		void CreateShader(const std::string& filePath, const std::string& entryPoint, ShaderStage complileFlag);
@@ -73,15 +79,9 @@ namespace flaw {
 	private:
 		VkContext& _context;
 
-        ShaderStages _compileFlags;
+        ShaderStages _shaderStageFlags;
 
-		struct ShaderEntry {
-			vk::ShaderModule module;
-			vk::ShaderStageFlagBits stage;
-			std::string entryPoint;
-		};
-
-		std::vector<ShaderEntry> _shaderEntries;
+		std::vector<Stage> _shaderStages;
 	};
 
 	class VkComputeShader : public ComputeShader {

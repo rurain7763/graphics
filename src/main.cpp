@@ -4,9 +4,8 @@
 #include "Platform/PlatformContext.h"
 #include "Platform/PlatformEvents.h"
 #include "Graphics/Vulkan/VkContext.h"
-#include "Graphics/Vulkan/VkPipelines.h"
-#include "Graphics/Vulkan/VkCommandQueue.h"
 #include "Graphics/DX11/DXContext.h"
+#include "Graphics/GraphicsFunc.h"
 #include "Time/Time.h"
 #include "Math/Math.h"
 #include "Image/Image.h"
@@ -16,12 +15,8 @@
 
 using namespace flaw;
 
-#define USE_VULKAN 0
-#define USE_DX11 1
-
-struct PushConstants {
-    glm::mat4 model_matrix;
-};
+#define USE_VULKAN 1 
+#define USE_DX11 0
 
 struct CameraConstants {
     glm::mat4 view_matrix;
@@ -48,7 +43,7 @@ struct TexturedVertex {
     glm::vec3 normal;
 };
 
-std::vector<uint8_t> GenerateTextureCubeData(Ref<GraphicsContext> graphicsContext, Image& left, Image& right, Image& top, Image& bottom, Image& front, Image& back) {
+std::vector<uint8_t> GenerateTextureCubeData(Image& left, Image& right, Image& top, Image& bottom, Image& front, Image& back) {
     std::vector<uint8_t> textureData;
 
     uint32_t width = left.Width();
@@ -57,26 +52,12 @@ std::vector<uint8_t> GenerateTextureCubeData(Ref<GraphicsContext> graphicsContex
 
     Image* images[6];
 
-    if (auto vkContext = std::static_pointer_cast<VkContext>(graphicsContext)) {
-        images[0] = &right; // +X (Right)
-        images[1] = &left;  // -X (Left)
-        images[2] = &top;   // +Y (Top)
-        images[3] = &bottom;// -Y (Bottom)
-        images[4] = &front; // +Z (Front)
-        images[5] = &back;  // -Z (Back)
-    }
-	else if (auto dxContext = std::static_pointer_cast<DXContext>(graphicsContext)) {
-		images[0] = &left;  // +X (Right)
-		images[1] = &right; // -X (Left)
-		images[2] = &top;   // +Y (Top)
-		images[3] = &bottom;// -Y (Bottom)
-		images[4] = &front; // +Z (Front)
-		images[5] = &back;  // -Z (Back)
-	}
-    else {
-        Log::Error("Unsupported graphics context type for texture cube generation.");
-        return textureData;
-    }
+    images[0] = &right; // +X (Right)
+    images[1] = &left;  // -X (Left)
+    images[2] = &top;   // +Y (Top)
+    images[3] = &bottom;// -Y (Bottom)
+    images[4] = &front; // +Z (Front)
+    images[5] = &back;  // -Z (Back)
 
     textureData.resize(width * height * 6 * channels);
 
@@ -231,7 +212,7 @@ int main() {
         modelVertices.push_back(texturedVertex);
     }
 
-    std::vector<uint32_t> modelIndices = currentModel.GetIndices();
+    const std::vector<uint32_t>& modelIndices = currentModel.GetIndices();
 
     VertexBuffer::Descriptor vertexBufferDesc;
     vertexBufferDesc.memProperty = MemoryProperty::Static;
@@ -248,7 +229,7 @@ int main() {
 
     auto modelIndexBuffer = g_graphicsContext->CreateIndexBuffer(indexBufferDesc);
 
-    auto graphicsPipeline = std::static_pointer_cast<VkGraphicsPipeline>(g_graphicsContext->CreateGraphicsPipeline());
+    auto graphicsPipeline = g_graphicsContext->CreateGraphicsPipeline();
 #if USE_VULKAN
     graphicsPipeline->AddShaderResourcesLayout(shaderResourceLayout);
     graphicsPipeline->AddShaderResourcesLayout(textureResourceLayout);
@@ -429,7 +410,7 @@ void MakeSkyboxResources() {
     Image front("./assets/textures/sky/sky_front.png", 4);
     Image back("./assets/textures/sky/sky_back.png", 4);
 
-    std::vector<uint8_t> textureData = GenerateTextureCubeData(g_graphicsContext, left, right, top, bottom, front, back);
+    std::vector<uint8_t> textureData = GenerateTextureCubeData(left, right, top, bottom, front, back);
 
     TextureCube::Descriptor skyboxDesc = {};
     skyboxDesc.width = left.Width();

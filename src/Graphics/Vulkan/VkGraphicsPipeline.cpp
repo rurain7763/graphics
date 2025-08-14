@@ -176,7 +176,18 @@ namespace flaw {
         _needRecreatePipeline = true;
 
         _shader = vkShader;
-        vkShader->GetVkShaderStages(_shaderStages);
+
+        const auto& shaderStages = vkShader->GetShaderStages();
+        
+        _shaderStages.resize(shaderStages.size());
+        for (size_t i = 0; i < shaderStages.size(); ++i) {
+            const auto& stage = shaderStages[i];
+            
+            auto& vkShaderStage = _shaderStages[i];
+            vkShaderStage.stage = stage.stage;
+            vkShaderStage.module = stage.module;
+            vkShaderStage.pName = stage.entryPoint.c_str();
+        }
     }
 
     void VkGraphicsPipeline::SetVertexInputLayout(const Ref<VertexInputLayout>& vertexInputLayout) {
@@ -348,12 +359,12 @@ namespace flaw {
             vk::PipelineLayoutCreateInfo pipelineLayoutInfo;
             pipelineLayoutInfo.setLayoutCount = _descriptorSetLayouts.size();
             pipelineLayoutInfo.pSetLayouts = _descriptorSetLayouts.data();
-            pipelineLayoutInfo.pushConstantRangeCount = static_cast<uint32_t>(_pushConstantRanges.size());
+            pipelineLayoutInfo.pushConstantRangeCount = _pushConstantRanges.size();
             pipelineLayoutInfo.pPushConstantRanges = _pushConstantRanges.data();
 
             auto pipelineLayoutWrapper = _context.GetVkDevice().createPipelineLayout(pipelineLayoutInfo, nullptr);
             if (pipelineLayoutWrapper.result != vk::Result::eSuccess) {
-                Log::Fatal("Failed to create Vulkan pipeline layout: %s", vk::to_string(pipelineLayoutWrapper.result).c_str());
+                LOG_ERROR("Failed to create Vulkan pipeline layout: %s", vk::to_string(pipelineLayoutWrapper.result).c_str());
                 return;
             }
 
@@ -361,7 +372,7 @@ namespace flaw {
         }
 
         vk::GraphicsPipelineCreateInfo pipelineInfo;
-        pipelineInfo.stageCount = static_cast<uint32_t>(_shaderStages.size());
+        pipelineInfo.stageCount = _shaderStages.size();
         pipelineInfo.pStages = _shaderStages.data();
         pipelineInfo.pVertexInputState = &_vertexInputState;
         pipelineInfo.pInputAssemblyState = &_inputAssemblyInfo;
@@ -378,7 +389,7 @@ namespace flaw {
 
         auto pipelineWrapper = _context.GetVkDevice().createGraphicsPipeline(nullptr, pipelineInfo, nullptr);
         if (pipelineWrapper.result != vk::Result::eSuccess) {
-            Log::Error("Failed to create Vulkan graphics pipeline: %s", vk::to_string(pipelineWrapper.result).c_str());
+            LOG_ERROR("Failed to create Vulkan graphics pipeline: %s", vk::to_string(pipelineWrapper.result).c_str());
             return;
         }
 
