@@ -15,13 +15,29 @@ struct CameraConstants {
     glm::mat4 view_matrix;
     glm::mat4 projection_matrix;
     glm::mat4 view_projection_matrix;
+
+    glm::vec3 world_position;
+	float padding;
 };
 
 struct LightConstants {
-    glm::vec3 color;
-    float intensity;
-    glm::vec3 direction;
+	glm::vec3 position;
     float padding;
+    glm::vec3 ambient;
+	float padding1;
+	glm::vec3 diffuse;
+	float padding2;
+	glm::vec3 specular;
+    float padding3;
+};
+
+struct MaterialConstants {
+    glm::vec3 ambientColor;
+    float padding;
+    glm::vec3 diffuseColor;
+	float padding1;
+	glm::vec3 specularColor;
+    float shininess;
 };
 
 struct TexturedVertex {
@@ -32,6 +48,11 @@ struct TexturedVertex {
 };
 
 struct Material {
+	glm::vec3 ambientColor;
+	glm::vec3 diffuseColor;
+	glm::vec3 specularColor;
+	float shininess;
+
     Ref<Texture2D> albedoTexture;
 };
 
@@ -65,13 +86,11 @@ extern std::vector<Object> g_objects;
 extern std::unordered_map<std::string, Ref<Texture2D>> g_textures;
 extern std::unordered_map<std::string, Ref<TextureCube>> g_textureCubes;
 extern std::unordered_map<std::string, Ref<Mesh>> g_meshes;
-extern std::unordered_map<std::string, Ref<Material>> g_materials;
 
 void World_Init();
-void World_Update();
 void World_Render();
 void World_Cleanup();
 
-void AddObject(const char* meshKey);
+Object& AddObject(const char* meshKey);
 
 std::vector<uint8_t> GenerateTextureCubeData(Image& left, Image& right, Image& top, Image& bottom, Image& front, Image& back);

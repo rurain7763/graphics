@@ -9,6 +9,7 @@
 namespace flaw {
 	VkConstantBuffer::VkConstantBuffer(VkContext& context, const Descriptor& descriptor)
 		: _context(context)
+		, _memProperty(descriptor.memProperty)
 		, _size(descriptor.bufferSize)
     {
         if (!CreateBuffer()) {
@@ -30,6 +31,10 @@ namespace flaw {
         }
 
         _mappedData = mappedDataWrapper.value;
+
+		if (descriptor.initialData) {
+			Update(descriptor.initialData, _size);
+		}
 	}
 
 	VkConstantBuffer::~VkConstantBuffer() {
@@ -60,7 +65,8 @@ namespace flaw {
     bool VkConstantBuffer::CreateBuffer() {
         vk::BufferCreateInfo bufferInfo;
         bufferInfo.size = _size;
-        bufferInfo.usage = vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eTransferDst;
+        bufferInfo.usage = vk::BufferUsageFlagBits::eUniformBuffer;
+		GetRequiredVkBufferUsageFlags(_memProperty, bufferInfo.usage);
         bufferInfo.sharingMode = vk::SharingMode::eExclusive;
 
         auto bufferWrapper = _context.GetVkDevice().createBuffer(bufferInfo, nullptr);

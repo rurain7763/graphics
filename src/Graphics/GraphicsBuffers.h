@@ -24,10 +24,10 @@ namespace flaw {
 	class VertexBuffer {
 	public:
 		struct Descriptor {
-			MemoryProperty memProperty;
-			uint32_t elmSize;
-			uint32_t bufferSize;
-			const void* initialData;
+			MemoryProperty memProperty = MemoryProperty::Static;
+			uint32_t elmSize = 0;
+			uint32_t bufferSize = 0;
+			const void* initialData = nullptr;
 		};
 
 		VertexBuffer() = default;
@@ -43,9 +43,9 @@ namespace flaw {
 	class IndexBuffer {
 	public:
 		struct Descriptor {
-			MemoryProperty memProperty; 
-			uint32_t bufferSize;
-			const uint32_t* initialData;
+			MemoryProperty memProperty = MemoryProperty::Static;
+			uint32_t bufferSize = 0;
+			const uint32_t* initialData = nullptr;
 		};
 
 		IndexBuffer() = default;
@@ -62,9 +62,9 @@ namespace flaw {
 	class ConstantBuffer {
 	public:
 		struct Descriptor {
-			MemoryProperty memProperty;
-			uint32_t bufferSize;
-			const void* initialData;
+			MemoryProperty memProperty = MemoryProperty::Dynamic;
+			uint32_t bufferSize = 0;
+			const void* initialData = nullptr;
 		};
 
 		ConstantBuffer() = default;
@@ -81,11 +81,11 @@ namespace flaw {
 	class StructuredBuffer {
 	public:
 		struct Descriptor {
-			MemoryProperty memProperty;
+			MemoryProperty memProperty = MemoryProperty::Dynamic;
 			BufferUsages bufferUsages;
-			uint32_t elmSize;
-			uint32_t bufferSize;
-			const void* initialData;
+			uint32_t elmSize = 0;
+			uint32_t bufferSize = 0;
+			const void* initialData = nullptr;
 		};
 
 		StructuredBuffer() = default;

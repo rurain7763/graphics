@@ -109,6 +109,7 @@ namespace flaw {
 
 		void* _mappedData = nullptr;
 
+		MemoryProperty _memProperty;
 		uint32_t _size;
 	};
 
