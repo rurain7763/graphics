@@ -18,8 +18,8 @@ using namespace flaw;
 int main() {
     World_Init();
 
-	//auto& cubeObj = AddObject("cube");
-	auto& sphereObj = AddObject("sphere");
+	auto& cubeObj = AddObject("cube");
+	//auto& sphereObj = AddObject("sphere");
     //AddObject("girl");
 
     auto& commandQueue = g_graphicsContext->GetCommandQueue();

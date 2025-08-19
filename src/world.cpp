@@ -28,7 +28,6 @@ Ref<ShaderResources> g_skyboxTexShaderResources;
 Ref<ShaderResourcesLayout> g_objShaderResourcesLayout;
 Ref<ShaderResources> g_objShaderResources;
 Ref<ShaderResourcesLayout> g_objTexShaderResourcesLayout;
-Ref<ShaderResources> g_objTexShaderResources;
 #elif USE_DX11
 Ref<ShaderResourcesLayout> g_skyboxShaderResourcesLayout;
 Ref<ShaderResources> g_skyboxShaderResources;
@@ -36,10 +35,14 @@ Ref<ShaderResourcesLayout> g_objShaderResourcesLayout;
 Ref<ShaderResources> g_objShaderResources;
 #endif
 
+std::vector<Ref<ShaderResources>> g_freeObjTexShaderResources;
+std::vector<Ref<ShaderResources>> g_usedObjTexShaderResources;
+
 std::vector<Object> g_objects;
 std::unordered_map<std::string, Ref<Texture2D>> g_textures;
 std::unordered_map<std::string, Ref<TextureCube>> g_textureCubes;
 std::unordered_map<std::string, Ref<Mesh>> g_meshes;
+std::unordered_map<std::string, Ref<Material>> g_materials;
 
 CameraConstants g_cameraConstants;
 LightConstants g_lightConstants;
@@ -95,17 +98,34 @@ void World_Init() {
 
 void InitAssets() {
     Image hausImg("./assets/textures/haus.jpg", 4);
-    Texture2D::Descriptor hausDesc;
-    hausDesc.width = hausImg.Width();
-    hausDesc.height = hausImg.Height();
-    hausDesc.data = hausImg.Data().data();
-    hausDesc.memProperty = MemoryProperty::Static;
-    hausDesc.texUsages = TextureUsage::ShaderResource;
-    hausDesc.format = PixelFormat::RGBA8;
-    hausDesc.mipLevels = GetMaxMipLevels(hausDesc.width, hausDesc.height);
-	hausDesc.shaderStages = ShaderStage::Pixel;
+    Texture2D::Descriptor imageDesc;
+    imageDesc.width = hausImg.Width();
+    imageDesc.height = hausImg.Height();
+    imageDesc.data = hausImg.Data().data();
+    imageDesc.memProperty = MemoryProperty::Static;
+    imageDesc.texUsages = TextureUsage::ShaderResource;
+    imageDesc.format = PixelFormat::RGBA8;
+    imageDesc.mipLevels = GetMaxMipLevels(imageDesc.width, imageDesc.height);
+    imageDesc.shaderStages = ShaderStage::Pixel;
 
-    g_textures["haus"] = g_graphicsContext->CreateTexture2D(hausDesc);
+    g_textures["haus"] = g_graphicsContext->CreateTexture2D(imageDesc);
+
+    Image container2Img("assets/textures/container2.png", 4);
+    imageDesc.width = container2Img.Width();
+    imageDesc.height = container2Img.Height();
+    imageDesc.data = container2Img.Data().data();
+    imageDesc.mipLevels = GetMaxMipLevels(imageDesc.width, imageDesc.height);
+    imageDesc.shaderStages = ShaderStage::Pixel;
+
+    g_textures["container2"] = g_graphicsContext->CreateTexture2D(imageDesc);
+
+    Ref<Material> defaultMaterial = CreateRef<Material>();
+    defaultMaterial->diffuseColor = glm::vec3(1.0f, 1.0f, 1.0f);
+    defaultMaterial->diffuseTexture = g_textures["container2"];
+    defaultMaterial->specularColor = glm::vec3(1.0f, 1.0f, 1.0f);
+    defaultMaterial->shininess = 32.0f;
+
+    g_materials["default"] = defaultMaterial;
 
 	Ref<Mesh> cubeMesh = CreateRef<Mesh>();
 	Model cubeModel("./assets/models/cube.obj");
@@ -142,8 +162,11 @@ void InitAssets() {
 		subMesh.vertexOffset = mesh.vertexStart;
 		subMesh.indexOffset = mesh.indexStart;
 		subMesh.indexCount = mesh.indexCount;
+        subMesh.materialIndex = 0;
 		cubeMesh->subMeshes.push_back(subMesh);
 	}
+
+    cubeMesh->materials.push_back(defaultMaterial);
 
 	g_meshes["cube"] = cubeMesh;
 
@@ -181,8 +204,11 @@ void InitAssets() {
 		subMesh.vertexOffset = mesh.vertexStart;
 		subMesh.indexOffset = mesh.indexStart;
 		subMesh.indexCount = mesh.indexCount;
+        subMesh.materialIndex = 0;
 		sphereMesh->subMeshes.push_back(subMesh);
 	}
+
+    sphereMesh->materials.push_back(defaultMaterial);
 
 	g_meshes["sphere"] = sphereMesh;
 
@@ -219,8 +245,11 @@ void InitAssets() {
         subMesh.vertexOffset = mesh.vertexStart;
         subMesh.indexOffset = mesh.indexStart;
         subMesh.indexCount = mesh.indexCount;
+        subMesh.materialIndex = 0; 
         girlMesh->subMeshes.push_back(subMesh);
     }
+
+    girlMesh->materials.push_back(defaultMaterial);
 
     g_meshes["girl"] = girlMesh;
 
@@ -376,9 +405,6 @@ void InitObjectShaderResources() {
     g_objTexShaderResourcesLayout = g_graphicsContext->CreateShaderResourcesLayout(shaderResourceLayoutDesc);
 
     shaderResourcesDesc.layout = g_objTexShaderResourcesLayout;
-
-    g_objTexShaderResources = g_graphicsContext->CreateShaderResources(shaderResourcesDesc);
-    g_objTexShaderResources->BindTexture2D(g_textures["haus"], 0);
 #elif USE_DX11
     ShaderResourcesLayout::Descriptor shaderResourceLayoutDesc;
     shaderResourceLayoutDesc.bindings = {
@@ -444,8 +470,35 @@ void InitObjectGraphicsPipeline() {
     g_objPipeline->SetBehaviorStates(GraphicsPipeline::Behavior::AutoResizeViewport | GraphicsPipeline::Behavior::AutoResizeScissor);
 }
 
+void ReturnAllObjTexShaderResources() {
+    for (auto& resource : g_usedObjTexShaderResources) {
+        g_freeObjTexShaderResources.push_back(resource);
+    }
+    g_usedObjTexShaderResources.clear();
+}
+
+Ref<ShaderResources> GetFreeObjTexShaderResources() {
+    Ref<ShaderResources> resource = nullptr;
+
+    if (!g_freeObjTexShaderResources.empty()) {
+        resource = g_freeObjTexShaderResources.back();
+        g_freeObjTexShaderResources.pop_back();
+        g_usedObjTexShaderResources.push_back(resource);
+    }
+    else {
+        ShaderResources::Descriptor shaderResourcesDesc;
+        shaderResourcesDesc.layout = g_objTexShaderResourcesLayout;
+        resource = g_graphicsContext->CreateShaderResources(shaderResourcesDesc);
+        g_usedObjTexShaderResources.push_back(resource);
+    }
+
+    return resource;
+}
+
 void World_Render() {
     auto& commandQueue = g_graphicsContext->GetCommandQueue();
+
+    ReturnAllObjTexShaderResources();
 
     int32_t width, height;
     g_context->GetFrameBufferSize(width, height);
@@ -466,12 +519,6 @@ void World_Render() {
 
     commandQueue.SetPipeline(g_objPipeline);
 
-#if USE_VULKAN
-    commandQueue.SetShaderResources({ g_objShaderResources, g_objTexShaderResources });
-#elif USE_DX11
-    commandQueue.SetShaderResources({ g_objShaderResources });
-#endif
-
     std::vector<glm::mat4> modelMatrices(1);
     for (const auto& object : g_objects) {
         modelMatrices[0] = ModelMatrix(object.position, object.rotation, object.scale);
@@ -480,22 +527,26 @@ void World_Render() {
         commandQueue.SetVertexBuffers({ object.mesh->vertexBuffer });
 
         for (const auto& subMesh : object.mesh->subMeshes) {
-			MaterialConstants materialConstants;
-            materialConstants.ambientColor = glm::vec3(1.0f);
-			materialConstants.diffuseColor = glm::vec3(1.0f);
-			materialConstants.specularColor = glm::vec3(1.0f);
-			materialConstants.shininess = 32.0f;
+            auto material = object.mesh->materials[subMesh.materialIndex];
+            auto objTexResources = GetFreeObjTexShaderResources();
 
-            if (subMesh.materialIndex < object.mesh->materials.size()) {
-                const Material& material = object.mesh->materials[subMesh.materialIndex];
+            MaterialConstants materialConstants;
+            materialConstants.diffuseColor = material->diffuseColor;
+            materialConstants.specularColor = material->specularColor;
+            materialConstants.shininess = material->shininess;
 
-				materialConstants.ambientColor = material.ambientColor;
-				materialConstants.diffuseColor = material.diffuseColor;
-				materialConstants.specularColor = material.specularColor;
-				materialConstants.shininess = material.shininess;
+            if (material->diffuseTexture) {
+                materialConstants.texture_binding_flags |= static_cast<uint32_t>(TextureBindingFlag::Diffuse);
+                objTexResources->BindTexture2D(material->diffuseTexture, 0);
             }
 
-			g_materialCB->Update(&materialConstants, sizeof(MaterialConstants));
+            g_materialCB->Update(&materialConstants, sizeof(MaterialConstants));
+
+        #if USE_VULKAN
+            commandQueue.SetShaderResources({ g_objShaderResources, objTexResources });
+        #elif USE_DX11
+            commandQueue.SetShaderResources({ g_objShaderResources });
+        #endif
 
             commandQueue.DrawIndexed(object.mesh->indexBuffer, subMesh.indexCount, subMesh.indexOffset, subMesh.vertexOffset);
         }
@@ -503,13 +554,14 @@ void World_Render() {
 }
 
 void World_Cleanup() {
+    g_freeObjTexShaderResources.clear();
+    g_usedObjTexShaderResources.clear();
     g_objects.clear();
     g_objPipeline.reset();
     g_skyboxPipeline.reset();
     g_objShaderResources.reset();
     g_objShaderResourcesLayout.reset();
 #if USE_VULKAN
-    g_objTexShaderResources.reset();
     g_objTexShaderResourcesLayout.reset();
     g_skyboxShaderResources.reset();
     g_skyboxShaderResourcesLayout.reset();
@@ -527,6 +579,7 @@ void World_Cleanup() {
     g_cameraCB.reset();
     g_meshes.clear();
     g_textureCubes.clear();
+    g_materials.clear();
     g_textures.clear();
     g_graphicsContext.reset();
     g_context.reset();

@@ -31,11 +31,14 @@ struct LightConstants {
     float padding3;
 };
 
+enum TextureBindingFlag {
+    Diffuse = (1 << 0),
+    Specular = (1 << 1)
+};
+
 struct MaterialConstants {
-    glm::vec3 ambientColor;
-    float padding;
+    uint32_t texture_binding_flags;
     glm::vec3 diffuseColor;
-	float padding1;
 	glm::vec3 specularColor;
     float shininess;
 };
@@ -48,12 +51,11 @@ struct TexturedVertex {
 };
 
 struct Material {
-	glm::vec3 ambientColor;
 	glm::vec3 diffuseColor;
 	glm::vec3 specularColor;
 	float shininess;
 
-    Ref<Texture2D> albedoTexture;
+    Ref<Texture2D> diffuseTexture;
 };
 
 struct SubMesh {
@@ -68,7 +70,7 @@ struct Mesh {
     Ref<IndexBuffer> indexBuffer;
 
     std::vector<SubMesh> subMeshes;
-    std::vector<Material> materials;
+    std::vector<Ref<Material>> materials;
 };
 
 struct Object {
@@ -86,6 +88,7 @@ extern std::vector<Object> g_objects;
 extern std::unordered_map<std::string, Ref<Texture2D>> g_textures;
 extern std::unordered_map<std::string, Ref<TextureCube>> g_textureCubes;
 extern std::unordered_map<std::string, Ref<Mesh>> g_meshes;
+extern std::unordered_map<std::string, Ref<Material>> g_materials;
 
 void World_Init();
 void World_Render();
