@@ -11,6 +11,10 @@ using namespace flaw;
 #define USE_VULKAN 1
 #define USE_DX11 0
 
+#define DIRECT_LIGHTING 0
+#define POINT_LIGHTING 0
+#define SPOT_LIGHTING 1
+
 struct CameraConstants {
     glm::mat4 view_matrix;
     glm::mat4 projection_matrix;
@@ -21,14 +25,36 @@ struct CameraConstants {
 };
 
 struct LightConstants {
-	glm::vec3 position;
-    float padding;
+#if DIRECT_LIGHTING
+    glm::vec3 direction;
+	float padding;
     glm::vec3 ambient;
 	float padding1;
 	glm::vec3 diffuse;
 	float padding2;
 	glm::vec3 specular;
     float padding3;
+#elif POINT_LIGHTING
+    glm::vec3 position;
+    float constant_attenuation;
+    glm::vec3 ambient;
+    float linear_attenuation;
+    glm::vec3 diffuse;
+    float quadratic_attenuation;
+    glm::vec3 specular;
+    float padding;
+#elif SPOT_LIGHTING
+    vec3 position;
+    float cutoff_inner_cosine;
+    vec3 direction;
+    float cutoff_outer_cosine;
+    vec3 ambient;
+    float constant_attenuation;
+    vec3 diffuse;
+    float linear_attenuation;
+    vec3 specular;
+    float quadratic_attenuation;
+#endif
 };
 
 enum TextureBindingFlag {
@@ -37,10 +63,10 @@ enum TextureBindingFlag {
 };
 
 struct MaterialConstants {
-    uint32_t texture_binding_flags;
     glm::vec3 diffuseColor;
-	glm::vec3 specularColor;
     float shininess;
+	glm::vec3 specularColor;
+    uint32_t texture_binding_flags;
 };
 
 struct TexturedVertex {
@@ -56,6 +82,7 @@ struct Material {
 	float shininess;
 
     Ref<Texture2D> diffuseTexture;
+	Ref<Texture2D> specularTexture;
 };
 
 struct SubMesh {
@@ -77,14 +104,12 @@ struct Object {
     glm::vec3 position;
     glm::vec3 rotation;
     glm::vec3 scale;
-
-    Ref<Mesh> mesh;
 };
 
 extern Ref<PlatformContext> g_context;
 extern EventDispatcher g_eventDispatcher;
 extern Ref<GraphicsContext> g_graphicsContext;
-extern std::vector<Object> g_objects;
+extern std::vector<Object> g_cubeObjects;
 extern std::unordered_map<std::string, Ref<Texture2D>> g_textures;
 extern std::unordered_map<std::string, Ref<TextureCube>> g_textureCubes;
 extern std::unordered_map<std::string, Ref<Mesh>> g_meshes;
@@ -94,6 +119,6 @@ void World_Init();
 void World_Render();
 void World_Cleanup();
 
-Object& AddObject(const char* meshKey);
+Object& AddCubeObject();
 
 std::vector<uint8_t> GenerateTextureCubeData(Image& left, Image& right, Image& top, Image& bottom, Image& front, Image& back);

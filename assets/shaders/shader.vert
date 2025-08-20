@@ -37,5 +37,5 @@ void main() {
     out_position = world_position.xyz;
     out_color = in_color;
     out_tex_coord = in_tex_coord;
-    out_normal = mat3(transpose(inverse(model_matrix))) * in_normal;
+    out_normal = normalize(mat3(transpose(inverse(model_matrix))) * in_normal);
 }

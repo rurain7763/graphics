@@ -18,7 +18,26 @@ using namespace flaw;
 int main() {
     World_Init();
 
-	auto& cubeObj = AddObject("cube");
+    vec3 positions[] = {
+        { 0.0f, 0.0f, 0.0f },
+	    { 2.0f, 0.0f, 0.0f },
+	    { -2.0f, 0.0f, 0.0f },
+		{ 0.0f, 2.0f, 0.0f },
+		{ 0.0f, -2.0f, 0.0f },
+		{ 1.5f, 1.5f, 0.0f },
+		{ -1.5f, -1.5f, 0.0f },
+		{ 1.5f, -1.5f, 0.0f },
+		{ -1.5f, 1.5f, 0.0f },
+    };
+
+    for (int32_t i = 0; i < sizeof(positions) / sizeof(vec3); i++) {
+ 	    auto& cubeObj = AddCubeObject();
+		cubeObj.position = positions[i];
+
+		float angle = glm::radians(20.0f * i);
+        cubeObj.rotation = glm::vec3(angle);
+    }
+
 	//auto& sphereObj = AddObject("sphere");
     //AddObject("girl");
 

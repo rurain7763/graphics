@@ -91,7 +91,7 @@ namespace flaw {
 		int32_t CreateDescriptorPool();
 
 	private:
-		constexpr static uint32_t MaxDescriptorSetsCount = 16;
+		constexpr static uint32_t MaxDescriptorSetsCount = 100;
 		constexpr static uint32_t MaxConstantBufferBindingCount = 16;
 		constexpr static uint32_t MaxStructuredBufferBindingCount = 16;
 		constexpr static uint32_t MaxTextureBindingCount = 16;
