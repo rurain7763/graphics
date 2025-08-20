@@ -11,9 +11,9 @@ using namespace flaw;
 #define USE_VULKAN 1
 #define USE_DX11 0
 
-#define DIRECT_LIGHTING 0
-#define POINT_LIGHTING 0
-#define SPOT_LIGHTING 1
+#define MAX_DIRECTIONAL_LIGHTS 1
+#define MAX_POINT_LIGHTS 8
+#define MAX_SPOT_LIGHTS 8
 
 struct CameraConstants {
     glm::mat4 view_matrix;
@@ -25,36 +25,10 @@ struct CameraConstants {
 };
 
 struct LightConstants {
-#if DIRECT_LIGHTING
-    glm::vec3 direction;
-	float padding;
-    glm::vec3 ambient;
-	float padding1;
-	glm::vec3 diffuse;
-	float padding2;
-	glm::vec3 specular;
-    float padding3;
-#elif POINT_LIGHTING
-    glm::vec3 position;
-    float constant_attenuation;
-    glm::vec3 ambient;
-    float linear_attenuation;
-    glm::vec3 diffuse;
-    float quadratic_attenuation;
-    glm::vec3 specular;
-    float padding;
-#elif SPOT_LIGHTING
-    vec3 position;
-    float cutoff_inner_cosine;
-    vec3 direction;
-    float cutoff_outer_cosine;
-    vec3 ambient;
-    float constant_attenuation;
-    vec3 diffuse;
-    float linear_attenuation;
-    vec3 specular;
-    float quadratic_attenuation;
-#endif
+	uint32_t directional_light_count;
+	uint32_t point_light_count;
+	uint32_t spot_light_count;
+	uint32_t padding;
 };
 
 enum TextureBindingFlag {
@@ -74,6 +48,41 @@ struct TexturedVertex {
     glm::vec4 color;
     glm::vec2 texCoord;
     glm::vec3 normal;
+};
+
+struct DirectionalLight {
+    vec3 direction;
+    float padding;
+    vec3 ambient;
+    float padding1;
+    vec3 diffuse;
+    float padding2;
+    vec3 specular;
+    float padding3;
+};
+
+struct PointLight {
+    vec3 position;
+    float constant_attenuation;
+    vec3 ambient;
+    float linear_attenuation;
+    vec3 diffuse;
+    float quadratic_attenuation;
+    vec3 specular;
+    float padding;
+};
+
+struct SpotLight {
+    vec3 position;
+    float cutoff_inner_cosine;
+    vec3 direction;
+    float cutoff_outer_cosine;
+    vec3 ambient;
+    float constant_attenuation;
+    vec3 diffuse;
+    float linear_attenuation;
+    vec3 specular;
+    float quadratic_attenuation;
 };
 
 struct Material {

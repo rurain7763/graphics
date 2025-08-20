@@ -18,6 +18,9 @@ Ref<ConstantBuffer> g_cameraCB;
 Ref<ConstantBuffer> g_lightCB;
 Ref<ConstantBuffer> g_materialCB;
 Ref<StructuredBuffer> g_modelMatricesSB;
+Ref<StructuredBuffer> g_directionalLightSB;
+Ref<StructuredBuffer> g_pointLightSB;
+Ref<StructuredBuffer> g_spotLightSB;
 Ref<GraphicsPipeline> g_skyboxPipeline;
 Ref<GraphicsPipeline> g_objPipeline;
 #if USE_VULKAN
@@ -81,32 +84,6 @@ void World_Init() {
 
     g_cameraConstants.view_matrix = ViewMatrix(vec3(0.f, 0.f, -5.f), vec3(0.f));
     g_cameraConstants.projection_matrix = Perspective(glm::radians(45.0f), static_cast<float>(windowWidth) / windowHeight, 0.1f, 100.0f);
-
-#if DIRECT_LIGHTING
-	g_lightConstants.direction = Forward;
-	g_lightConstants.ambient = glm::vec3(0.2f);
-	g_lightConstants.diffuse = glm::vec3(0.8f);
-	g_lightConstants.specular = glm::vec3(1.0f);
-#elif POINT_LIGHTING
-	g_lightConstants.position = glm::vec3(0.0f, 0.0f, 0.0f);
-	g_lightConstants.constant_attenuation = 1.0f;
-	g_lightConstants.linear_attenuation = 0.09f;
-	g_lightConstants.quadratic_attenuation = 0.032f;
-    g_lightConstants.ambient = glm::vec3(0.2f);
-    g_lightConstants.diffuse = glm::vec3(0.8f);
-    g_lightConstants.specular = glm::vec3(1.0f);
-#elif SPOT_LIGHTING
-	g_lightConstants.position = glm::vec3(0.0f, 0.0f, -2.0f);
-	g_lightConstants.direction = Forward;
-	g_lightConstants.cutoff_inner_cosine = glm::cos(glm::radians(45.f));
-	g_lightConstants.cutoff_outer_cosine = glm::cos(glm::radians(50.0f));
-	g_lightConstants.constant_attenuation = 1.0f;
-	g_lightConstants.linear_attenuation = 0.09f;
-	g_lightConstants.quadratic_attenuation = 0.032f;
-	g_lightConstants.ambient = glm::vec3(0.2f);
-	g_lightConstants.diffuse = glm::vec3(0.8f);
-	g_lightConstants.specular = glm::vec3(1.0f);
-#endif
 
     InitAssets();
     InitBaseBuffers();
@@ -325,6 +302,30 @@ void InitBaseBuffers() {
 	materialConstantsDesc.bufferSize = sizeof(MaterialConstants);
 
 	g_materialCB = g_graphicsContext->CreateConstantBuffer(materialConstantsDesc);
+
+	StructuredBuffer::Descriptor directionalLightDesc;
+	directionalLightDesc.memProperty = MemoryProperty::Dynamic;
+	directionalLightDesc.elmSize = sizeof(DirectionalLight);
+	directionalLightDesc.bufferSize = sizeof(DirectionalLight) * MAX_DIRECTIONAL_LIGHTS;
+	directionalLightDesc.bufferUsages = BufferUsage::ShaderResource;    
+
+	g_directionalLightSB = g_graphicsContext->CreateStructuredBuffer(directionalLightDesc);
+
+	StructuredBuffer::Descriptor pointLightDesc;
+	pointLightDesc.memProperty = MemoryProperty::Dynamic;
+	pointLightDesc.elmSize = sizeof(PointLight);
+	pointLightDesc.bufferSize = sizeof(PointLight) * MAX_POINT_LIGHTS;
+	pointLightDesc.bufferUsages = BufferUsage::ShaderResource;
+
+	g_pointLightSB = g_graphicsContext->CreateStructuredBuffer(pointLightDesc);
+
+	StructuredBuffer::Descriptor spotLightDesc;
+	spotLightDesc.memProperty = MemoryProperty::Dynamic;
+	spotLightDesc.elmSize = sizeof(SpotLight);
+	spotLightDesc.bufferSize = sizeof(SpotLight) * MAX_SPOT_LIGHTS;
+	spotLightDesc.bufferUsages = BufferUsage::ShaderResource;
+
+	g_spotLightSB = g_graphicsContext->CreateStructuredBuffer(spotLightDesc);
 }
 
 void InitSkyboxShaderResources() {
@@ -414,7 +415,10 @@ void InitObjectShaderResources() {
         { 0, ResourceType::ConstantBuffer, ShaderStage::Vertex | ShaderStage::Pixel, 1 },
         { 1, ResourceType::ConstantBuffer, ShaderStage::Pixel, 1 },
         { 2, ResourceType::StructuredBuffer, ShaderStage::Vertex, 1 },
-		{ 3, ResourceType::ConstantBuffer, ShaderStage::Pixel, 1 }
+		{ 3, ResourceType::ConstantBuffer, ShaderStage::Pixel, 1 },
+        { 4, ResourceType::StructuredBuffer, ShaderStage::Pixel, 1 },
+        { 5, ResourceType::StructuredBuffer, ShaderStage::Pixel, 1 },
+        { 6, ResourceType::StructuredBuffer, ShaderStage::Pixel, 1 },
     };
 
     g_objShaderResourcesLayout = g_graphicsContext->CreateShaderResourcesLayout(shaderResourceLayoutDesc);
@@ -427,6 +431,9 @@ void InitObjectShaderResources() {
     g_objShaderResources->BindConstantBuffer(g_lightCB, 1);
     g_objShaderResources->BindStructuredBuffer(g_modelMatricesSB, 2);
 	g_objShaderResources->BindConstantBuffer(g_materialCB, 3);
+	g_objShaderResources->BindStructuredBuffer(g_directionalLightSB, 4);
+	g_objShaderResources->BindStructuredBuffer(g_pointLightSB, 5);
+	g_objShaderResources->BindStructuredBuffer(g_spotLightSB, 6);
 
     shaderResourceLayoutDesc.bindings = {
         { 0, ResourceType::Texture2D, ShaderStage::Pixel, 1 },
@@ -522,19 +529,54 @@ void World_Render() {
     int32_t width, height;
     g_context->GetFrameBufferSize(width, height);
 
-	auto& lightCube = AddCubeObject();
-	lightCube.scale = vec3(0.1f);
+    // NOTE: Gather light datas
+    DirectionalLight directionalLight;
+    directionalLight.direction = Forward;
+    directionalLight.ambient = glm::vec3(0.2f);
+    directionalLight.diffuse = glm::vec3(0.8f);
+    directionalLight.specular = glm::vec3(1.0f);
 
-#if POINT_LIGHTING
-	g_lightConstants.position = vec3(sin(Time::GetTime()), 0.f, cos(Time::GetTime())) * 2.f;
+    std::vector<PointLight> pointLights(2);
+    for (int32_t i = 0; i < pointLights.size(); ++i) {
+		if (i == 0) {
+			pointLights[i].position = vec3(cos(Time::GetTime()), sin(Time::GetTime()), 0) * 2.0f;
+		}
+		else if (i == 1) {
+			pointLights[i].position = vec3(cos(Time::GetTime()), 0, sin(Time::GetTime())) * 2.0f;
+		}
+        pointLights[i].constant_attenuation = 1.0f;
+        pointLights[i].linear_attenuation = 0.09f;
+        pointLights[i].quadratic_attenuation = 0.032f;
+        pointLights[i].ambient = glm::vec3(0.2f);
+        pointLights[i].diffuse = glm::vec3(0.8f);
+        pointLights[i].specular = glm::vec3(1.0f);
+    }
 
-	lightCube.position = g_lightConstants.position;
-#elif SPOT_LIGHTING
-	//g_lightConstants.direction = vec3(sin(Time::GetTime()), 0.0f, cos(Time::GetTime()));
+    std::vector<SpotLight> spotLights(1);
+    for (int32_t i = 0; i < spotLights.size(); ++i) {
+        if (i == 0) {
+            spotLights[i].position = vec3(0, 0, -5);
+			spotLights[i].direction = normalize(vec3(sin(Time::GetTime()), 0, abs(cos(Time::GetTime()))));
+        }
 
-	lightCube.position = g_lightConstants.position;
-#endif
-	g_lightCB->Update(&g_lightConstants, sizeof(LightConstants));
+        spotLights[i].cutoff_inner_cosine = glm::cos(glm::radians(15.f));
+        spotLights[i].cutoff_outer_cosine = glm::cos(glm::radians(17.0f));
+        spotLights[i].constant_attenuation = 1.0f;
+        spotLights[i].linear_attenuation = 0.09f;
+        spotLights[i].quadratic_attenuation = 0.032f;
+        spotLights[i].ambient = glm::vec3(0.2f);
+        spotLights[i].diffuse = glm::vec3(0.8f);
+        spotLights[i].specular = glm::vec3(1.0f);
+    }
+
+    g_lightConstants.directional_light_count = 0;
+    g_lightConstants.point_light_count = pointLights.size();
+    g_lightConstants.spot_light_count = spotLights.size();
+
+    g_directionalLightSB->Update(&directionalLight, sizeof(DirectionalLight) * g_lightConstants.directional_light_count);
+    g_pointLightSB->Update(pointLights.data(), sizeof(PointLight) * g_lightConstants.point_light_count);
+    g_spotLightSB->Update(spotLights.data(), sizeof(SpotLight) * g_lightConstants.spot_light_count);
+    g_lightCB->Update(&g_lightConstants, sizeof(LightConstants));
 
     g_cameraConstants.view_matrix = ViewMatrix(vec3(0.f, 0.f, -5.f), vec3(0.f));
     g_cameraConstants.projection_matrix = Perspective(glm::radians(45.0f), static_cast<float>(width) / height, 0.1f, 100.0f);
@@ -592,8 +634,6 @@ void World_Render() {
 #endif
 		commandQueue.DrawIndexedInstanced(cubeMesh->indexBuffer, subMesh.indexCount, g_cubeObjects.size(), subMesh.indexOffset, subMesh.vertexOffset);
     }
-
-    g_cubeObjects.pop_back();
 }
 
 void World_Cleanup() {
@@ -616,6 +656,9 @@ void World_Cleanup() {
 	g_objShaderResourcesLayout.reset();
 #endif
     g_modelMatricesSB.reset();
+	g_directionalLightSB.reset();
+	g_pointLightSB.reset();
+	g_spotLightSB.reset();
 	g_materialCB.reset();
     g_lightCB.reset();
     g_cameraCB.reset();
