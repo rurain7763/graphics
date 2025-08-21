@@ -10,6 +10,7 @@ SRCS = 	$(wildcard src/*.cpp) \
 		$(wildcard src/Time/*.cpp) \
 		$(wildcard src/Image/*.cpp) \
 		$(wildcard src/Model/*.cpp) \
+		$(wildcard src/Input/*.cpp) \
 
 RPATH = -Wl,-rpath,/usr/local/lib
 

@@ -30,6 +30,69 @@ namespace flaw {
 		Log::Error("GLFW Error: %d - %s", error, description);
 	}
 
+	static KeyCode ConvertToKeyCode(int key) {
+		switch (key) {
+			case GLFW_KEY_A: return KeyCode::A;
+			case GLFW_KEY_B: return KeyCode::B;
+			case GLFW_KEY_C: return KeyCode::C;
+			case GLFW_KEY_D: return KeyCode::D;
+			case GLFW_KEY_E: return KeyCode::E;
+			case GLFW_KEY_F: return KeyCode::F;
+			case GLFW_KEY_G: return KeyCode::G;
+			case GLFW_KEY_H: return KeyCode::H;
+			case GLFW_KEY_I: return KeyCode::I;
+			case GLFW_KEY_J: return KeyCode::J;
+			case GLFW_KEY_K: return KeyCode::K;
+			case GLFW_KEY_L: return KeyCode::L;
+			case GLFW_KEY_M: return KeyCode::M;
+			case GLFW_KEY_N: return KeyCode::N;
+			case GLFW_KEY_O: return KeyCode::O;
+			case GLFW_KEY_P: return KeyCode::P;
+			case GLFW_KEY_Q: return KeyCode::Q;
+			case GLFW_KEY_R: return KeyCode::R;
+			case GLFW_KEY_S: return KeyCode::S;
+			case GLFW_KEY_T: return KeyCode::T;
+			case GLFW_KEY_U: return KeyCode::U;
+			case GLFW_KEY_V: return KeyCode::V;
+			case GLFW_KEY_W: return KeyCode::W;
+			case GLFW_KEY_X: return KeyCode::X;
+			case GLFW_KEY_Y: return KeyCode::Y;
+			case GLFW_KEY_Z: return KeyCode::Z;
+			case GLFW_KEY_SPACE: return KeyCode::Space;
+			case GLFW_KEY_ESCAPE: return KeyCode::ESCAPE;
+			case GLFW_KEY_LEFT_SHIFT: return KeyCode::LSHIFT;
+			case GLFW_KEY_LEFT_CONTROL: return KeyCode::LCtrl;
+			case GLFW_KEY_LEFT_ALT: return KeyCode::LALT;
+			case GLFW_KEY_RIGHT_SHIFT: return KeyCode::RSHIFT;
+			case GLFW_KEY_RIGHT_CONTROL: return KeyCode::RCTRL;
+			case GLFW_KEY_RIGHT_ALT: return KeyCode::RALT;
+			case GLFW_KEY_LEFT: return KeyCode::Left;
+			case GLFW_KEY_RIGHT: return KeyCode::Right;
+			case GLFW_KEY_UP: return KeyCode::Up;
+			case GLFW_KEY_DOWN: return KeyCode::Down;
+			case GLFW_KEY_0: return KeyCode::NUM_0;
+			case GLFW_KEY_1: return KeyCode::Num1;
+			case GLFW_KEY_2: return KeyCode::Num2;
+			case GLFW_KEY_3: return KeyCode::Num3;
+			case GLFW_KEY_4: return KeyCode::NUM_4;
+			case GLFW_KEY_5: return KeyCode::NUM_5;
+			case GLFW_KEY_6: return KeyCode::NUM_6;
+			case GLFW_KEY_7: return KeyCode::NUM_7;
+			case GLFW_KEY_8: return KeyCode::NUM_8;
+			case GLFW_KEY_9: return KeyCode::NUM_9;
+			default: return KeyCode::Count;
+		}
+	}
+
+	static MouseButton ConvertToMouseButton(int button) {
+		switch (button) {
+			case GLFW_MOUSE_BUTTON_LEFT: return MouseButton::Left;
+			case GLFW_MOUSE_BUTTON_RIGHT: return MouseButton::Right;
+			case GLFW_MOUSE_BUTTON_MIDDLE: return MouseButton::Middle;
+			default: return MouseButton::Count;
+		}
+	}
+
 	PlatformContext::PlatformContext(const char* title, int32_t width, int32_t height, EventDispatcher& evnDispatcher) {
 		if (!glfwInit()) {
 			Log::Error("Failed to initialize GLFW.");
@@ -86,6 +149,38 @@ namespace flaw {
 			auto* internalData = static_cast<PlatformContextInternalData*>(glfwGetWindowUserPointer(window));
 			internalData->windowSizeState = maximized ? WindowSizeState::Maximized : WindowSizeState::Normal;
 			internalData->_eventDispatcher->Dispatch<WindowResizeEvent>(internalData->width, internalData->height, internalData->frameBufferWidth, internalData->frameBufferHeight);
+		});
+
+		glfwSetKeyCallback(internalData->window, [](GLFWwindow* window, int key, int scancode, int action, int mods) {
+			auto* internalData = static_cast<PlatformContextInternalData*>(glfwGetWindowUserPointer(window));
+
+			KeyCode keyCode = ConvertToKeyCode(key);
+			if (action == GLFW_PRESS) {
+				internalData->_eventDispatcher->Dispatch<KeyPressEvent>(keyCode);
+			} else if (action == GLFW_RELEASE) {
+				internalData->_eventDispatcher->Dispatch<KeyReleaseEvent>(keyCode);
+			}
+		});
+
+		glfwSetMouseButtonCallback(internalData->window, [](GLFWwindow* window, int button, int action, int mods) {
+			auto* internalData = static_cast<PlatformContextInternalData*>(glfwGetWindowUserPointer(window));
+			
+			MouseButton mouseButton = ConvertToMouseButton(button);
+			if (action == GLFW_PRESS) {
+				internalData->_eventDispatcher->Dispatch<MousePressEvent>(mouseButton);
+			} else if (action == GLFW_RELEASE) {
+				internalData->_eventDispatcher->Dispatch<MouseReleaseEvent>(mouseButton);
+			}
+		});
+
+		glfwSetCursorPosCallback(internalData->window, [](GLFWwindow* window, double xpos, double ypos) {
+			auto* internalData = static_cast<PlatformContextInternalData*>(glfwGetWindowUserPointer(window));
+			internalData->_eventDispatcher->Dispatch<MouseMoveEvent>(xpos, ypos);
+		});
+
+		glfwSetScrollCallback(internalData->window, [](GLFWwindow* window, double xoffset, double yoffset) {
+			auto* internalData = static_cast<PlatformContextInternalData*>(glfwGetWindowUserPointer(window));
+			internalData->_eventDispatcher->Dispatch<MouseScrollEvent>(xoffset, yoffset);
 		});
 	}
 
