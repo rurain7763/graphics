@@ -41,7 +41,7 @@ Ref<ShaderResources> g_objShaderResources;
 std::vector<std::vector<Ref<ShaderResources>>> g_objTexShaderResourcesPerFrame;
 uint32_t g_objTexShaderResourcesUsed;
 
-std::vector<Object> g_cubeObjects;
+std::vector<Object> g_objects;
 std::unordered_map<std::string, Ref<Texture2D>> g_textures;
 std::unordered_map<std::string, Ref<TextureCube>> g_textureCubes;
 std::unordered_map<std::string, Ref<Mesh>> g_meshes;
@@ -92,6 +92,103 @@ void World_Init() {
     InitObjectBuffers();
     InitObjectShaderResources();
     InitObjectGraphicsPipeline();
+}
+
+void LoadModel(const char* filePath, const char* key) {
+    Ref<Mesh> mesh = CreateRef<Mesh>();
+    Model model(filePath);
+
+    std::vector<TexturedVertex> vertices;
+    for (const auto& vertex : model.GetVertices()) {
+        TexturedVertex texturedVertex;
+        texturedVertex.position = vertex.position;
+        texturedVertex.color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+        texturedVertex.texCoord = vertex.texCoord;
+        texturedVertex.normal = vertex.normal;
+        vertices.push_back(texturedVertex);
+    }
+
+	VertexBuffer::Descriptor vertexBufferDesc;
+    vertexBufferDesc.memProperty = MemoryProperty::Static;
+    vertexBufferDesc.elmSize = sizeof(TexturedVertex);
+    vertexBufferDesc.bufferSize = sizeof(TexturedVertex) * vertices.size();
+    vertexBufferDesc.initialData = vertices.data();
+
+    mesh->vertexBuffer = g_graphicsContext->CreateVertexBuffer(vertexBufferDesc);
+
+    const std::vector<uint32_t>& indices = model.GetIndices();
+
+	IndexBuffer::Descriptor indexBufferDesc;
+    indexBufferDesc.memProperty = MemoryProperty::Static;
+    indexBufferDesc.bufferSize = sizeof(uint32_t) * indices.size();
+    indexBufferDesc.initialData = indices.data();
+
+    mesh->indexBuffer = g_graphicsContext->CreateIndexBuffer(indexBufferDesc);
+
+    std::unordered_map<Ref<Image>, Ref<Texture2D>> textureCache;
+    std::function<Ref<Texture2D>(const Ref<Image>&)> createTexture = [&](const Ref<Image>& image) {
+        auto it = textureCache.find(image);
+        if (it != textureCache.end()) {
+            return it->second;
+        }
+
+        Texture2D::Descriptor textureDesc;
+        textureDesc.width = image->Width();
+        textureDesc.height = image->Height();
+        textureDesc.data = image->Data().data();
+        textureDesc.memProperty = MemoryProperty::Static;
+        textureDesc.texUsages = TextureUsage::ShaderResource;
+        textureDesc.format = PixelFormat::RGBA8;
+        textureDesc.mipLevels = 1;
+        textureDesc.shaderStages = ShaderStage::Pixel;
+
+        Ref<Texture2D> texture = g_graphicsContext->CreateTexture2D(textureDesc);
+        textureCache[image] = texture;
+
+        return texture;
+    };
+
+	std::unordered_map<uint32_t, Ref<Material>> materialCache;
+	std::function<Ref<Material>(uint32_t, const ModelMaterial&)> createMaterial = [&](uint32_t index, const ModelMaterial& modelMaterial) {
+		auto it = materialCache.find(index);
+		if (it != materialCache.end()) {
+			return it->second;
+		}
+
+		Ref<Material> material = CreateRef<Material>();
+        material->diffuseColor = modelMaterial.baseColor;
+		if (modelMaterial.diffuse) {
+			material->diffuseTexture = createTexture(modelMaterial.diffuse);
+		}
+		material->specularColor = glm::vec3(1.0f, 1.0f, 1.0f);
+        if (modelMaterial.specular) {
+			material->specularTexture = createTexture(modelMaterial.specular);
+        }
+		material->shininess = 32.0f;
+		materialCache[index] = material;
+
+		return material;
+	};
+
+    for (const auto& modelSubMesh : model.GetMeshs()) {
+        SubMesh subMesh;
+        subMesh.vertexOffset = modelSubMesh.vertexStart;
+        subMesh.indexOffset = modelSubMesh.indexStart;
+        subMesh.indexCount = modelSubMesh.indexCount;
+        mesh->subMeshes.push_back(subMesh);
+
+		Ref<Material> material;
+        if (modelSubMesh.materialIndex == -1) {
+			material = g_materials["default"];
+        }
+        else {
+		    material = createMaterial(modelSubMesh.materialIndex, model.GetMaterialAt(modelSubMesh.materialIndex));
+        }
+
+		mesh->materials.push_back(material);
+    }
+
+	g_meshes[key] = mesh;
 }
 
 void InitAssets() {
@@ -170,95 +267,15 @@ void InitAssets() {
     subMesh.vertexOffset = 0;
     subMesh.indexOffset = 0;
     subMesh.indexCount = cubeIndices.size();
-    subMesh.materialIndex = 0;
 	cubeMesh->subMeshes.push_back(subMesh);
 
     cubeMesh->materials.push_back(defaultMaterial);
 
 	g_meshes["cube"] = cubeMesh;
 
-	Ref<Mesh> sphereMesh = CreateRef<Mesh>();
-
-	Model sphereModel("./assets/models/sphere.obj");
-
-	std::vector<TexturedVertex> sphereVertices;
-	for (const auto& vertex : sphereModel.GetVertices()) {
-		TexturedVertex texturedVertex;
-		texturedVertex.position = vertex.position;
-		texturedVertex.color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-		texturedVertex.texCoord = vertex.texCoord;
-		texturedVertex.normal = vertex.normal;
-		sphereVertices.push_back(texturedVertex);
-	}
-
-	const std::vector<uint32_t>& sphereIndices = sphereModel.GetIndices();
-
-	vertexBufferDesc.memProperty = MemoryProperty::Static;
-	vertexBufferDesc.elmSize = sizeof(TexturedVertex);
-	vertexBufferDesc.bufferSize = sizeof(TexturedVertex) * sphereVertices.size();
-	vertexBufferDesc.initialData = sphereVertices.data();
-
-	sphereMesh->vertexBuffer = g_graphicsContext->CreateVertexBuffer(vertexBufferDesc);
-
-	indexBufferDesc.memProperty = MemoryProperty::Static;
-	indexBufferDesc.bufferSize = sizeof(uint32_t) * sphereIndices.size();
-	indexBufferDesc.initialData = sphereIndices.data();
-
-	sphereMesh->indexBuffer = g_graphicsContext->CreateIndexBuffer(indexBufferDesc);
-
-	for (const auto& mesh : sphereModel.GetMeshs()) {
-		SubMesh subMesh;
-		subMesh.vertexOffset = mesh.vertexStart;
-		subMesh.indexOffset = mesh.indexStart;
-		subMesh.indexCount = mesh.indexCount;
-        subMesh.materialIndex = 0;
-		sphereMesh->subMeshes.push_back(subMesh);
-	}
-
-    sphereMesh->materials.push_back(defaultMaterial);
-
-	g_meshes["sphere"] = sphereMesh;
-
-    Ref<Mesh> girlMesh = CreateRef<Mesh>();
-    Model girlModel("./assets/models/girl.obj");
-
-    std::vector<TexturedVertex> modelVertices;
-    for (const auto& vertex : girlModel.GetVertices()) {
-        TexturedVertex texturedVertex;
-        texturedVertex.position = vertex.position;
-        texturedVertex.color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-        texturedVertex.texCoord = vertex.texCoord;
-        texturedVertex.normal = vertex.normal;
-        modelVertices.push_back(texturedVertex);
-    }
-
-    const std::vector<uint32_t>& modelIndices = girlModel.GetIndices();
-
-    vertexBufferDesc.memProperty = MemoryProperty::Static;
-    vertexBufferDesc.elmSize = sizeof(TexturedVertex);
-    vertexBufferDesc.bufferSize = sizeof(TexturedVertex) * modelVertices.size();
-    vertexBufferDesc.initialData = modelVertices.data();
-
-    girlMesh->vertexBuffer = g_graphicsContext->CreateVertexBuffer(vertexBufferDesc);
-
-    indexBufferDesc.memProperty = MemoryProperty::Static;
-    indexBufferDesc.bufferSize = sizeof(uint32_t) * modelIndices.size();
-    indexBufferDesc.initialData = modelIndices.data();
-
-    girlMesh->indexBuffer = g_graphicsContext->CreateIndexBuffer(indexBufferDesc);
-
-    for (const auto& mesh : girlModel.GetMeshs()) {
-        SubMesh subMesh;
-        subMesh.vertexOffset = mesh.vertexStart;
-        subMesh.indexOffset = mesh.indexStart;
-        subMesh.indexCount = mesh.indexCount;
-        subMesh.materialIndex = 0; 
-        girlMesh->subMeshes.push_back(subMesh);
-    }
-
-    girlMesh->materials.push_back(defaultMaterial);
-
-    g_meshes["girl"] = girlMesh;
+	LoadModel("assets/models/sphere.obj", "sphere");
+    LoadModel("assets/models/girl.obj", "girl");
+	LoadModel("assets/models/survival-guitar-backpack/backpack.obj", "survival_backpack");
 
     Image left("./assets/textures/sky/sky_left.png", 4);
     Image right("./assets/textures/sky/sky_right.png", 4);
@@ -532,9 +549,9 @@ void World_Render() {
     // NOTE: Gather light datas
     DirectionalLight directionalLight;
     directionalLight.direction = Forward;
-    directionalLight.ambient = glm::vec3(0.2f);
-    directionalLight.diffuse = glm::vec3(0.8f);
-    directionalLight.specular = glm::vec3(1.0f);
+    directionalLight.ambient = glm::vec3(0.1f);
+    directionalLight.diffuse = glm::vec3(0.2f);
+    directionalLight.specular = glm::vec3(0.f);
 
     std::vector<PointLight> pointLights(2);
     for (int32_t i = 0; i < pointLights.size(); ++i) {
@@ -569,7 +586,7 @@ void World_Render() {
         spotLights[i].specular = glm::vec3(1.0f);
     }
 
-    g_lightConstants.directional_light_count = 0;
+    g_lightConstants.directional_light_count = 1;
     g_lightConstants.point_light_count = pointLights.size();
     g_lightConstants.spot_light_count = spotLights.size();
 
@@ -594,19 +611,20 @@ void World_Render() {
 
     commandQueue.SetPipeline(g_objPipeline);
 
-    std::vector<glm::mat4> modelMatrices(g_cubeObjects.size());
-	for (int32_t i = 0; i < g_cubeObjects.size(); ++i) {
-		const auto& object = g_cubeObjects[i];
+    std::vector<glm::mat4> modelMatrices(g_objects.size());
+	for (int32_t i = 0; i < g_objects.size(); ++i) {
+		const auto& object = g_objects[i];
 		modelMatrices[i] = ModelMatrix(object.position, object.rotation, object.scale);
 	}
 
 	g_modelMatricesSB->Update(modelMatrices.data(), sizeof(glm::mat4) * modelMatrices.size());
 
-	auto cubeMesh = g_meshes["cube"];
-    commandQueue.SetVertexBuffers({ cubeMesh->vertexBuffer });
+	auto mesh = g_meshes["survival_backpack"];
+    commandQueue.SetVertexBuffers({ mesh->vertexBuffer });
 
-    for (const auto& subMesh : cubeMesh->subMeshes) {
-        auto material = cubeMesh->materials[subMesh.materialIndex];
+    for (uint32_t i = 0; i < mesh->subMeshes.size(); i++) {
+		auto& subMesh = mesh->subMeshes[i];
+        auto material = mesh->materials[i];
         auto objTexResources = GetObjectTextureShaderResources(commandQueue.GetCurrentFrameIndex());
 
         MaterialConstants materialConstants;
@@ -632,12 +650,12 @@ void World_Render() {
 #elif USE_DX11
         commandQueue.SetShaderResources({ g_objShaderResources });
 #endif
-		commandQueue.DrawIndexedInstanced(cubeMesh->indexBuffer, subMesh.indexCount, g_cubeObjects.size(), subMesh.indexOffset, subMesh.vertexOffset);
+		commandQueue.DrawIndexedInstanced(mesh->indexBuffer, subMesh.indexCount, g_objects.size(), subMesh.indexOffset, subMesh.vertexOffset);
     }
 }
 
 void World_Cleanup() {
-    g_cubeObjects.clear();
+    g_objects.clear();
     g_objPipeline.reset();
     g_skyboxPipeline.reset();
     g_objShaderResources.reset();
@@ -674,15 +692,15 @@ void World_Cleanup() {
     Log::Cleanup();
 }
 
-Object& AddCubeObject() {
+Object& AddObject() {
     Object object;
     object.position = glm::vec3(0.f);
     object.rotation = glm::vec3(0.f);
     object.scale = glm::vec3(1.f);
 
-    g_cubeObjects.push_back(object);
+    g_objects.push_back(object);
 
-	return g_cubeObjects.back();
+	return g_objects.back();
 }
 
 std::vector<uint8_t> GenerateTextureCubeData(Image& left, Image& right, Image& top, Image& bottom, Image& front, Image& back) {

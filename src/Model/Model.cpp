@@ -42,6 +42,16 @@ namespace flaw {
 		);
 	}
 
+	uint32_t GetLoadOpFlags() {
+		uint32_t loadOpFlags = BaseLoadOptFlags;
+		
+		if (ModelParams::LeftHanded) {
+			loadOpFlags |= aiProcess_ConvertToLeftHanded;
+		}
+
+		return loadOpFlags;
+	}
+
 	Model::Model(const char* filePath, const std::function<bool(float)>& progressHandler) 
 		: _loaded(false)
 	{
@@ -63,12 +73,7 @@ namespace flaw {
 			importer.SetProgressHandler(userProgressHandler.get());
 		}
 
-		uint32_t loadOpFlags = BaseLoadOptFlags;
-		if (ModelParams::LeftHanded) {
-			loadOpFlags |= aiProcess_ConvertToLeftHanded;
-		}
-
-		const aiScene* scene = importer.ReadFile(filePath, loadOpFlags);
+		const aiScene* scene = importer.ReadFile(filePath, GetLoadOpFlags());
 		if (!scene || !scene->mRootNode) {
 			Log::Error("[ASSIMP] %s", importer.GetErrorString());
 			return;
@@ -91,13 +96,8 @@ namespace flaw {
 	{
 		_type = type;
 
-		uint32_t loadOptFlags = BaseLoadOptFlags;
-		if (ModelParams::LeftHanded) {
-			loadOptFlags |= aiProcess_ConvertToLeftHanded;
-		}
-
 		Assimp::Importer importer;
-		const aiScene* scene = importer.ReadFileFromMemory(memory, size, loadOptFlags);
+		const aiScene* scene = importer.ReadFileFromMemory(memory, size, GetLoadOpFlags());
 		if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
 			Log::Error("ASSIMP: %s", importer.GetErrorString());
 			return;
