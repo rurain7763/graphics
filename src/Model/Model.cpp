@@ -52,8 +52,9 @@ namespace flaw {
 		return loadOpFlags;
 	}
 
-	Model::Model(const char* filePath, const std::function<bool(float)>& progressHandler) 
+	Model::Model(const char* filePath, float scale, const std::function<bool(float)>& progressHandler) 
 		: _loaded(false)
+		, _scale(scale)
 	{
 		std::string extension = std::filesystem::path(filePath).extension().generic_string();
 
@@ -91,11 +92,11 @@ namespace flaw {
 		_loaded = true;
 	}
 
-	Model::Model(ModelType type, const char* basePath, const char* memory, size_t size) 
+	Model::Model(ModelType type, const char* basePath, const char* memory, size_t size, float scale) 
 		: _loaded(false)
+		, _type(type)
+		, _scale(scale)
 	{
-		_type = type;
-
 		Assimp::Importer importer;
 		const aiScene* scene = importer.ReadFileFromMemory(memory, size, GetLoadOpFlags());
 		if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
@@ -237,6 +238,9 @@ namespace flaw {
 		if (img && img->IsValid()) {
 			_images[path] = img;
 		}
+		else {
+			img.reset();
+		}
 
 		return img;
 	}
@@ -252,7 +256,7 @@ namespace flaw {
 		_vertexBoneData.resize(_vertexBoneData.size() + mesh->mNumVertices);
 		for (int32_t i = 0; i < mesh->mNumVertices; ++i) {
 			ModelVertex vertex;
-			vertex.position = vec3(mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z);
+			vertex.position = vec3(mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z) * _scale;
 			vertex.normal = mesh->HasNormals() ? vec3(mesh->mNormals[i].x, mesh->mNormals[i].y, mesh->mNormals[i].z) : vec3(0.0f);
 			vertex.texCoord = mesh->HasTextureCoords(0) ? vec2(mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y) : vec2(0.0f);
 			vertex.tangent = mesh->HasTangentsAndBitangents() ? vec3(mesh->mTangents[i].x, mesh->mTangents[i].y, mesh->mTangents[i].z) : vec3(0.0f);

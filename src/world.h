@@ -5,6 +5,7 @@
 #include "Graphics/GraphicsContext.h"
 #include "Math/Math.h"
 #include "Image/Image.h"
+#include "EngineCamera.h"
 
 using namespace flaw;
 
@@ -16,12 +17,15 @@ using namespace flaw;
 #define MAX_SPOT_LIGHTS 8
 
 struct CameraConstants {
-    glm::mat4 view_matrix;
-    glm::mat4 projection_matrix;
-    glm::mat4 view_projection_matrix;
-
-    glm::vec3 world_position;
-	float padding;
+    mat4 view_matrix;
+    mat4 projection_matrix;
+    mat4 view_projection_matrix;
+    vec3 world_position;
+    float near_plane;
+    float far_plane;
+    float padding0;
+    float padding1;
+    float padding2;
 };
 
 struct LightConstants {
@@ -117,6 +121,7 @@ struct Object {
 extern Ref<PlatformContext> g_context;
 extern EventDispatcher g_eventDispatcher;
 extern Ref<GraphicsContext> g_graphicsContext;
+extern Ref<EngineCamera> g_camera;
 extern std::vector<Object> g_objects;
 extern std::unordered_map<std::string, Ref<Texture2D>> g_textures;
 extern std::unordered_map<std::string, Ref<TextureCube>> g_textureCubes;

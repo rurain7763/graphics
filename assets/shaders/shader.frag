@@ -43,7 +43,11 @@ layout(set = 0, binding = 0) uniform CameraConstants {
     mat4 projection_matrix;
     mat4 view_projection_matrix;
     vec3 world_position;
-    float padding;
+    float near_plane;
+    float far_plane;
+    float padding0;
+    float padding1;
+    float padding2;
 } cameraConstants;
 
 layout(std140, set = 0, binding = 1) uniform LightConstants {
@@ -92,6 +96,11 @@ void calculate_phong_lighting(vec3 light_ambient, vec3 light_diffuse, vec3 light
     ambient = light_ambient * diffuse_color;
     diffuse = light_diffuse * diffuse_color * max(dot(normal, -light_direction), 0.0);
     specular = light_specular * specular_color * pow(max(dot(view_direction, reflect_direction), 0.0), shininess);
+}
+
+float LinearizeDepth(float depth, float near, float far) {
+    float ndc_z = 2.0 * depth - 1.0; // Convert depth from [0, 1] to [-1, 1]
+    return (2.0 * near * far) / (far + near - ndc_z * (far - near));
 }
 
 void main() {

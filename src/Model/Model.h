@@ -132,8 +132,8 @@ namespace flaw {
 	class Model {
 	public:
 		Model() = default;
-		Model(const char* filePath, const std::function<bool(float)>& progressHandler = nullptr);
-		Model(ModelType type, const char* basePath, const char* memory, size_t size);
+		Model(const char* filePath, float scale = 1.0f, const std::function<bool(float)>& progressHandler = nullptr);
+		Model(ModelType type, const char* basePath, const char* memory, size_t size, float scale = 1.0f);
 
 		ModelType GetModelType() const { return _type; }
 
@@ -165,6 +165,7 @@ namespace flaw {
 
 	private: 
 		ModelType _type = ModelType::Unknown;
+		float _scale;
 		bool _loaded;
 
 		mat4 _globalInvMatrix = mat4(1.0f);

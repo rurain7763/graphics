@@ -49,6 +49,8 @@ int main() {
         std::string title = "Flaw Application - FPS: " + std::to_string(Time::FPS()) + " | Delta Time: " + std::to_string(Time::DeltaTime() * 1000.0f) + " ms";
         g_context->SetTitle(title.c_str());
 
+        g_camera->OnUpdate();
+
 		if (g_context->GetWindowSizeState() == WindowSizeState::Minimized) {
 			continue; // Skip rendering if the window is minimized
 		}

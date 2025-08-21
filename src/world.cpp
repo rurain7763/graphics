@@ -9,11 +9,13 @@
 #include "Math/Math.h"
 #include "Image/Image.h"
 #include "Model/Model.h"
+#include "Input/Input.h"
 #include "Log/Log.h"
 
 Ref<PlatformContext> g_context;
 EventDispatcher g_eventDispatcher;
 Ref<GraphicsContext> g_graphicsContext;
+Ref<EngineCamera> g_camera;
 Ref<ConstantBuffer> g_cameraCB;
 Ref<ConstantBuffer> g_lightCB;
 Ref<ConstantBuffer> g_materialCB;
@@ -78,9 +80,16 @@ void World_Init() {
 	ModelParams::LeftHanded = true;
 #endif
 
-    g_eventDispatcher.Register<WindowResizeEvent>([](const WindowResizeEvent& event) {
-        g_graphicsContext->Resize(event.frameBufferWidth, event.frameBufferHeight);
-    }, 0);
+	g_camera = CreateRef<EngineCamera>();
+	g_camera->SetAspectRatio(static_cast<float>(windowWidth) / windowHeight);
+
+    g_eventDispatcher.Register<WindowResizeEvent>([](const WindowResizeEvent& event) { g_graphicsContext->Resize(event.frameBufferWidth, event.frameBufferHeight); }, 0);
+    g_eventDispatcher.Register<KeyPressEvent>([](const KeyPressEvent& event) { Input::OnKeyPress(event.key); }, 0);
+    g_eventDispatcher.Register<KeyReleaseEvent>([](const KeyReleaseEvent& event) { Input::OnKeyRelease(event.key); }, 0);
+    g_eventDispatcher.Register<MouseMoveEvent>([](const MouseMoveEvent& event) { Input::OnMouseMove(event.x, event.y); }, 0);
+    g_eventDispatcher.Register<MousePressEvent>([](const MousePressEvent& event) { Input::OnMousePress(event.button); }, 0);
+    g_eventDispatcher.Register<MouseReleaseEvent>([](const MouseReleaseEvent& event) { Input::OnMouseRelease(event.button); }, 0);
+    g_eventDispatcher.Register<MouseScrollEvent>([](const MouseScrollEvent& event) { Input::OnMouseScroll(event.xOffset, event.yOffset); }, 0);
 
     g_cameraConstants.view_matrix = ViewMatrix(vec3(0.f, 0.f, -5.f), vec3(0.f));
     g_cameraConstants.projection_matrix = Perspective(glm::radians(45.0f), static_cast<float>(windowWidth) / windowHeight, 0.1f, 100.0f);
@@ -94,9 +103,31 @@ void World_Init() {
     InitObjectGraphicsPipeline();
 }
 
-void LoadModel(const char* filePath, const char* key) {
+void LoadTexture(const char* filePath, const char* key) {
+    Image image(filePath, 4);
+
+    if (!image.IsValid()) {
+        Log::Error("Failed to load texture: %s", filePath);
+        return;
+    }
+
+    Texture2D::Descriptor textureDesc;
+    textureDesc.width = image.Width();
+    textureDesc.height = image.Height();
+    textureDesc.data = image.Data().data();
+    textureDesc.memProperty = MemoryProperty::Static;
+    textureDesc.texUsages = TextureUsage::ShaderResource;
+    textureDesc.format = PixelFormat::RGBA8;
+	textureDesc.mipLevels = GetMaxMipLevels(textureDesc.width, textureDesc.height);
+    textureDesc.shaderStages = ShaderStage::Pixel;
+    Ref<Texture2D> texture = g_graphicsContext->CreateTexture2D(textureDesc);
+
+    g_textures[key] = texture;
+}
+
+void LoadModel(const char* filePath, float scale, const char* key) {
     Ref<Mesh> mesh = CreateRef<Mesh>();
-    Model model(filePath);
+    Model model(filePath, scale);
 
     std::vector<TexturedVertex> vertices;
     for (const auto& vertex : model.GetVertices()) {
@@ -192,36 +223,20 @@ void LoadModel(const char* filePath, const char* key) {
 }
 
 void InitAssets() {
-    Image hausImg("./assets/textures/haus.jpg", 4);
-    Texture2D::Descriptor imageDesc;
-    imageDesc.width = hausImg.Width();
-    imageDesc.height = hausImg.Height();
-    imageDesc.data = hausImg.Data().data();
-    imageDesc.memProperty = MemoryProperty::Static;
-    imageDesc.texUsages = TextureUsage::ShaderResource;
-    imageDesc.format = PixelFormat::RGBA8;
-    imageDesc.mipLevels = GetMaxMipLevels(imageDesc.width, imageDesc.height);
-    imageDesc.shaderStages = ShaderStage::Pixel;
+    Texture2D::Descriptor textureDesc;
+    textureDesc.width = 1;
+	textureDesc.height = 1;
+	textureDesc.memProperty = MemoryProperty::Static;
+	textureDesc.texUsages = TextureUsage::ShaderResource;
+	textureDesc.format = PixelFormat::RGBA8;
+	textureDesc.mipLevels = 1;
+	textureDesc.shaderStages = ShaderStage::Pixel;
 
-    g_textures["haus"] = g_graphicsContext->CreateTexture2D(imageDesc);
+	g_textures["dummy"] = g_graphicsContext->CreateTexture2D(textureDesc);
 
-    Image container2Img("assets/textures/container2.png", 4);
-    imageDesc.width = container2Img.Width();
-    imageDesc.height = container2Img.Height();
-    imageDesc.data = container2Img.Data().data();
-    imageDesc.mipLevels = GetMaxMipLevels(imageDesc.width, imageDesc.height);
-    imageDesc.shaderStages = ShaderStage::Pixel;
-
-    g_textures["container2"] = g_graphicsContext->CreateTexture2D(imageDesc);
-
-	Image container2SpecularImg("assets/textures/container2_specular.png", 4);
-	imageDesc.width = container2SpecularImg.Width();
-	imageDesc.height = container2SpecularImg.Height();
-	imageDesc.data = container2SpecularImg.Data().data();
-	imageDesc.mipLevels = GetMaxMipLevels(imageDesc.width, imageDesc.height);
-	imageDesc.shaderStages = ShaderStage::Pixel;
-
-	g_textures["container2_specular"] = g_graphicsContext->CreateTexture2D(imageDesc);
+	LoadTexture("assets/textures/haus.jpg", "haus");
+	LoadTexture("assets/textures/container2.png", "container2");
+	LoadTexture("assets/textures/container2_specular.png", "container2_specular");
 
     Ref<Material> defaultMaterial = CreateRef<Material>();
     defaultMaterial->diffuseColor = glm::vec3(1.0f, 1.0f, 1.0f);
@@ -273,9 +288,10 @@ void InitAssets() {
 
 	g_meshes["cube"] = cubeMesh;
 
-	LoadModel("assets/models/sphere.obj", "sphere");
-    LoadModel("assets/models/girl.obj", "girl");
-	LoadModel("assets/models/survival-guitar-backpack/backpack.obj", "survival_backpack");
+	LoadModel("assets/models/sphere.obj", 1.0f, "sphere");
+    //LoadModel("assets/models/girl.obj", 1.0f, "girl");
+	//LoadModel("assets/models/survival-guitar-backpack/backpack.obj", 1.0f, "survival_backpack");
+    LoadModel("assets/models/Sponza/Sponza.gltf", 0.05f, "sponza");
 
     Image left("./assets/textures/sky/sky_left.png", 4);
     Image right("./assets/textures/sky/sky_right.png", 4);
@@ -549,9 +565,9 @@ void World_Render() {
     // NOTE: Gather light datas
     DirectionalLight directionalLight;
     directionalLight.direction = Forward;
-    directionalLight.ambient = glm::vec3(0.1f);
-    directionalLight.diffuse = glm::vec3(0.2f);
-    directionalLight.specular = glm::vec3(0.f);
+    directionalLight.ambient = glm::vec3(0.2f);
+    directionalLight.diffuse = glm::vec3(0.8f);
+    directionalLight.specular = glm::vec3(1.0f);
 
     std::vector<PointLight> pointLights(2);
     for (int32_t i = 0; i < pointLights.size(); ++i) {
@@ -595,10 +611,17 @@ void World_Render() {
     g_spotLightSB->Update(spotLights.data(), sizeof(SpotLight) * g_lightConstants.spot_light_count);
     g_lightCB->Update(&g_lightConstants, sizeof(LightConstants));
 
-    g_cameraConstants.view_matrix = ViewMatrix(vec3(0.f, 0.f, -5.f), vec3(0.f));
-    g_cameraConstants.projection_matrix = Perspective(glm::radians(45.0f), static_cast<float>(width) / height, 0.1f, 100.0f);
+	const float aspectRatio = static_cast<float>(width) / height;
+	g_camera->SetAspectRatio(aspectRatio);
+
+    const vec2 nearFar = g_camera->GetNearFarClip();
+
+	g_cameraConstants.near_plane = nearFar.x;
+	g_cameraConstants.far_plane = nearFar.y;
+	g_cameraConstants.view_matrix = g_camera->GetViewMatrix();
+    g_cameraConstants.projection_matrix = g_camera->GetProjectionMatrix();
     g_cameraConstants.view_projection_matrix = g_cameraConstants.projection_matrix * g_cameraConstants.view_matrix;
-	g_cameraConstants.world_position = vec3(0.f, 0.f, -5.f);
+    g_cameraConstants.world_position = g_camera->GetPosition();
     g_cameraCB->Update(&g_cameraConstants, sizeof(CameraConstants));
 
     commandQueue.SetPipeline(g_skyboxPipeline);
@@ -619,7 +642,7 @@ void World_Render() {
 
 	g_modelMatricesSB->Update(modelMatrices.data(), sizeof(glm::mat4) * modelMatrices.size());
 
-	auto mesh = g_meshes["survival_backpack"];
+	auto mesh = g_meshes["sponza"];
     commandQueue.SetVertexBuffers({ mesh->vertexBuffer });
 
     for (uint32_t i = 0; i < mesh->subMeshes.size(); i++) {
@@ -637,10 +660,16 @@ void World_Render() {
             materialConstants.texture_binding_flags |= static_cast<uint32_t>(TextureBindingFlag::Diffuse);
             objTexResources->BindTexture2D(material->diffuseTexture, 0);
         }
+        else {
+			objTexResources->BindTexture2D(g_textures["dummy"], 0);
+        }
 
         if (material->specularTexture) {
             materialConstants.texture_binding_flags |= static_cast<uint32_t>(TextureBindingFlag::Specular);
             objTexResources->BindTexture2D(material->specularTexture, 1);
+        }
+        else {
+			objTexResources->BindTexture2D(g_textures["dummy"], 1);
         }
 
         g_materialCB->Update(&materialConstants, sizeof(MaterialConstants));

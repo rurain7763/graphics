@@ -259,11 +259,11 @@ namespace flaw {
         
         if (!_context.GetMSAAState()) {
             renderPassLayoutDesc.sampleCount = 1;
-            renderPassLayoutDesc.colorAttachments = { { PixelFormat::BGRA8, BlendMode::Default } };
+            renderPassLayoutDesc.colorAttachments = { { PixelFormat::BGRA8, BlendMode::Alpha } };
             renderPassLayoutDesc.depthStencilAttachment = { _depthStencilFormat };
         } else {
             renderPassLayoutDesc.sampleCount = _context.GetMSAASampleCount();
-            renderPassLayoutDesc.colorAttachments = { { PixelFormat::BGRA8, BlendMode::Default } };
+            renderPassLayoutDesc.colorAttachments = { { PixelFormat::BGRA8, BlendMode::Alpha } };
             renderPassLayoutDesc.depthStencilAttachment = { _depthStencilFormat };
             renderPassLayoutDesc.resolveAttachment = { PixelFormat::BGRA8 };
         }
