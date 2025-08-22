@@ -26,7 +26,7 @@ namespace flaw {
 		void SetViewport(float x, float y, float width, float height) override;
 		void SetScissor(int32_t x, int32_t y, int32_t width, int32_t height) override;
 
-		void SetDepthTest(DepthTest depthTest, bool depthWrite = true) override;
+		void SetDepthTest(CompareOp depthTest, bool depthWrite = true) override;
 		void SetCullMode(CullMode cullMode) override;
 		void SetFillMode(FillMode fillMode) override;
 

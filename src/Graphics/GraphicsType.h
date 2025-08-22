@@ -126,7 +126,7 @@ namespace flaw {
 		Wireframe
 	};
 
-	enum class DepthTest {
+	enum class CompareOp {
 		Less,
 		LessEqual,
 		Greater,
@@ -136,6 +136,17 @@ namespace flaw {
 		Always,
 		Never,
 		Disabled,
+	};
+
+	enum class StencilOp {
+		Keep, // Keep the current stencil value
+		Zero, // Set the stencil value to zero
+		Replace, // Replace the stencil value with the reference value
+		IncrementWrap, // Increment the stencil value, but wraps it back to zero as soon as it exceeds the maximum value
+		IncrementClamp, // Increment the stencil value, but clamps it to the maximum value
+		DecrementWrap, // Decrement the stencil value with wrap, but wraps it back to the maximum value as soon as it goes below zero
+		DecrementClamp, // Decrement the stencil value, but clamps it to zero
+		Invert // Bitwise invert the stencil value
 	};
 
 	enum class BlendMode {

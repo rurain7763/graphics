@@ -31,9 +31,13 @@ namespace flaw {
 		void SetViewport(float x, float y, float width, float height) override;
         void SetScissor(int32_t x, int32_t y, int32_t width, int32_t height) override;
 
-        void SetDepthTest(DepthTest depthTest, bool depthWrite = true) override;
+        void EnableDepthTest(bool enable) override;
+        void SetDepthTest(CompareOp depthCompareOp, bool depthWrite = true) override;
 		void SetCullMode(CullMode cullMode) override;
 		void SetFillMode(FillMode fillMode) override;
+
+        void EnableStencilTest(bool enable) override;
+        void SetStencilTest(const StencilOperator& frontFace, const StencilOperator& backFace) override;
 
         void SetShaderResourcesLayouts(const std::vector<Ref<ShaderResourcesLayout>>& shaderResourceLayouts) override;
         void SetShader(const Ref<GraphicsShader>& shader) override;

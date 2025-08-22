@@ -79,7 +79,7 @@ namespace flaw {
 		_scissorRect.bottom = y + height;
 	}
 
-	void DXGraphicsPipeline::SetDepthTest(DepthTest depthTest, bool depthWrite) {
+	void DXGraphicsPipeline::SetDepthTest(CompareOp depthTest, bool depthWrite) {
 		D3D11_COMPARISON_FUNC depthFunc = ConvertToDXComparisonFunc(depthTest);
 		D3D11_DEPTH_WRITE_MASK writeMask = ConvertToDXDepthWriteMask(depthWrite);
 		
@@ -89,7 +89,7 @@ namespace flaw {
 
 		_depthStencilState = nullptr;
 
-		_depthStencilDesc.DepthEnable = depthTest != DepthTest::Disabled;
+		_depthStencilDesc.DepthEnable = depthTest != CompareOp::Disabled;
 		_depthStencilDesc.DepthFunc = depthFunc;
 		_depthStencilDesc.DepthWriteMask = writeMask;
 	}

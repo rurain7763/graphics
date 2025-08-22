@@ -9,6 +9,15 @@
 namespace flaw {
 	class GraphicsPipeline {
 	public:
+		struct StencilOperator {
+			StencilOp failOp = StencilOp::Keep; // the action performed on samples that fail the stencil test.
+			StencilOp passOp = StencilOp::Keep; // the action performed on samples that pass both the depth and stencil tests.
+			StencilOp depthFailOp = StencilOp::Keep; // the action performed on samples that pass the stencil test and fail the depth test.
+			CompareOp compareOp = CompareOp::Always; // the comparison operation for the stencil test.
+			uint32_t reference = 0;
+			uint32_t mask = 0xFF;
+		};
+
 		enum Behavior {
 			AutoResizeViewport = 1 << 0,
 			AutoResizeScissor = 1 << 1,
@@ -23,9 +32,13 @@ namespace flaw {
 		virtual void SetViewport(float x, float y, float width, float height) = 0;
 		virtual void SetScissor(int32_t x, int32_t y, int32_t width, int32_t height) = 0;
 
-		virtual void SetDepthTest(DepthTest depthTest, bool depthWrite = true) = 0;
+		virtual void EnableDepthTest(bool enable) = 0;
+		virtual void SetDepthTest(CompareOp depthCompareOp, bool depthWrite = true) = 0;
 		virtual void SetCullMode(CullMode cullMode) = 0;
 		virtual void SetFillMode(FillMode fillMode) = 0;
+
+		virtual void EnableStencilTest(bool enable) = 0;
+		virtual void SetStencilTest(const StencilOperator& frontFace, const StencilOperator& backFace) = 0;
 
 		virtual void SetShaderResourcesLayouts(const std::vector<Ref<ShaderResourcesLayout>>& shaderResourceLayouts) = 0;
 		virtual void SetShader(const Ref<GraphicsShader>& shader) = 0;

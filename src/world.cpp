@@ -427,7 +427,7 @@ void InitSkyboxGraphicsPipeline() {
 #elif USE_DX11
     g_skyboxPipeline->SetShaderResourcesLayouts({ g_skyboxShaderResourcesLayout });
 #endif
-    g_skyboxPipeline->SetDepthTest(DepthTest::LessEqual, false);
+    g_skyboxPipeline->SetDepthTest(CompareOp::LessEqual, false);
     g_skyboxPipeline->SetBehaviorStates(GraphicsPipeline::Behavior::AutoResizeViewport | GraphicsPipeline::Behavior::AutoResizeScissor);
 }
 
@@ -536,7 +536,7 @@ void InitObjectGraphicsPipeline() {
     g_objPipeline->SetShader(graphicsShader);
     g_objPipeline->SetPrimitiveTopology(PrimitiveTopology::TriangleList);
     g_objPipeline->SetVertexInputLayouts({ vertexInputLayout });
-    g_objPipeline->SetDepthTest(DepthTest::Less, true);
+    g_objPipeline->SetDepthTest(CompareOp::Less, true);
     g_objPipeline->SetCullMode(CullMode::Back);
     g_objPipeline->SetFillMode(FillMode::Solid);
     g_objPipeline->SetBehaviorStates(GraphicsPipeline::Behavior::AutoResizeViewport | GraphicsPipeline::Behavior::AutoResizeScissor);

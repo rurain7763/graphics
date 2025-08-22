@@ -70,19 +70,34 @@ namespace flaw {
         }
     }
 
-    vk::CompareOp ConvertToVkDepthTest(DepthTest depthTest) {
-        switch (depthTest) {
-        case DepthTest::Never: return vk::CompareOp::eNever;
-        case DepthTest::Less: return vk::CompareOp::eLess;
-        case DepthTest::Equal: return vk::CompareOp::eEqual;
-        case DepthTest::LessEqual: return vk::CompareOp::eLessOrEqual;
-        case DepthTest::Greater: return vk::CompareOp::eGreater;
-        case DepthTest::NotEqual: return vk::CompareOp::eNotEqual;
-        case DepthTest::GreaterEqual: return vk::CompareOp::eGreaterOrEqual;
-        case DepthTest::Always: return vk::CompareOp::eAlways;
-        case DepthTest::Disabled: return vk::CompareOp::eNever;
+    vk::CompareOp ConvertToVkCompareOp(CompareOp compareOp) {
+        switch (compareOp) {
+        case CompareOp::Never: return vk::CompareOp::eNever;
+        case CompareOp::Less: return vk::CompareOp::eLess;
+        case CompareOp::Equal: return vk::CompareOp::eEqual;
+        case CompareOp::LessEqual: return vk::CompareOp::eLessOrEqual;
+        case CompareOp::Greater: return vk::CompareOp::eGreater;
+        case CompareOp::NotEqual: return vk::CompareOp::eNotEqual;
+        case CompareOp::GreaterEqual: return vk::CompareOp::eGreaterOrEqual;
+        case CompareOp::Always: return vk::CompareOp::eAlways;
+        case CompareOp::Disabled: return vk::CompareOp::eNever;
         default:
             throw std::runtime_error("Unknown depth test");
+        }
+    }
+
+    vk::StencilOp ConvertToVkStencilOp(StencilOp stencilOp) {
+        switch (stencilOp) {
+        case StencilOp::Keep: return vk::StencilOp::eKeep;
+        case StencilOp::Zero: return vk::StencilOp::eZero;
+        case StencilOp::Replace: return vk::StencilOp::eReplace;
+        case StencilOp::IncrementWrap: return vk::StencilOp::eIncrementAndWrap;
+        case StencilOp::IncrementClamp: return vk::StencilOp::eIncrementAndClamp;
+        case StencilOp::DecrementWrap: return vk::StencilOp::eDecrementAndWrap;
+        case StencilOp::DecrementClamp: return vk::StencilOp::eDecrementAndClamp;
+        case StencilOp::Invert: return vk::StencilOp::eInvert;
+        default:
+            throw std::runtime_error("Unknown stencil operation");
         }
     }
 

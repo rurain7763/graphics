@@ -181,24 +181,24 @@ namespace flaw {
 		throw std::runtime_error("Unknown primitive topology");
 	}
 
-	inline D3D11_COMPARISON_FUNC ConvertToDXComparisonFunc(DepthTest depthTest) {
+	inline D3D11_COMPARISON_FUNC ConvertToDXComparisonFunc(CompareOp depthTest) {
 		switch (depthTest)
 		{
-		case DepthTest::Less:
+		case CompareOp::Less:
 			return D3D11_COMPARISON_LESS;
-		case DepthTest::LessEqual:
+		case CompareOp::LessEqual:
 			return D3D11_COMPARISON_LESS_EQUAL;
-		case DepthTest::Greater:
+		case CompareOp::Greater:
 			return D3D11_COMPARISON_GREATER;
-		case DepthTest::GreaterEqual:
+		case CompareOp::GreaterEqual:
 			return D3D11_COMPARISON_GREATER_EQUAL;
-		case DepthTest::Equal:
+		case CompareOp::Equal:
 			return D3D11_COMPARISON_EQUAL;
-		case DepthTest::NotEqual:
+		case CompareOp::NotEqual:
 			return D3D11_COMPARISON_NOT_EQUAL;
-		case DepthTest::Always:
+		case CompareOp::Always:
 			return D3D11_COMPARISON_ALWAYS;
-		case DepthTest::Never:
+		case CompareOp::Never:
 			return D3D11_COMPARISON_NEVER;
 		}
 

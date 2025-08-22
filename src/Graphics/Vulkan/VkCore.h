@@ -40,7 +40,8 @@ namespace flaw {
     vk::PrimitiveTopology ConvertToVkPrimitiveTopology(PrimitiveTopology topology);
     vk::PolygonMode ConvertToVkFillMode(FillMode fillMode);
     vk::CullModeFlags ConvertToVkCullMode(CullMode cullMode);
-    vk::CompareOp ConvertToVkDepthTest(DepthTest depthTest);
+    vk::CompareOp ConvertToVkCompareOp(CompareOp compareOp);
+    vk::StencilOp ConvertToVkStencilOp(StencilOp stencilOp);
     vk::ShaderStageFlagBits ConvertToVkShaderStage(ShaderStage flag);
     vk::VertexInputRate ConvertToVkVertexInputRate(VertexInputRate rate);
     vk::ImageLayout ConvertToVkImageLayout(TextureLayout layout);

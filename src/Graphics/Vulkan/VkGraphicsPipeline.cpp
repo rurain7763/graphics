@@ -51,15 +51,14 @@ namespace flaw {
         _depthStencilInfo.depthBoundsTestEnable = VK_FALSE;
         _depthStencilInfo.minDepthBounds = 0.0f;
         _depthStencilInfo.maxDepthBounds = 1.0f;
-        _depthStencilInfo.stencilTestEnable = VK_FALSE;
-        _depthStencilInfo.front = vk::StencilOpState{};
-        _depthStencilInfo.back = vk::StencilOpState{};
 
         _dynamicStateInfo.dynamicStateCount = 0;
         _dynamicStateInfo.pDynamicStates = _dynamicStates.data();
 
         SetPrimitiveTopology(PrimitiveTopology::TriangleList);
-        SetDepthTest(DepthTest::Less, true);
+        EnableDepthTest(true);
+        SetDepthTest(CompareOp::Less, true);
+        EnableStencilTest(false);
         SetCullMode(CullMode::Front);
         SetFillMode(FillMode::Solid);
         SetRenderPassLayout(_context.GetMainRenderPassLayout());
@@ -117,8 +116,18 @@ namespace flaw {
         _scissor.extent.height = height;
     }
 
-    void VkGraphicsPipeline::SetDepthTest(DepthTest depthTest, bool depthWrite) {
-        vk::CompareOp vkDepthTest = ConvertToVkDepthTest(depthTest);
+    void VkGraphicsPipeline::EnableDepthTest(bool enable) {
+        if (_depthStencilInfo.depthTestEnable == enable) {
+            return; // No change needed
+        }
+
+        _needRecreatePipeline = true;
+
+        _depthStencilInfo.depthTestEnable = enable;
+    }
+
+    void VkGraphicsPipeline::SetDepthTest(CompareOp depthTest, bool depthWrite) {
+        vk::CompareOp vkDepthTest = ConvertToVkCompareOp(depthTest);
 
         if (_depthStencilInfo.depthCompareOp == vkDepthTest && _depthStencilInfo.depthWriteEnable == depthWrite) {
             return; // No change needed
@@ -151,6 +160,39 @@ namespace flaw {
         _needRecreatePipeline = true;
 
         _rasterizationInfo.polygonMode = vkFillMode;
+    }
+
+    void VkGraphicsPipeline::EnableStencilTest(bool enable) {
+        if (_depthStencilInfo.stencilTestEnable == enable) {
+            return; // No change needed
+        }
+
+        _needRecreatePipeline = true;
+
+        _depthStencilInfo.stencilTestEnable = enable;
+    }
+
+    void VkGraphicsPipeline::SetStencilTest(const StencilOperator& frontFace, const StencilOperator& backFace) {
+        _needRecreatePipeline = true;
+
+        vk::StencilOpState frontStencilOpState;
+        frontStencilOpState.failOp = ConvertToVkStencilOp(frontFace.failOp);
+        frontStencilOpState.passOp = ConvertToVkStencilOp(frontFace.passOp);
+        frontStencilOpState.depthFailOp = ConvertToVkStencilOp(frontFace.depthFailOp);
+        frontStencilOpState.compareOp = ConvertToVkCompareOp(frontFace.compareOp);
+        frontStencilOpState.reference = frontFace.reference;
+        frontStencilOpState.writeMask = frontFace.mask;
+
+        vk::StencilOpState backStencilOpState;
+        backStencilOpState.failOp = ConvertToVkStencilOp(backFace.failOp);
+        backStencilOpState.passOp = ConvertToVkStencilOp(backFace.passOp);
+        backStencilOpState.depthFailOp = ConvertToVkStencilOp(backFace.depthFailOp);
+        backStencilOpState.compareOp = ConvertToVkCompareOp(backFace.compareOp);
+        backStencilOpState.reference = backFace.reference;
+        backStencilOpState.writeMask = backFace.mask;
+
+        _depthStencilInfo.front = frontStencilOpState;
+        _depthStencilInfo.back = backStencilOpState;
     }
 
     void VkGraphicsPipeline::SetShaderResourcesLayouts(const std::vector<Ref<ShaderResourcesLayout>>& shaderResourceLayouts) {
