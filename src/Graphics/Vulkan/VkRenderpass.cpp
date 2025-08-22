@@ -11,9 +11,6 @@ namespace flaw {
         : _context(context)
         , _pipelineBindPoint(ConvertToVkPipelineBindPoint(descriptor.type))
         , _sampleCount(descriptor.sampleCount)
-        , _colorAttachments(descriptor.colorAttachments)
-        , _depthStencilAttachment(descriptor.depthStencilAttachment)
-        , _resolveAttachment(descriptor.resolveAttachment)
     {
         for (uint32_t i = 0; i < descriptor.colorAttachments.size(); ++i) {
             const auto &attachment = descriptor.colorAttachments[i];
@@ -78,27 +75,15 @@ namespace flaw {
     }
 
     uint32_t VkRenderPassLayout::GetColorAttachmentCount() const {
-        return _colorAttachments.size();
-    }
-
-    const VkRenderPassLayout::ColorAttachment &VkRenderPassLayout::GetColorAttachment(uint32_t index) const {
-        return _colorAttachments.at(index);
+        return _colorAttachmentRefs.size();
     }
 
     bool VkRenderPassLayout::HasDepthStencilAttachment() const {
-        return _depthStencilAttachment.has_value();
-    }
-
-    const VkRenderPassLayout::DepthStencilAttachment &VkRenderPassLayout::GetDepthStencilAttachment() const {
-        return _depthStencilAttachment.value();
+        return _depthAttachmentRef.has_value();
     }
 
     bool VkRenderPassLayout::HasResolveAttachment() const {
-        return _resolveAttachment.has_value();
-    }
-
-    const VkRenderPassLayout::ResolveAttachment &VkRenderPassLayout::GetResolveAttachment() const {
-        return _resolveAttachment.value();
+        return _resolveAttachmentRef.has_value();
     }
 
     uint32_t VkRenderPassLayout::GetSampleCount() const {
@@ -129,7 +114,7 @@ namespace flaw {
         return _colorAttachmentOp.size();
     }
 
-    const GraphicsRenderPass::ColorAttachmentOperation& VkRenderPass::GetColorAttachmentOp(uint32_t index) const {
+    const RenderPass::ColorAttachmentOperation& VkRenderPass::GetColorAttachmentOp(uint32_t index) const {
         return _colorAttachmentOp.at(index);
     }
 
@@ -137,7 +122,7 @@ namespace flaw {
         return _depthStencilOp.has_value();
     }
 
-    const GraphicsRenderPass::DepthStencilAttachmentOperation& VkRenderPass::GetDepthStencilAttachmentOp() const {
+    const RenderPass::DepthStencilAttachmentOperation& VkRenderPass::GetDepthStencilAttachmentOp() const {
         return _depthStencilOp.value();
     }
 
@@ -145,7 +130,7 @@ namespace flaw {
         return _resolveAttachmentOp.has_value();
     }
 
-    const GraphicsRenderPass::ResolveAttachmentOperation& VkRenderPass::GetResolveAttachmentOp() const {
+    const RenderPass::ResolveAttachmentOperation& VkRenderPass::GetResolveAttachmentOp() const {
         return _resolveAttachmentOp.value();
     }
 

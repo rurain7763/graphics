@@ -10,28 +10,36 @@
 #include "Image/Image.h"
 #include "Model/Model.h"
 #include "world.h"
-
-#include <filesystem>
+#include "outliner.h"
 
 using namespace flaw;
 
 int main() {
     World_Init();
+    Outliner_Init();
 
     vec3 positions[] = {
         { 0.0f, 0.0f, 0.0f },
-	    //{ 2.0f, 0.0f, 0.0f },
-	    //{ -2.0f, 0.0f, 0.0f },
-		//{ 0.0f, 2.0f, 0.0f },
-		//{ 0.0f, -2.0f, 0.0f },
+	    { 2.0f, 2.0f, 0.0f },
+	    { -2.0f, 2.0f, 0.0f },
+		{ 0.0f, 2.0f, 0.0f },
+		{ 0.0f, 4.0f, 0.0f },
 		//{ 1.5f, 1.5f, 0.0f },
 		//{ -1.5f, -1.5f, 0.0f },
 		//{ 1.5f, -1.5f, 0.0f },
 		//{ -1.5f, 1.5f, 0.0f },
     };
 
+	const char* meshKeyes[] = {
+		"sponza",
+        "cube",
+		"sphere",
+        "cube",
+		"sphere",
+	};
+
     for (int32_t i = 0; i < sizeof(positions) / sizeof(vec3); i++) {
- 	    auto& obj = AddObject();
+ 	    auto& obj = AddObject(meshKeyes[i]);
 		obj.position = positions[i];
 
 		float angle = glm::radians(20.0f * i);
@@ -59,6 +67,7 @@ int main() {
             commandQueue.BeginRenderPass();
 
             World_Render();
+			Outliner_Render();
 
             commandQueue.EndRenderPass();
 
@@ -68,6 +77,7 @@ int main() {
         }
     }
 
+    Outliner_Cleanup();
     World_Cleanup();
 
     return 0;

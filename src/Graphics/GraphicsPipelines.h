@@ -34,6 +34,7 @@ namespace flaw {
 
 		virtual void EnableDepthTest(bool enable) = 0;
 		virtual void SetDepthTest(CompareOp depthCompareOp, bool depthWrite = true) = 0;
+
 		virtual void SetCullMode(CullMode cullMode) = 0;
 		virtual void SetFillMode(FillMode fillMode) = 0;
 
@@ -43,7 +44,9 @@ namespace flaw {
 		virtual void SetShaderResourcesLayouts(const std::vector<Ref<ShaderResourcesLayout>>& shaderResourceLayouts) = 0;
 		virtual void SetShader(const Ref<GraphicsShader>& shader) = 0;
 
-		virtual void SetRenderPassLayout(const Ref<GraphicsRenderPassLayout>& renderPassLayout) = 0;
+		virtual void SetRenderPassLayout(const Ref<RenderPassLayout>& renderPassLayout) = 0;
+		virtual void SetBlendMode(uint32_t attachmentIndex, BlendMode blendMode) = 0;
+		virtual void SetAlphaToCoverage(bool enable) = 0;
 
 		virtual void SetBehaviorStates(uint32_t behaviors) = 0;
 		virtual uint32_t GetBehaviorStates() const = 0;

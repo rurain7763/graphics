@@ -62,6 +62,8 @@ namespace flaw {
         SetCullMode(CullMode::Front);
         SetFillMode(FillMode::Solid);
         SetRenderPassLayout(_context.GetMainRenderPassLayout());
+		SetBlendMode(0, BlendMode::Default);
+		SetAlphaToCoverage(false);
     }
 
     VkGraphicsPipeline::~VkGraphicsPipeline() {
@@ -127,6 +129,11 @@ namespace flaw {
     }
 
     void VkGraphicsPipeline::SetDepthTest(CompareOp depthTest, bool depthWrite) {
+        if (!_depthStencilInfo.depthTestEnable) {
+			LOG_ERROR("Depth test is not enabled. Cannot set depth test parameters.");
+			return;
+        }
+
         vk::CompareOp vkDepthTest = ConvertToVkCompareOp(depthTest);
 
         if (_depthStencilInfo.depthCompareOp == vkDepthTest && _depthStencilInfo.depthWriteEnable == depthWrite) {
@@ -135,7 +142,6 @@ namespace flaw {
 
         _needRecreatePipeline = true;
 
-        _depthStencilInfo.depthTestEnable = vkDepthTest != vk::CompareOp::eNever;
         _depthStencilInfo.depthCompareOp = vkDepthTest;
         _depthStencilInfo.depthWriteEnable = depthWrite;
     }
@@ -173,6 +179,11 @@ namespace flaw {
     }
 
     void VkGraphicsPipeline::SetStencilTest(const StencilOperator& frontFace, const StencilOperator& backFace) {
+        if (!_depthStencilInfo.stencilTestEnable) {
+			LOG_ERROR("Stencil test is not enabled. Cannot set stencil operations.");
+			return;
+        }
+        
         _needRecreatePipeline = true;
 
         vk::StencilOpState frontStencilOpState;
@@ -260,7 +271,7 @@ namespace flaw {
         _vertexInputState.pVertexAttributeDescriptions = _attributeDescriptions.data();
     }
 
-    void VkGraphicsPipeline::SetRenderPassLayout(const Ref<GraphicsRenderPassLayout>& renderPassLayout) {
+    void VkGraphicsPipeline::SetRenderPassLayout(const Ref<RenderPassLayout>& renderPassLayout) {
         if (_renderPassLayout == renderPassLayout) {
             return; // No change needed
         }
@@ -270,7 +281,7 @@ namespace flaw {
 
         _needRecreatePipeline = true;
 
-        GraphicsRenderPass::Descriptor renderPassDesc;
+        RenderPass::Descriptor renderPassDesc;
         renderPassDesc.layout = vkRenderPassLayout;
         renderPassDesc.colorAttachmentOps.resize(vkRenderPassLayout->GetColorAttachmentCount());
         for (uint32_t i = 0; i < renderPassDesc.colorAttachmentOps.size(); ++i) {
@@ -303,52 +314,66 @@ namespace flaw {
 
         _renderPass = CreateRef<VkRenderPass>(_context, renderPassDesc);
 
-        _colorBlendAttachments.clear();
-        for (uint32_t i = 0; i < vkRenderPassLayout->GetColorAttachmentCount(); ++i) {
-            const auto& attachment = vkRenderPassLayout->GetColorAttachment(i);
-
-            vk::PipelineColorBlendAttachmentState attachmentState;
-            attachmentState.blendEnable = attachment.blendMode != BlendMode::Disabled;
-            attachmentState.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
-            switch (attachment.blendMode) {
-                case BlendMode::Default:
-                    attachmentState.srcColorBlendFactor = vk::BlendFactor::eOne;
-                    attachmentState.dstColorBlendFactor = vk::BlendFactor::eZero;
-                    attachmentState.colorBlendOp = vk::BlendOp::eAdd;
-                    attachmentState.srcAlphaBlendFactor = vk::BlendFactor::eOne;
-                    attachmentState.dstAlphaBlendFactor = vk::BlendFactor::eZero;
-                    attachmentState.alphaBlendOp = vk::BlendOp::eAdd;
-                    break;
-                case BlendMode::Alpha:
-                    attachmentState.srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
-                    attachmentState.dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
-                    attachmentState.colorBlendOp = vk::BlendOp::eAdd;
-                    attachmentState.srcAlphaBlendFactor = vk::BlendFactor::eOne;
-                    attachmentState.dstAlphaBlendFactor = vk::BlendFactor::eZero;
-                    attachmentState.alphaBlendOp = vk::BlendOp::eAdd;
-                    break;
-                case BlendMode::Additive:
-                    attachmentState.srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
-                    attachmentState.dstColorBlendFactor = vk::BlendFactor::eOne;
-                    attachmentState.colorBlendOp = vk::BlendOp::eAdd;
-                    attachmentState.srcAlphaBlendFactor = vk::BlendFactor::eOne;
-                    attachmentState.dstAlphaBlendFactor = vk::BlendFactor::eZero;
-                    attachmentState.alphaBlendOp = vk::BlendOp::eAdd;
-                    break;
-                case BlendMode::Disabled:
-                default:
-                    // No blending
-                    break;
-            }
-
-            _colorBlendAttachments.push_back(attachmentState);
-        }
-
+		_colorBlendAttachments.resize(vkRenderPassLayout->GetColorAttachmentCount());
+		for (uint32_t i = 0; i < _colorBlendAttachments.size(); ++i) {
+            auto& attachment = _colorBlendAttachments[i];
+			attachment.blendEnable = false;
+		}
         _colorBlendStateInfo.attachmentCount = _colorBlendAttachments.size();
         _colorBlendStateInfo.pAttachments = _colorBlendAttachments.data();
 
         _multisampleInfo.rasterizationSamples = ConvertToVkSampleCount(vkRenderPassLayout->GetSampleCount());
     }
+
+	void VkGraphicsPipeline::SetBlendMode(uint32_t attachmentIndex, BlendMode blendMode) {
+		if (attachmentIndex >= _colorBlendAttachments.size()) {
+			LOG_ERROR("Attachment index out of bounds for blend mode setting");
+			return;
+		}
+
+		auto& blendAttachment = _colorBlendAttachments[attachmentIndex];
+
+		_needRecreatePipeline = true;
+
+        blendAttachment.blendEnable = blendMode != BlendMode::Disabled;
+        blendAttachment.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
+        switch (blendMode) {
+        case BlendMode::Default:
+            blendAttachment.srcColorBlendFactor = vk::BlendFactor::eOne;
+            blendAttachment.dstColorBlendFactor = vk::BlendFactor::eZero;
+            blendAttachment.colorBlendOp = vk::BlendOp::eAdd;
+            blendAttachment.srcAlphaBlendFactor = vk::BlendFactor::eOne;
+            blendAttachment.dstAlphaBlendFactor = vk::BlendFactor::eZero;
+            blendAttachment.alphaBlendOp = vk::BlendOp::eAdd;
+            break;
+        case BlendMode::Alpha:
+            blendAttachment.srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
+            blendAttachment.dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
+            blendAttachment.colorBlendOp = vk::BlendOp::eAdd;
+            blendAttachment.srcAlphaBlendFactor = vk::BlendFactor::eOne;
+            blendAttachment.dstAlphaBlendFactor = vk::BlendFactor::eZero;
+            blendAttachment.alphaBlendOp = vk::BlendOp::eAdd;
+            break;
+        case BlendMode::Additive:
+            blendAttachment.srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
+            blendAttachment.dstColorBlendFactor = vk::BlendFactor::eOne;
+            blendAttachment.colorBlendOp = vk::BlendOp::eAdd;
+            blendAttachment.srcAlphaBlendFactor = vk::BlendFactor::eOne;
+            blendAttachment.dstAlphaBlendFactor = vk::BlendFactor::eZero;
+            blendAttachment.alphaBlendOp = vk::BlendOp::eAdd;
+            break;
+        }
+	}
+
+	void VkGraphicsPipeline::SetAlphaToCoverage(bool enable) {
+		if (_multisampleInfo.alphaToCoverageEnable == enable) {
+			return; // No change needed
+		}
+
+		_needRecreatePipeline = true;
+
+        _multisampleInfo.alphaToCoverageEnable = enable;
+	}
 
     void VkGraphicsPipeline::SetPushConstantRanges(const std::vector<VkPushConstantRange>& pushConstants) {
         _needRecreatePipeline = true;

@@ -36,7 +36,7 @@ namespace flaw {
 	VkContext::VkContext(PlatformContext& context, int32_t width, int32_t height) 
         : _renderWidth(width)
         , _renderHeight(height)
-        , _msaaEnabled(true)
+        , _msaaEnabled(false)
         , _currentDeletionCounter(0)
     {
         VULKAN_HPP_DEFAULT_DISPATCHER.init();
@@ -405,7 +405,7 @@ namespace flaw {
 		return CreateRef<VkTextureCube>(*this, descriptor);
 	}
 
-    Ref<GraphicsRenderPassLayout> VkContext::GetMainRenderPassLayout() {
+    Ref<RenderPassLayout> VkContext::GetMainRenderPassLayout() {
         return _swapchain->GetRenderPassLayout();
     }
 
@@ -421,11 +421,11 @@ namespace flaw {
 		return *_commandQueue;
 	}
 
-    Ref<GraphicsRenderPassLayout> VkContext::CreateRenderPassLayout(const GraphicsRenderPassLayout::Descriptor& desc) {
+    Ref<RenderPassLayout> VkContext::CreateRenderPassLayout(const RenderPassLayout::Descriptor& desc) {
         return CreateRef<VkRenderPassLayout>(*this, desc);
     }
 
-	Ref<GraphicsRenderPass> VkContext::CreateRenderPass(const GraphicsRenderPass::Descriptor& desc) {
+	Ref<RenderPass> VkContext::CreateRenderPass(const RenderPass::Descriptor& desc) {
         return CreateRef<VkRenderPass>(*this, desc);
     }
 

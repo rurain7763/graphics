@@ -67,7 +67,7 @@ namespace flaw {
 		_height = height;
 	}
 
-	Ref<GraphicsRenderPassLayout> DXFramebuffer::GetRenderPassLayout() const {
+	Ref<RenderPassLayout> DXFramebuffer::GetRenderPassLayout() const {
 		return _renderPassLayout;
 	}
 }

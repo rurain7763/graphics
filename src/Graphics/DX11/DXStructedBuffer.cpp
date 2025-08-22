@@ -86,8 +86,12 @@ namespace flaw {
 			return;
 		}
 
-		if (!data || size == 0 || size > _bufferByteSize) {
+		if (size > _bufferByteSize) {
 			LOG_ERROR("Invalid data or size");
+			return;
+		}
+
+		if (!data || size == 0) {
 			return;
 		}
 

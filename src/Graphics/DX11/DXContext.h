@@ -37,11 +37,11 @@ namespace flaw {
 		Ref<Texture2DArray> CreateTexture2DArray(const Texture2DArray::Descriptor& descriptor) override;
 		Ref<TextureCube> CreateTextureCube(const TextureCube::Descriptor& descriptor) override;
 
-		Ref<GraphicsRenderPassLayout> CreateRenderPassLayout(const GraphicsRenderPassLayout::Descriptor& desc) override;
-		Ref<GraphicsRenderPass> CreateRenderPass(const GraphicsRenderPass::Descriptor& desc) override;
+		Ref<RenderPassLayout> CreateRenderPassLayout(const RenderPassLayout::Descriptor& desc) override;
+		Ref<RenderPass> CreateRenderPass(const RenderPass::Descriptor& desc) override;
 		Ref<GraphicsFramebuffer> CreateFramebuffer(const GraphicsFramebuffer::Descriptor& desc) override;
 
-		Ref<GraphicsRenderPassLayout> GetMainRenderPassLayout() override;
+		Ref<RenderPassLayout> GetMainRenderPassLayout() override;
 
 		uint32_t GetMainFramebuffersCount() const override;
 		Ref<GraphicsFramebuffer> GetMainFramebuffer(uint32_t index) override;

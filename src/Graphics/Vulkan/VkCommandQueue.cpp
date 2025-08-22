@@ -35,6 +35,14 @@ namespace flaw {
 
         _currentCommandBufferIndex = 0;
         _currentFrameIndex = 0;
+		_currentPipeline = nullptr;
+		_currentPipelineLayout = nullptr;
+		_currentPushConstantRanges.clear();
+		_needBindVertexBuffers = false;
+		_currentVertexBuffers.clear();
+		_currentVertexBufferOffsets.clear();
+		_needBindDescriptorSets = false;
+		_currentDescriptorSets.clear();
 
         Log::Info("Vulkan command queue initialized successfully.");
     }
@@ -173,6 +181,8 @@ namespace flaw {
     }
 
     void VkCommandQueue::SetVertexBuffers(const std::vector<Ref<VertexBuffer>>& vertexBuffers) {
+		_needBindVertexBuffers = true;
+
 		_currentVertexBuffers.resize(vertexBuffers.size());
 		_currentVertexBufferOffsets.resize(vertexBuffers.size());
         for (uint32_t i = 0; i < vertexBuffers.size(); i++) {
@@ -184,7 +194,16 @@ namespace flaw {
 		}
     }
 
+    void VkCommandQueue::ResetVertexBuffers() {
+        _needBindVertexBuffers = true;
+
+		_currentVertexBuffers.clear();
+		_currentVertexBufferOffsets.clear();
+    }
+
     void VkCommandQueue::SetShaderResources(const std::vector<Ref<ShaderResources>>& shaderResources) {
+		_needBindDescriptorSets = true;
+
 		_currentDescriptorSets.resize(shaderResources.size());
 		for (uint32_t i = 0; i < shaderResources.size(); ++i) {
             auto vkShaderResources = std::static_pointer_cast<VkShaderResources>(shaderResources[i]);
@@ -194,6 +213,11 @@ namespace flaw {
 		}
     }
 
+    void VkCommandQueue::ResetShaderResources() {
+        _needBindDescriptorSets = true;
+        _currentDescriptorSets.clear();
+    }
+
     void VkCommandQueue::Draw(uint32_t vertexCount, uint32_t vertexOffset) {
         DrawInstanced(vertexCount, 1, vertexOffset);
     }
@@ -201,12 +225,16 @@ namespace flaw {
     void VkCommandQueue::DrawInstanced(uint32_t vertexCount, uint32_t instanceCount, uint32_t vertexOffset) {
         auto& commandBuffer = _graphicsFrameCommandBuffers[_currentCommandBufferIndex];
 
-        if (!_currentDescriptorSets.empty()) {
+        if (_needBindDescriptorSets) {
             commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, _currentPipelineLayout, 0, _currentDescriptorSets.size(), _currentDescriptorSets.data(), 0, nullptr);
+			_needBindDescriptorSets = false;
         }
 
-        if (!_currentVertexBuffers.empty()) {
-		    commandBuffer.bindVertexBuffers(0, _currentVertexBuffers.size(), _currentVertexBuffers.data(), _currentVertexBufferOffsets.data());
+        if (_needBindVertexBuffers) {
+            if (!_currentVertexBuffers.empty()) {
+		        commandBuffer.bindVertexBuffers(0, _currentVertexBuffers.size(), _currentVertexBuffers.data(), _currentVertexBufferOffsets.data());
+            }
+			_needBindVertexBuffers = false;
         }
 
         commandBuffer.draw(vertexCount, instanceCount, vertexOffset, 0);
@@ -222,12 +250,16 @@ namespace flaw {
 
         auto& commandBuffer = _graphicsFrameCommandBuffers[_currentCommandBufferIndex];
 
-        if (!_currentDescriptorSets.empty()) {
+        if (_needBindDescriptorSets) {                
             commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, _currentPipelineLayout, 0, _currentDescriptorSets.size(), _currentDescriptorSets.data(), 0, nullptr);
+			_needBindDescriptorSets = false;
         }
 
-        if (!_currentVertexBuffers.empty()) {
-            commandBuffer.bindVertexBuffers(0, _currentVertexBuffers.size(), _currentVertexBuffers.data(), _currentVertexBufferOffsets.data());
+        if (_needBindVertexBuffers) {
+            if (!_currentVertexBuffers.empty()) {
+                commandBuffer.bindVertexBuffers(0, _currentVertexBuffers.size(), _currentVertexBuffers.data(), _currentVertexBufferOffsets.data());
+            }
+            _needBindVertexBuffers = false;
         }
 
         commandBuffer.bindIndexBuffer(vkIndexBuffer->GetVkBuffer(), 0, vk::IndexType::eUint32);
@@ -280,7 +312,7 @@ namespace flaw {
         BeginRenderPass(swapchain.GetClearOpRenderPass(), swapchain.GetLoadOpRenderPass(), vkFramebuffer);
     }
 
-    void VkCommandQueue::BeginRenderPass(const Ref<GraphicsRenderPass>& beginRenderPass, const Ref<GraphicsRenderPass>& resumeRenderPass, const Ref<GraphicsFramebuffer>& framebuffer) {
+    void VkCommandQueue::BeginRenderPass(const Ref<RenderPass>& beginRenderPass, const Ref<RenderPass>& resumeRenderPass, const Ref<GraphicsFramebuffer>& framebuffer) {
         auto vkBeginRenderPass = std::static_pointer_cast<VkRenderPass>(beginRenderPass);
         FASSERT(vkBeginRenderPass, "Invalid render pass type for Vulkan command queue");
 

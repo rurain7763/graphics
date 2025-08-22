@@ -1,29 +1,89 @@
 #ifndef SHADER_FX
 #define SHADER_FX
 
-cbuffer VPMatrices : register(b0)
+#define DIFFUSE_TEX_BINDING_FLAG (1 << 0)
+#define SPECULAR_TEX_BINDING_FLAG (1 << 1)
+
+struct InstanceData 
+{
+    row_major float4x4 model_matrix;
+    row_major float4x4 inv_model_matrix;
+};
+
+struct DirectionalLight
+{
+    float3 direction;
+    float padding;
+    float3 ambient;
+    float padding1;
+    float3 diffuse;
+    float padding2;
+    float3 specular;
+    float padding3;
+};
+
+struct PointLight
+{
+    float3 position;
+    float constant_attenuation;
+    float3 ambient;
+    float linear_attenuation;
+    float3 diffuse;
+    float quadratic_attenuation;
+    float3 specular;
+    float padding;
+};
+
+struct SpotLight
+{
+    float3 position;
+    float cutoff_inner_cosine;
+    float3 direction;
+    float cutoff_outer_cosine;
+    float3 ambient;
+    float constant_attenuation;
+    float3 diffuse;
+    float linear_attenuation;
+    float3 specular;
+    float quadratic_attenuation;
+};
+
+cbuffer CameraConstants : register(b0)
 {
     row_major float4x4 g_view_matrix;
     row_major float4x4 g_projection_matrix;
     row_major float4x4 g_vp_matrix;
+    float3 g_camera_world_position;
+    float g_camera_near_plane;
+    float g_camera_far_plane;
+    float g_camera_padding;
+    float g_camera_padding1;
+    float g_camera_padding2;
 };
 
 cbuffer LightingConstants : register(b1)
 {
-    float3 g_lighting_color;
-    float g_lighting_intensity;
-    float3 g_lighting_direction;
-    float g_lighting_padding;
+    uint g_directional_light_count;
+    uint g_point_light_count;
+    uint g_spot_light_count;
+    uint g_lighting_padding;
 };
 
-struct BatchedData
+cbuffer MaterialConstants : register(b2)
 {
-    row_major float4x4 world_matrix;
+    float3 g_diffuse_color;
+    float g_shininess;
+    float3 g_specular_color;
+    uint g_texture_binding_flags;
 };
 
-StructuredBuffer<BatchedData> g_batched_data : register(t0);
+StructuredBuffer<InstanceData> g_instance_datas : register(t0);
+StructuredBuffer<DirectionalLight> g_directional_lights : register(t1);
+StructuredBuffer<PointLight> g_point_lights : register(t2);
+StructuredBuffer<SpotLight> g_spot_lights : register(t3);
 
-Texture2D g_texture : register(t1);
+Texture2D g_diffuse_texture : register(t4);
+Texture2D g_specular_texture : register(t5);
 
 SamplerState g_sampler : register(s0);
 
@@ -39,8 +99,9 @@ struct VS_INPUT
 struct VS_OUTPUT
 {
     float4 position : SV_Position;
+    float3 world_position : POSITION;
     float2 texcoord : TEXCOORD0;
-    float3 color : COLOR;
+    float4 color : COLOR;
     float3 normal : NORMAL;
 };
 
@@ -49,18 +110,36 @@ struct PS_OUTPUT
     float4 color : SV_Target0;
 };
 
+bool has_texture(uint binding_flags, uint flag)
+{
+    return (binding_flags & flag) == flag;
+}
+
+void calculate_phong_lighting(float3 light_ambient, float3 light_diffuse, float3 light_specular, float3 light_direction, float3 view_direction, float3 normal, float3 diffuse_color, float3 specular_color, float shininess, out float3 ambient, out float3 diffuse, out float3 specular)
+{
+    float3 reflect_dir = reflect(light_direction, normal);
+    
+    ambient = light_ambient * diffuse_color;
+    diffuse = light_diffuse * diffuse_color * max(dot(normal, -light_direction), 0.0);
+    specular = light_specular * specular_color * pow(max(dot(view_direction, reflect_dir), 0.0), shininess);
+}
+
 VS_OUTPUT VSMain(VS_INPUT input)
 {
     VS_OUTPUT output = (VS_OUTPUT) 0;
-    
-    float4 world_position = mul(float4(input.position, 1.0f), g_batched_data[input.instance_id].world_matrix);
+
+    float4x4 world_matrix = g_instance_datas[input.instance_id].model_matrix;
+    float4x4 inv_world_matrix = g_instance_datas[input.instance_id].inv_model_matrix;
+
+    float4 world_position = mul(float4(input.position, 1.0f), world_matrix);
     float4 view_position = mul(world_position, g_view_matrix);
     float4 projected_position = mul(view_position, g_projection_matrix);
     
     output.position = projected_position;
+    output.world_position = world_position.xyz;
     output.texcoord = input.texcoord;
     output.color = input.color;
-    output.normal = normalize(mul(float4(input.normal, 0.0f), g_batched_data[input.instance_id].world_matrix).xyz);
+    output.normal = normalize(mul((float3x3)transpose(inv_world_matrix), input.normal));
     
     return output;
 }
@@ -69,15 +148,77 @@ PS_OUTPUT PSMain(VS_OUTPUT input)
 {
     PS_OUTPUT output = (PS_OUTPUT) 0;
     
-    float ambient_factor = 0.1;
+    float3 view_direction = normalize(g_camera_world_position - input.world_position);
 
-    float3 object_color = input.color * g_texture.Sample(g_sampler, input.texcoord).rgb;
-    float3 light_color = g_lighting_color * g_lighting_intensity;
-    float3 ambient_color = object_color * ambient_factor * light_color;
+    float3 diffuse_color = g_diffuse_color;
+    if (has_texture(g_texture_binding_flags, DIFFUSE_TEX_BINDING_FLAG))
+    {
+        diffuse_color = g_diffuse_texture.Sample(g_sampler, input.texcoord).rgb;
+    }
 
-    float diffuse = max(dot(input.normal, -g_lighting_direction), 0.0);
+    float3 specular_color = g_specular_color;
+    if (has_texture(g_texture_binding_flags, SPECULAR_TEX_BINDING_FLAG))
+    {
+        specular_color = g_specular_texture.Sample(g_sampler, input.texcoord).rgb;
+    }
 
-    output.color = float4(ambient_color + object_color * (diffuse * light_color), 1.0);
+    float3 total_ambient = float3(0.0, 0.0, 0.0);
+    float3 total_diffuse = float3(0.0, 0.0, 0.0);
+    float3 total_specular = float3(0.0, 0.0, 0.0);
+
+    for (uint i = 0; i < g_directional_light_count; ++i)
+    {
+        DirectionalLight light = g_directional_lights[i];
+
+        float3 light_direction = light.direction;
+
+        float3 ambient, diffuse, specular;
+        calculate_phong_lighting(light.ambient, light.diffuse, light.specular, light_direction, view_direction, input.normal, diffuse_color, specular_color, g_shininess, ambient, diffuse, specular);
+
+        total_ambient += ambient;
+        total_diffuse += diffuse;
+        total_specular += specular;
+    }
+
+    for (uint i = 0; i < g_point_light_count; ++i)
+    {
+        PointLight light = g_point_lights[i];
+
+        float3 light_direction = input.world_position - light.position;
+        float distance = length(light_direction);
+        light_direction = light_direction / distance;
+        float attenuation = 1.0 / (light.constant_attenuation + light.linear_attenuation * distance + light.quadratic_attenuation * (distance * distance));
+
+        float3 ambient, diffuse, specular;
+        calculate_phong_lighting(light.ambient, light.diffuse, light.specular, light_direction, view_direction, input.normal, diffuse_color, specular_color, g_shininess, ambient, diffuse, specular);
+
+        total_ambient += ambient * attenuation;
+        total_diffuse += diffuse * attenuation;
+        total_specular += specular * attenuation;
+    }
+
+    for (uint i = 0; i < g_spot_light_count; ++i)
+    {
+        SpotLight light = g_spot_lights[i];
+
+        float3 light_direction = input.world_position - light.position;
+        float distance = length(light_direction);
+        light_direction = light_direction / distance;
+        float attenuation = 1.0 / (light.constant_attenuation + light.linear_attenuation * distance + light.quadratic_attenuation * (distance * distance));
+
+        float spot_effect = dot(light.direction, light_direction);
+        float epsilon = light.cutoff_inner_cosine - light.cutoff_outer_cosine;
+        float intensity = clamp((spot_effect - light.cutoff_outer_cosine) / epsilon, 0.0, 1.0);
+
+        float3 ambient, diffuse, specular;
+        calculate_phong_lighting(light.ambient, light.diffuse, light.specular, light_direction, view_direction, input.normal, diffuse_color, specular_color, g_shininess, ambient, diffuse, specular);
+
+        total_ambient += ambient * attenuation * intensity;
+        total_diffuse += diffuse * attenuation * intensity;
+        total_specular += specular * attenuation * intensity;
+    }
+
+    output.color = float4(total_ambient + total_diffuse + total_specular, 1.0);
     
     return output;
 }

@@ -11,41 +11,29 @@ namespace flaw {
 	class DXContext;
 	class DXTexture2D;
 
-	class DXRenderPassLayout : public GraphicsRenderPassLayout {
+	class DXRenderPassLayout : public RenderPassLayout {
 	public:
 		DXRenderPassLayout(DXContext& context, const Descriptor& desc);
 		~DXRenderPassLayout() = default;
 
 		uint32_t GetColorAttachmentCount() const override;
-		const ColorAttachment& GetColorAttachment(uint32_t index) const override;
-
 		bool HasDepthStencilAttachment() const override;
-		const DepthStencilAttachment& GetDepthStencilAttachment() const override;
-
 		bool HasResolveAttachment() const override;
-		const ResolveAttachment& GetResolveAttachment() const override;
 
 		uint32_t GetSampleCount() const override;
-
-		inline ComPtr<ID3D11BlendState> GetDXBlendState() const { return _blendState; }
-
-	private:
-		bool CreateBlendState();
 
 	private:
 		DXContext& _context;
 
 		uint32_t _sampleCount;
-		bool _alphaToCoverage;
 		
-		std::vector<ColorAttachment> _colorAttachments;
-		ComPtr<ID3D11BlendState> _blendState;
+		std::vector<Attachment> _colorAttachments;
 
-		std::optional<DepthStencilAttachment> _depthStencilAttachment;
-		std::optional<ResolveAttachment> _resolveAttachment;
+		std::optional<Attachment> _depthStencilAttachment;
+		std::optional<Attachment> _resolveAttachment;
 	};
 
-	class DXRenderPass : public GraphicsRenderPass {
+	class DXRenderPass : public RenderPass {
 	public:
 		DXRenderPass(DXContext& context, const Descriptor& desc);
 		~DXRenderPass() = default;

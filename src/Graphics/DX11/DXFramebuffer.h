@@ -22,7 +22,7 @@ namespace flaw {
 		inline Ref<Texture> GetDepthStencilAttachment() const override { return _depthStencilAttachment; }
 		inline Ref<Texture> GetResolveAttachment() const override { return _resolveAttachment; }
 
-		Ref<GraphicsRenderPassLayout> GetRenderPassLayout() const override;
+		Ref<RenderPassLayout> GetRenderPassLayout() const override;
 
 		inline uint32_t GetWidth() const override { return _width; }
 		inline uint32_t GetHeight() const override { return _height; }

@@ -25,7 +25,9 @@ namespace flaw {
         void SetPipelinePushConstant(uint32_t rangeIndex, const void* data);
 
         void SetVertexBuffers(const std::vector<Ref<VertexBuffer>>& vertexBuffers) override;
+        void ResetVertexBuffers() override;
         void SetShaderResources(const std::vector<Ref<ShaderResources>>& shaderResources) override;
+		void ResetShaderResources() override;
 
         void Draw(uint32_t vertexCount, uint32_t vertexOffset = 0) override;
         void DrawInstanced(uint32_t vertexCount, uint32_t instanceCount, uint32_t vertexOffset = 0) override;
@@ -33,7 +35,7 @@ namespace flaw {
         void DrawIndexedInstanced(const Ref<IndexBuffer>& indexBuffer, uint32_t indexCount, uint32_t instanceCount, uint32_t indexOffset = 0, uint32_t vertexOffset = 0) override;
 
         void BeginRenderPass() override;
-        void BeginRenderPass(const Ref<GraphicsRenderPass>& beginRenderPass, const Ref<GraphicsRenderPass>& resumeRenderPass, const Ref<GraphicsFramebuffer>& framebuffer) override;
+        void BeginRenderPass(const Ref<RenderPass>& beginRenderPass, const Ref<RenderPass>& resumeRenderPass, const Ref<GraphicsFramebuffer>& framebuffer) override;
         void EndRenderPass() override;
         void Submit() override;
 
@@ -100,8 +102,10 @@ namespace flaw {
         vk::Pipeline _currentPipeline;
         vk::PipelineLayout _currentPipelineLayout;
         std::vector<vk::PushConstantRange> _currentPushConstantRanges;
+        bool _needBindVertexBuffers;
 		std::vector<vk::Buffer> _currentVertexBuffers;
 		std::vector<vk::DeviceSize> _currentVertexBufferOffsets;
+		bool _needBindDescriptorSets;
         std::vector<vk::DescriptorSet> _currentDescriptorSets;
 
         vk::Queue _oneTimeCommandQueue;

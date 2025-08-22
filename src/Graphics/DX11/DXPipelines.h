@@ -26,14 +26,21 @@ namespace flaw {
 		void SetViewport(float x, float y, float width, float height) override;
 		void SetScissor(int32_t x, int32_t y, int32_t width, int32_t height) override;
 
-		void SetDepthTest(CompareOp depthTest, bool depthWrite = true) override;
+		void EnableDepthTest(bool enable) override;
+		void SetDepthTest(CompareOp depthCompareOp, bool depthWrite = true) override;
+
 		void SetCullMode(CullMode cullMode) override;
 		void SetFillMode(FillMode fillMode) override;
+
+		void EnableStencilTest(bool enable) override;
+		void SetStencilTest(const StencilOperator& frontFace, const StencilOperator& backFace) override;
 
 		void SetShaderResourcesLayouts(const std::vector<Ref<ShaderResourcesLayout>>& shaderResourceLayouts) override;
 		void SetShader(const Ref<GraphicsShader>& shader) override;
 
-		void SetRenderPassLayout(const Ref<GraphicsRenderPassLayout>& renderPassLayout) override;
+		void SetRenderPassLayout(const Ref<RenderPassLayout>& renderPassLayout) override;
+		void SetBlendMode(uint32_t attachmentIndex, BlendMode blendMode) override;
+		void SetAlphaToCoverage(bool enable) override;
 
 		void SetBehaviorStates(uint32_t behaviors) override;
 		uint32_t GetBehaviorStates() const override;
@@ -43,10 +50,11 @@ namespace flaw {
 		inline const D3D11_VIEWPORT& GetDXViewport() const { return _viewport; }
 		inline const D3D11_RECT& GetDXScissorRect() const { return _scissorRect; }
 		ComPtr<ID3D11DepthStencilState> GetDXDepthStencilState();
+		inline uint32_t GetDXStencilRef() const { return _stencilRef; }
 		ComPtr<ID3D11RasterizerState> GetDXRasterizerState();
-		inline Ref<DXShaderResourcesLayout> GetDXShaderResourcesLayout() const { return _shaderResourcesLayout; }
+		inline const std::vector<Ref<DXShaderResourcesLayout>>& GetDXShaderResourcesLayouts() const { return _shaderResourcesLayouts; }
 		inline Ref<DXGraphicsShader> GetDXShader() const { return _shader; }
-		ComPtr<ID3D11BlendState> GetDXBlendState() const;
+		ComPtr<ID3D11BlendState> GetDXBlendState();
 
 	private:
 		DXContext& _context;
@@ -60,16 +68,21 @@ namespace flaw {
 		D3D11_RECT _scissorRect;
 
 		D3D11_DEPTH_STENCIL_DESC _depthStencilDesc;
+		uint32_t _stencilRef = 0;
 		ComPtr<ID3D11DepthStencilState> _depthStencilState;
 
 		D3D11_RASTERIZER_DESC _rasterizerDesc;
 		ComPtr<ID3D11RasterizerState> _rasterizerState;
 
-		Ref<DXShaderResourcesLayout> _shaderResourcesLayout;
+		std::vector<Ref<DXShaderResourcesLayout>> _shaderResourcesLayouts;
 
 		Ref<DXGraphicsShader> _shader;
 
 		Ref<DXRenderPassLayout> _renderPassLayout;
+
+		std::vector<BlendMode> _blendModes;
+		bool _alphaToCoverage = false;
+		ComPtr<ID3D11BlendState> _blendState;
 
 		uint32_t _behaviorStates = 0;
 	};

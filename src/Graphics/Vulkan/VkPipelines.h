@@ -42,7 +42,9 @@ namespace flaw {
         void SetShaderResourcesLayouts(const std::vector<Ref<ShaderResourcesLayout>>& shaderResourceLayouts) override;
         void SetShader(const Ref<GraphicsShader>& shader) override;
 
-        void SetRenderPassLayout(const Ref<GraphicsRenderPassLayout>& renderPassLayout) override;
+        void SetRenderPassLayout(const Ref<RenderPassLayout>& renderPassLayout) override;
+		void SetBlendMode(uint32_t attachmentIndex, BlendMode blendMode) override;
+		void SetAlphaToCoverage(bool enable) override;
 
         void SetBehaviorStates(uint32_t behaviors) override;
         uint32_t GetBehaviorStates() const override;

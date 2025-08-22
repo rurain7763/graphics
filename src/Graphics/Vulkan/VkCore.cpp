@@ -80,7 +80,6 @@ namespace flaw {
         case CompareOp::NotEqual: return vk::CompareOp::eNotEqual;
         case CompareOp::GreaterEqual: return vk::CompareOp::eGreaterOrEqual;
         case CompareOp::Always: return vk::CompareOp::eAlways;
-        case CompareOp::Disabled: return vk::CompareOp::eNever;
         default:
             throw std::runtime_error("Unknown depth test");
         }

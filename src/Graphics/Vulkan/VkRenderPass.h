@@ -10,19 +10,16 @@
 namespace flaw {
     class VkContext;
 
-    class VkRenderPassLayout : public GraphicsRenderPassLayout {
+    class VkRenderPassLayout : public RenderPassLayout {
     public:
         VkRenderPassLayout(VkContext& context, const Descriptor& descriptor);
         ~VkRenderPassLayout() = default;
 
         virtual uint32_t GetColorAttachmentCount() const override;
-        virtual const ColorAttachment& GetColorAttachment(uint32_t index) const override;
 
         virtual bool HasDepthStencilAttachment() const override;
-        virtual const DepthStencilAttachment& GetDepthStencilAttachment() const override;
 
         virtual bool HasResolveAttachment() const override;
-        virtual const ResolveAttachment& GetResolveAttachment() const override;
 
         virtual uint32_t GetSampleCount() const override;
 
@@ -39,17 +36,13 @@ namespace flaw {
 
         uint32_t _sampleCount;
 
-        std::vector<ColorAttachment> _colorAttachments;
-        std::optional<DepthStencilAttachment> _depthStencilAttachment;
-        std::optional<ResolveAttachment> _resolveAttachment;
-
         std::vector<vk::AttachmentDescription> _vkAttachments;
         std::vector<vk::AttachmentReference> _colorAttachmentRefs;
         std::optional<vk::AttachmentReference> _depthAttachmentRef;
         std::optional<vk::AttachmentReference> _resolveAttachmentRef;
     };
     
-    class VkRenderPass : public GraphicsRenderPass {
+    class VkRenderPass : public RenderPass {
     public:
         VkRenderPass(VkContext& context, const Descriptor& descriptor);
         ~VkRenderPass();

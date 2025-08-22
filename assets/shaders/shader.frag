@@ -57,7 +57,7 @@ layout(std140, set = 0, binding = 1) uniform LightConstants {
     uint padding;
 } lightConstants;
 
-layout(std140, set = 0, binding = 3) uniform MaterialConstants {
+layout(std140, set = 1, binding = 3) uniform MaterialConstants {
     vec3 diffuse_color;
     float shininess;
     vec3 specular_color;

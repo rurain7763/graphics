@@ -35,11 +35,11 @@ namespace flaw {
 		virtual Ref<Texture2DArray> CreateTexture2DArray(const Texture2DArray::Descriptor& descriptor) = 0;
 		virtual Ref<TextureCube> CreateTextureCube(const TextureCube::Descriptor& descriptor) = 0;
 
-		virtual Ref<GraphicsRenderPassLayout> CreateRenderPassLayout(const GraphicsRenderPassLayout::Descriptor& desc) = 0;
-		virtual Ref<GraphicsRenderPass> CreateRenderPass(const GraphicsRenderPass::Descriptor& desc) = 0;
+		virtual Ref<RenderPassLayout> CreateRenderPassLayout(const RenderPassLayout::Descriptor& desc) = 0;
+		virtual Ref<RenderPass> CreateRenderPass(const RenderPass::Descriptor& desc) = 0;
 		virtual Ref<GraphicsFramebuffer> CreateFramebuffer(const GraphicsFramebuffer::Descriptor& desc) = 0;
 
-		virtual Ref<GraphicsRenderPassLayout> GetMainRenderPassLayout() = 0;
+		virtual Ref<RenderPassLayout> GetMainRenderPassLayout() = 0;
 
 		virtual uint32_t GetMainFramebuffersCount() const = 0;
 		virtual Ref<GraphicsFramebuffer> GetMainFramebuffer(uint32_t index) = 0;

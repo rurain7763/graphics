@@ -134,8 +134,7 @@ namespace flaw {
 		Equal,
 		NotEqual,
 		Always,
-		Never,
-		Disabled,
+		Never
 	};
 
 	enum class StencilOp {

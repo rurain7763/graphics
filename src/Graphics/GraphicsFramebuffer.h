@@ -19,7 +19,7 @@ namespace flaw {
             std::function<bool(Ref<Texture>& tex, uint32_t width, uint32_t height)> depthStencilResizeHandler;
             std::optional<Ref<Texture>> resolveAttachment;
             std::function<bool(Ref<Texture>& tex, uint32_t width, uint32_t height)> resolveResizeHandler;
-            Ref<GraphicsRenderPassLayout> renderPassLayout;
+            Ref<RenderPassLayout> renderPassLayout;
         };
 
 		GraphicsFramebuffer() = default;
@@ -31,7 +31,7 @@ namespace flaw {
         virtual Ref<Texture> GetDepthStencilAttachment() const = 0;
         virtual Ref<Texture> GetResolveAttachment() const = 0;
         
-        virtual Ref<GraphicsRenderPassLayout> GetRenderPassLayout() const = 0;
+        virtual Ref<RenderPassLayout> GetRenderPassLayout() const = 0;
 
         virtual uint32_t GetWidth() const = 0;
         virtual uint32_t GetHeight() const = 0;

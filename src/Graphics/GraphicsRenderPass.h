@@ -4,47 +4,32 @@
 #include "Graphics/GraphicsType.h"
 
 namespace flaw {
-	class GraphicsRenderPass;
+	class RenderPass;
 
-	class GraphicsRenderPassLayout {
+	class RenderPassLayout {
 	public:
-		struct ColorAttachment {
-			PixelFormat format = PixelFormat::UNDEFINED;
-			BlendMode blendMode = BlendMode::Default;
-		};
-
-		struct DepthStencilAttachment {
-			PixelFormat format = PixelFormat::UNDEFINED;
-		};
-
-		struct ResolveAttachment {
+		struct Attachment {
 			PixelFormat format = PixelFormat::UNDEFINED;
 		};
 
 		struct Descriptor {
 			PipelineType type;
 			uint32_t sampleCount = 1;
-			bool alphaToCoverage = false;
-			std::vector<ColorAttachment> colorAttachments;
-			std::optional<DepthStencilAttachment> depthStencilAttachment;
-			std::optional<ResolveAttachment> resolveAttachment;
+			std::vector<Attachment> colorAttachments;
+			std::optional<Attachment> depthStencilAttachment;
+			std::optional<Attachment> resolveAttachment;
 		};
 
-		virtual ~GraphicsRenderPassLayout() = default;
+		virtual ~RenderPassLayout() = default;
 
 		virtual uint32_t GetColorAttachmentCount() const = 0;
-		virtual const ColorAttachment& GetColorAttachment(uint32_t index) const = 0;
-
 		virtual bool HasDepthStencilAttachment() const = 0;
-		virtual const DepthStencilAttachment& GetDepthStencilAttachment() const = 0;
-
 		virtual bool HasResolveAttachment() const = 0;
-		virtual const ResolveAttachment& GetResolveAttachment() const = 0;
 
 		virtual uint32_t GetSampleCount() const = 0;
 	};
 
-	class GraphicsRenderPass {
+	class RenderPass {
 	public:
 		struct ColorAttachmentOperation {
 			TextureLayout initialLayout;
@@ -70,14 +55,14 @@ namespace flaw {
 		};
 
 		struct Descriptor {
-			Ref<GraphicsRenderPassLayout> layout;
+			Ref<RenderPassLayout> layout;
 
 			std::vector<ColorAttachmentOperation> colorAttachmentOps;
 			std::optional<DepthStencilAttachmentOperation> depthStencilAttachmentOp;
 			std::optional<ResolveAttachmentOperation> resolveAttachmentOp;
 		};
 
-		virtual ~GraphicsRenderPass() = default;
+		virtual ~RenderPass() = default;
 
 		virtual uint32_t GetColorAttachmentOpCount() const = 0;
 		virtual const ColorAttachmentOperation& GetColorAttachmentOp(uint32_t index) const = 0;

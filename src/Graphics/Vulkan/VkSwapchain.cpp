@@ -254,23 +254,23 @@ namespace flaw {
     }
 
     bool VkSwapchain::CreateRenderPasses() {
-        GraphicsRenderPassLayout::Descriptor renderPassLayoutDesc;
+        RenderPassLayout::Descriptor renderPassLayoutDesc;
         renderPassLayoutDesc.type = PipelineType::Graphics;
         
         if (!_context.GetMSAAState()) {
             renderPassLayoutDesc.sampleCount = 1;
-            renderPassLayoutDesc.colorAttachments = { { PixelFormat::BGRA8, BlendMode::Alpha } };
+            renderPassLayoutDesc.colorAttachments = { { PixelFormat::BGRA8 } };
             renderPassLayoutDesc.depthStencilAttachment = { _depthStencilFormat };
         } else {
             renderPassLayoutDesc.sampleCount = _context.GetMSAASampleCount();
-            renderPassLayoutDesc.colorAttachments = { { PixelFormat::BGRA8, BlendMode::Alpha } };
+            renderPassLayoutDesc.colorAttachments = { { PixelFormat::BGRA8 } };
             renderPassLayoutDesc.depthStencilAttachment = { _depthStencilFormat };
             renderPassLayoutDesc.resolveAttachment = { PixelFormat::BGRA8 };
         }
 
         _renderPassLayout = CreateRef<VkRenderPassLayout>(_context, renderPassLayoutDesc);
 
-        GraphicsRenderPass::Descriptor renderPassDesc;
+        RenderPass::Descriptor renderPassDesc;
         renderPassDesc.layout = _renderPassLayout;
 
         renderPassDesc.depthStencilAttachmentOp = {

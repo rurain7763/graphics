@@ -83,12 +83,12 @@ namespace flaw {
         }
     }
 
-	Ref<GraphicsRenderPassLayout> VkFramebuffer::GetRenderPassLayout() const {
+	Ref<RenderPassLayout> VkFramebuffer::GetRenderPassLayout() const {
 		return _renderPassLayout;
 	}
 
     bool VkFramebuffer::CreateRenderPass() {
-        GraphicsRenderPass::Descriptor renderPassDesc;
+        RenderPass::Descriptor renderPassDesc;
         renderPassDesc.layout = _renderPassLayout;
 
         renderPassDesc.colorAttachmentOps.resize(_renderPassLayout->GetColorAttachmentCount());

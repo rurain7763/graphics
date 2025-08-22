@@ -74,20 +74,11 @@ namespace flaw {
 	}
 
 	int32_t DXContext::CreateMainRenderPassLayout() {
-		GraphicsRenderPassLayout::ColorAttachment colorAttachment;
-		colorAttachment.format = PixelFormat::RGBA8;
-		colorAttachment.blendMode = BlendMode::Default;
-
-		GraphicsRenderPassLayout::DepthStencilAttachment depthStencilAttachment;
-		depthStencilAttachment.format = PixelFormat::D24S8_UINT;
-
-		GraphicsRenderPassLayout::Descriptor renderPassLayoutDesc;
+		RenderPassLayout::Descriptor renderPassLayoutDesc;
 		renderPassLayoutDesc.type = PipelineType::Graphics;
 		renderPassLayoutDesc.sampleCount = 1; // TODO: MSAA 지원 시 변경
-		renderPassLayoutDesc.alphaToCoverage = false;
-		renderPassLayoutDesc.colorAttachments.resize(1);
-		renderPassLayoutDesc.colorAttachments[0] = colorAttachment;
-		renderPassLayoutDesc.depthStencilAttachment = depthStencilAttachment;
+		renderPassLayoutDesc.colorAttachments = { { PixelFormat::RGBA8 } };
+		renderPassLayoutDesc.depthStencilAttachment = { PixelFormat::D24S8_UINT };
 
 		_mainRenderPassLayout = CreateRef<DXRenderPassLayout>(*this, renderPassLayoutDesc);
 
@@ -95,19 +86,19 @@ namespace flaw {
 	}
 
 	int32_t DXContext::CreateMainRenderPass() {
-		GraphicsRenderPass::ColorAttachmentOperation colorAttachmentOp;
+		RenderPass::ColorAttachmentOperation colorAttachmentOp;
 		colorAttachmentOp.initialLayout = TextureLayout::Undefined;
 		colorAttachmentOp.finalLayout = TextureLayout::Present;
 		colorAttachmentOp.loadOp = AttachmentLoadOp::Clear;
 		colorAttachmentOp.storeOp = AttachmentStoreOp::Store;
 
-		GraphicsRenderPass::DepthStencilAttachmentOperation depthStencilAttachmentOp;
+		RenderPass::DepthStencilAttachmentOperation depthStencilAttachmentOp;
 		depthStencilAttachmentOp.initialLayout = TextureLayout::Undefined;
 		depthStencilAttachmentOp.finalLayout = TextureLayout::DepthStencil;
 		depthStencilAttachmentOp.loadOp = AttachmentLoadOp::Clear;
 		depthStencilAttachmentOp.storeOp = AttachmentStoreOp::Store;
 
-		GraphicsRenderPass::Descriptor mainRenderPassDesc;
+		RenderPass::Descriptor mainRenderPassDesc;
 		mainRenderPassDesc.layout = _mainRenderPassLayout;
 		mainRenderPassDesc.colorAttachmentOps.resize(1);
 		mainRenderPassDesc.colorAttachmentOps[0] = colorAttachmentOp;
@@ -301,11 +292,11 @@ namespace flaw {
 		return CreateRef<DXTextureCube>(*this, descriptor);
 	}
 
-	Ref<GraphicsRenderPassLayout> DXContext::CreateRenderPassLayout(const GraphicsRenderPassLayout::Descriptor& desc) {
+	Ref<RenderPassLayout> DXContext::CreateRenderPassLayout(const RenderPassLayout::Descriptor& desc) {
 		return CreateRef<DXRenderPassLayout>(*this, desc);
 	}
 
-	Ref<GraphicsRenderPass> DXContext::CreateRenderPass(const GraphicsRenderPass::Descriptor& desc) {
+	Ref<RenderPass> DXContext::CreateRenderPass(const RenderPass::Descriptor& desc) {
 		return CreateRef<DXRenderPass>(*this, desc);
 	}
 
@@ -313,7 +304,7 @@ namespace flaw {
 		return CreateRef<DXFramebuffer>(*this, desc);
 	}
 
-	Ref<GraphicsRenderPassLayout> DXContext::GetMainRenderPassLayout() {
+	Ref<RenderPassLayout> DXContext::GetMainRenderPassLayout() {
 		return _mainRenderPassLayout;
 	}
 

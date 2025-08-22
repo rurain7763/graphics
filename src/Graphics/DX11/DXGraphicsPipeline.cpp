@@ -13,8 +13,6 @@ namespace flaw {
 	DXGraphicsPipeline::DXGraphicsPipeline(DXContext& context)
 		: _context(context)
 	{
-		_depthStencilDesc.StencilEnable = FALSE; // Disable stencil test
-
 		_rasterizerDesc.FrontCounterClockwise = FALSE; // Default is clockwise
 		_rasterizerDesc.DepthBias = 0;
 		_rasterizerDesc.DepthBiasClamp = 0.0f;
@@ -28,10 +26,6 @@ namespace flaw {
 
 		_primitiveTopology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST; // Default primitive topology
 
-		_depthStencilDesc.DepthEnable = TRUE; // Enable depth test by default
-		_depthStencilDesc.DepthFunc = D3D11_COMPARISON_LESS; // Default depth function
-		_depthStencilDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL; // Default depth write mask
-
 		_viewport.TopLeftX = 0.0f;
 		_viewport.TopLeftY = 0.0f;
 		_viewport.Width = 800.0f; // Default width
@@ -44,7 +38,12 @@ namespace flaw {
 		_scissorRect.right = 800; // Default width
 		_scissorRect.bottom = 600; // Default height
 
-		_renderPassLayout = std::static_pointer_cast<DXRenderPassLayout>(context.GetMainRenderPassLayout());
+		SetRenderPassLayout(context.GetMainRenderPassLayout());
+		EnableDepthTest(true);
+		SetDepthTest(CompareOp::Less, true);
+		EnableStencilTest(false);
+		SetBlendMode(0, BlendMode::Default);
+		SetAlphaToCoverage(false);
 	}
 
 	void DXGraphicsPipeline::SetVertexInputLayouts(const std::vector<Ref<VertexInputLayout>>& vertexInputLayouts) {
@@ -79,8 +78,18 @@ namespace flaw {
 		_scissorRect.bottom = y + height;
 	}
 
-	void DXGraphicsPipeline::SetDepthTest(CompareOp depthTest, bool depthWrite) {
-		D3D11_COMPARISON_FUNC depthFunc = ConvertToDXComparisonFunc(depthTest);
+	void DXGraphicsPipeline::EnableDepthTest(bool enable) {
+		if (_depthStencilDesc.DepthEnable == enable) {
+			return; // No change needed
+		}
+		
+		_depthStencilState = nullptr;
+
+		_depthStencilDesc.DepthEnable = enable;
+	}
+
+	void DXGraphicsPipeline::SetDepthTest(CompareOp depthCompareOp, bool depthWrite) {
+		D3D11_COMPARISON_FUNC depthFunc = ConvertToDXComparisonFunc(depthCompareOp);
 		D3D11_DEPTH_WRITE_MASK writeMask = ConvertToDXDepthWriteMask(depthWrite);
 		
 		if (depthFunc == _depthStencilDesc.DepthFunc && writeMask == _depthStencilDesc.DepthWriteMask) {
@@ -89,7 +98,6 @@ namespace flaw {
 
 		_depthStencilState = nullptr;
 
-		_depthStencilDesc.DepthEnable = depthTest != CompareOp::Disabled;
 		_depthStencilDesc.DepthFunc = depthFunc;
 		_depthStencilDesc.DepthWriteMask = writeMask;
 	}
@@ -118,17 +126,61 @@ namespace flaw {
 		_rasterizerDesc.FillMode = dxFillMode;
 	}
 
+	void DXGraphicsPipeline::EnableStencilTest(bool enable) {
+		if (_depthStencilDesc.StencilEnable == enable) {
+			return; // No change needed
+		}
+
+		_depthStencilState = nullptr;
+
+		_depthStencilDesc.StencilEnable = enable;
+	}
+
+	void DXGraphicsPipeline::SetStencilTest(const StencilOperator& frontFace, const StencilOperator& backFace) {
+		if (!_depthStencilDesc.StencilEnable) {
+			LOG_ERROR("Stencil test is not enabled");
+			return;
+		}
+
+		if (frontFace.mask != backFace.mask) {
+			LOG_ERROR("DX11 does not support different masks for front and back faces");
+			return;
+		}
+
+		if (frontFace.reference != backFace.reference) {
+			LOG_ERROR("DX11 does not support different reference values for front and back faces");
+			return;
+		}
+
+		D3D11_DEPTH_STENCILOP_DESC frontOp = {};
+		frontOp.StencilFailOp = ConvertToDXStencilOp(frontFace.failOp);
+		frontOp.StencilDepthFailOp = ConvertToDXStencilOp(frontFace.depthFailOp);
+		frontOp.StencilPassOp = ConvertToDXStencilOp(frontFace.passOp);
+		frontOp.StencilFunc = ConvertToDXComparisonFunc(frontFace.compareOp);
+
+		D3D11_DEPTH_STENCILOP_DESC backOp = {};
+		backOp.StencilFailOp = ConvertToDXStencilOp(backFace.failOp);
+		backOp.StencilDepthFailOp = ConvertToDXStencilOp(backFace.depthFailOp);
+		backOp.StencilPassOp = ConvertToDXStencilOp(backFace.passOp);
+		backOp.StencilFunc = ConvertToDXComparisonFunc(backFace.compareOp);
+
+		_depthStencilState = nullptr;
+
+		_depthStencilDesc.StencilReadMask = frontFace.mask;
+		_depthStencilDesc.StencilWriteMask = frontFace.mask;
+		_depthStencilDesc.FrontFace = frontOp;
+		_depthStencilDesc.BackFace = backOp;
+		_stencilRef = frontFace.reference;
+	}
+
 	void DXGraphicsPipeline::SetShaderResourcesLayouts(const std::vector<Ref<ShaderResourcesLayout>>& shaderResourceLayouts) {
-		if (shaderResourceLayouts.size() > 1) {
-			LOG_WARN("DX11 does not support multiple shader resource layouts this job use the first one");
-		}
+		_shaderResourcesLayouts.clear();
+		for (const auto& layout : shaderResourceLayouts) {
+			auto dxLayout = std::static_pointer_cast<DXShaderResourcesLayout>(layout);
+			FASSERT(dxLayout, "Invalid shader resource layout");
 
-		if (shaderResourceLayouts[0] == _shaderResourcesLayout) {
-			return; // Already set
+			_shaderResourcesLayouts.push_back(dxLayout);
 		}
-
-		_shaderResourcesLayout = std::static_pointer_cast<DXShaderResourcesLayout>(shaderResourceLayouts[0]);
-		FASSERT(_shaderResourcesLayout, "Invalid shader resource layout");
 	}
 
 	void DXGraphicsPipeline::SetShader(const Ref<GraphicsShader>& shader) {
@@ -142,13 +194,53 @@ namespace flaw {
 		_dxInputLayout = nullptr;
 	}
 
-	void DXGraphicsPipeline::SetRenderPassLayout(const Ref<GraphicsRenderPassLayout>& renderPassLayout) {
+	void DXGraphicsPipeline::SetRenderPassLayout(const Ref<RenderPassLayout>& renderPassLayout) {
 		if (_renderPassLayout == renderPassLayout) {
 			return;
 		}
 
 		_renderPassLayout = std::static_pointer_cast<DXRenderPassLayout>(renderPassLayout);
 		FASSERT(_renderPassLayout, "Invalid render pass layout");
+
+		_blendModes.resize(_renderPassLayout->GetColorAttachmentCount());
+		for (uint32_t i = 0; i < _blendModes.size(); ++i) {
+			_blendModes[i] = BlendMode::Default;
+		}
+		_alphaToCoverage = false;
+
+		_blendState = nullptr;
+	}
+
+	void DXGraphicsPipeline::SetBlendMode(uint32_t attachmentIndex, BlendMode blendMode) {
+		if (!_renderPassLayout) {
+			LOG_ERROR("Render pass layout is not set");
+			return;
+		}
+
+		if (attachmentIndex >= _renderPassLayout->GetColorAttachmentCount()) {
+			LOG_ERROR("Attachment index out of bounds for blend mode setting");
+			return;
+		}
+
+		auto& mode = _blendModes[attachmentIndex];
+
+		if (mode == blendMode) {
+			return;
+		}
+
+		mode = blendMode;
+
+		_blendState = nullptr;
+	}
+
+	void DXGraphicsPipeline::SetAlphaToCoverage(bool enable) {
+		if (_alphaToCoverage == enable) {
+			return;
+		}
+
+		_alphaToCoverage = enable;
+
+		_blendState = nullptr;
 	}
 
 	void DXGraphicsPipeline::SetBehaviorStates(uint32_t flags) {
@@ -214,8 +306,39 @@ namespace flaw {
 		return _rasterizerState;
 	}
 
-	ComPtr<ID3D11BlendState> DXGraphicsPipeline::GetDXBlendState() const {
-		return _renderPassLayout->GetDXBlendState();
+	ComPtr<ID3D11BlendState> DXGraphicsPipeline::GetDXBlendState() {
+		if (_blendState) {
+			return _blendState;
+		}
+
+		D3D11_BLEND_DESC blendDesc = {};
+		blendDesc.IndependentBlendEnable = TRUE;
+		blendDesc.AlphaToCoverageEnable = _alphaToCoverage;
+
+		for (int32_t i = 0; i < _blendModes.size(); ++i) {
+			const auto& blendMode = _blendModes[i];
+			auto& renderTargetDesc = blendDesc.RenderTarget[i];
+
+			if (blendMode == BlendMode::Disabled) {
+				renderTargetDesc.BlendEnable = FALSE;
+				renderTargetDesc.RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+				continue;
+			}
+
+			renderTargetDesc.BlendEnable = TRUE;
+			ConvertDXBlend(blendMode, renderTargetDesc.SrcBlend, renderTargetDesc.DestBlend);
+			renderTargetDesc.BlendOp = D3D11_BLEND_OP_ADD;
+			renderTargetDesc.SrcBlendAlpha = D3D11_BLEND_ONE;
+			renderTargetDesc.DestBlendAlpha = D3D11_BLEND_ZERO;
+			renderTargetDesc.BlendOpAlpha = D3D11_BLEND_OP_ADD;
+			renderTargetDesc.RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+		}
+
+		if (FAILED(_context.Device()->CreateBlendState(&blendDesc, &_blendState))) {
+			LOG_ERROR("Failed to create blend state.");
+		}
+
+		return _blendState;
 	}
 }
 

@@ -54,6 +54,11 @@ struct TexturedVertex {
     glm::vec3 normal;
 };
 
+struct InstanceData {
+    glm::mat4 model_matrix;
+	glm::mat4 inv_model_matrix;
+};
+
 struct DirectionalLight {
     vec3 direction;
     float padding;
@@ -116,6 +121,8 @@ struct Object {
     glm::vec3 position;
     glm::vec3 rotation;
     glm::vec3 scale;
+
+	Ref<Mesh> mesh;
 };
 
 extern Ref<PlatformContext> g_context;
@@ -132,6 +139,6 @@ void World_Init();
 void World_Render();
 void World_Cleanup();
 
-Object& AddObject();
+Object& AddObject(const char* meshKey);
 
 std::vector<uint8_t> GenerateTextureCubeData(Image& left, Image& right, Image& top, Image& bottom, Image& front, Image& back);

@@ -181,8 +181,8 @@ namespace flaw {
 		throw std::runtime_error("Unknown primitive topology");
 	}
 
-	inline D3D11_COMPARISON_FUNC ConvertToDXComparisonFunc(CompareOp depthTest) {
-		switch (depthTest)
+	inline D3D11_COMPARISON_FUNC ConvertToDXComparisonFunc(CompareOp compareOp) {
+		switch (compareOp)
 		{
 		case CompareOp::Less:
 			return D3D11_COMPARISON_LESS;
@@ -207,6 +207,29 @@ namespace flaw {
 
 	inline D3D11_DEPTH_WRITE_MASK ConvertToDXDepthWriteMask(bool depthWrite) {
 		return depthWrite ? D3D11_DEPTH_WRITE_MASK_ALL : D3D11_DEPTH_WRITE_MASK_ZERO;
+	}
+
+	inline D3D11_STENCIL_OP ConvertToDXStencilOp(StencilOp stencilOp) {
+		switch (stencilOp)
+		{
+		case StencilOp::Keep:
+			return D3D11_STENCIL_OP_KEEP;
+		case StencilOp::Zero:
+			return D3D11_STENCIL_OP_ZERO;
+		case StencilOp::Replace:
+			return D3D11_STENCIL_OP_REPLACE;
+		case StencilOp::IncrementClamp:
+			return D3D11_STENCIL_OP_INCR_SAT;
+		case StencilOp::IncrementWrap:
+			return D3D11_STENCIL_OP_INCR;
+		case StencilOp::DecrementClamp:
+			return D3D11_STENCIL_OP_DECR_SAT;
+		case StencilOp::DecrementWrap:
+			return D3D11_STENCIL_OP_DECR;
+		case StencilOp::Invert:
+			return D3D11_STENCIL_OP_INVERT;
+		}
+		return D3D11_STENCIL_OP_KEEP;
 	}
 
 	inline D3D11_FILL_MODE ConverToDXFillMode(FillMode fillMode) {
