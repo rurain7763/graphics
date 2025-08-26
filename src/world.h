@@ -9,8 +9,8 @@
 
 using namespace flaw;
 
-#define USE_VULKAN 1
-#define USE_DX11 0
+#define USE_VULKAN 0
+#define USE_DX11 1
 
 #define MAX_DIRECTIONAL_LIGHTS 1
 #define MAX_POINT_LIGHTS 8
@@ -52,6 +52,11 @@ struct TexturedVertex {
     glm::vec4 color;
     glm::vec2 texCoord;
     glm::vec3 normal;
+};
+
+struct ObjectConstants {
+	mat4 model_matrix;
+	mat4 inv_model_matrix;
 };
 
 struct InstanceData {
@@ -122,6 +127,7 @@ struct Object {
     glm::vec3 rotation;
     glm::vec3 scale;
 
+	bool drawOutline;
 	Ref<Mesh> mesh;
 };
 
@@ -135,7 +141,11 @@ extern std::unordered_map<std::string, Ref<TextureCube>> g_textureCubes;
 extern std::unordered_map<std::string, Ref<Mesh>> g_meshes;
 extern std::unordered_map<std::string, Ref<Material>> g_materials;
 
+extern Ref<VertexInputLayout> g_texturedVertexInputLayout;
+extern Ref<ConstantBuffer> g_cameraCB;
+
 void World_Init();
+void World_Update();
 void World_Render();
 void World_Cleanup();
 

@@ -17,7 +17,9 @@ namespace flaw {
 		~DXRenderPassLayout() = default;
 
 		uint32_t GetColorAttachmentCount() const override;
+		Attachment GetColorAttachment(uint32_t index) const override;
 		bool HasDepthStencilAttachment() const override;
+		Attachment GetDepthStencilAttachment() const override;
 		bool HasResolveAttachment() const override;
 
 		uint32_t GetSampleCount() const override;

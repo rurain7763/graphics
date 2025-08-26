@@ -59,9 +59,10 @@ namespace flaw {
         EnableDepthTest(true);
         SetDepthTest(CompareOp::Less, true);
         EnableStencilTest(false);
-        SetCullMode(CullMode::Front);
+        SetCullMode(CullMode::Back);
         SetFillMode(FillMode::Solid);
         SetRenderPassLayout(_context.GetMainRenderPassLayout());
+		EnableBlendMode(0, true);
 		SetBlendMode(0, BlendMode::Default);
 		SetAlphaToCoverage(false);
     }
@@ -178,7 +179,7 @@ namespace flaw {
         _depthStencilInfo.stencilTestEnable = enable;
     }
 
-    void VkGraphicsPipeline::SetStencilTest(const StencilOperator& frontFace, const StencilOperator& backFace) {
+    void VkGraphicsPipeline::SetStencilTest(const StencilOperation& frontFace, const StencilOperation& backFace) {
         if (!_depthStencilInfo.stencilTestEnable) {
 			LOG_ERROR("Stencil test is not enabled. Cannot set stencil operations.");
 			return;
@@ -192,7 +193,8 @@ namespace flaw {
         frontStencilOpState.depthFailOp = ConvertToVkStencilOp(frontFace.depthFailOp);
         frontStencilOpState.compareOp = ConvertToVkCompareOp(frontFace.compareOp);
         frontStencilOpState.reference = frontFace.reference;
-        frontStencilOpState.writeMask = frontFace.mask;
+        frontStencilOpState.writeMask = frontFace.writeMask;
+		frontStencilOpState.compareMask = frontFace.compareMask;
 
         vk::StencilOpState backStencilOpState;
         backStencilOpState.failOp = ConvertToVkStencilOp(backFace.failOp);
@@ -200,7 +202,8 @@ namespace flaw {
         backStencilOpState.depthFailOp = ConvertToVkStencilOp(backFace.depthFailOp);
         backStencilOpState.compareOp = ConvertToVkCompareOp(backFace.compareOp);
         backStencilOpState.reference = backFace.reference;
-        backStencilOpState.writeMask = backFace.mask;
+        backStencilOpState.writeMask = backFace.writeMask;
+		backStencilOpState.compareMask = backFace.compareMask;
 
         _depthStencilInfo.front = frontStencilOpState;
         _depthStencilInfo.back = backStencilOpState;
@@ -325,6 +328,28 @@ namespace flaw {
         _multisampleInfo.rasterizationSamples = ConvertToVkSampleCount(vkRenderPassLayout->GetSampleCount());
     }
 
+	void VkGraphicsPipeline::EnableBlendMode(uint32_t attachmentIndex, bool enable) {
+		if (attachmentIndex >= _colorBlendAttachments.size()) {
+			LOG_ERROR("Attachment index out of bounds for blend mode enabling");
+			return;
+		}
+
+		auto& blendAttachment = _colorBlendAttachments[attachmentIndex];
+		if (blendAttachment.blendEnable == enable) {
+			return; // No change needed
+		}
+
+		_needRecreatePipeline = true;
+
+		blendAttachment.blendEnable = enable;
+        if (enable) {
+		    blendAttachment.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
+        }
+        else {
+            blendAttachment.colorWriteMask = {};
+        }
+	}
+
 	void VkGraphicsPipeline::SetBlendMode(uint32_t attachmentIndex, BlendMode blendMode) {
 		if (attachmentIndex >= _colorBlendAttachments.size()) {
 			LOG_ERROR("Attachment index out of bounds for blend mode setting");
@@ -333,10 +358,13 @@ namespace flaw {
 
 		auto& blendAttachment = _colorBlendAttachments[attachmentIndex];
 
+		if (!blendAttachment.blendEnable) {
+			LOG_ERROR("Blend mode cannot be set when blending is disabled for attachment index %u", attachmentIndex);
+			return;
+		}
+
 		_needRecreatePipeline = true;
 
-        blendAttachment.blendEnable = blendMode != BlendMode::Disabled;
-        blendAttachment.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
         switch (blendMode) {
         case BlendMode::Default:
             blendAttachment.srcColorBlendFactor = vk::BlendFactor::eOne;

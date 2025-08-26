@@ -152,7 +152,6 @@ namespace flaw {
         _currentPipeline = vkPipeline->GetNativeVkGraphicsPipeline();
         _currentPipelineLayout = vkPipeline->GetVkPipelineLayout();
         _currentPushConstantRanges = vkPipeline->GetVkPushConstantRanges();
-        _currentDescriptorSets.resize(vkPipeline->GetVkDescriptorSetLayouts().size());
 
         auto& commandBuffer = _graphicsFrameCommandBuffers[_currentCommandBufferIndex];
         commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, _currentPipeline);
@@ -271,27 +270,15 @@ namespace flaw {
 
         std::vector<vk::ClearValue> clearValues;
         for(uint32_t i = 0; i < renderPass->GetColorAttachmentOpCount(); ++i) {
-            if (renderPass->GetColorAttachmentOp(i).loadOp == AttachmentLoadOp::Clear) {
-                clearValues.push_back(vk::ClearColorValue(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f}));
-            } else {
-                clearValues.push_back(vk::ClearColorValue());
-            }
+            clearValues.push_back(vk::ClearColorValue(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f}));
         }
 
         if (renderPass->HasDepthStencilAttachmentOp()) {
-            if (renderPass->GetDepthStencilAttachmentOp().loadOp == AttachmentLoadOp::Clear) {
-                clearValues.push_back(vk::ClearDepthStencilValue(1.0f, 0));
-            } else {
-                clearValues.push_back(vk::ClearDepthStencilValue());
-            }
+			clearValues.push_back(vk::ClearDepthStencilValue{ 1.0f, 0 });
         }
 
         if (renderPass->HasResolveAttachmentOp()) {
-            if (renderPass->GetResolveAttachmentOp().loadOp == AttachmentLoadOp::Clear) {
-                clearValues.push_back(vk::ClearColorValue(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f}));
-            } else {
-                clearValues.push_back(vk::ClearColorValue());
-            }
+			clearValues.push_back(vk::ClearColorValue(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f}));
         }
 
         vk::RenderPassBeginInfo renderPassInfo;

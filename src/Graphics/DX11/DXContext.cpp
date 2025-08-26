@@ -75,7 +75,6 @@ namespace flaw {
 
 	int32_t DXContext::CreateMainRenderPassLayout() {
 		RenderPassLayout::Descriptor renderPassLayoutDesc;
-		renderPassLayoutDesc.type = PipelineType::Graphics;
 		renderPassLayoutDesc.sampleCount = 1; // TODO: MSAA 지원 시 변경
 		renderPassLayoutDesc.colorAttachments = { { PixelFormat::RGBA8 } };
 		renderPassLayoutDesc.depthStencilAttachment = { PixelFormat::D24S8_UINT };
@@ -97,11 +96,12 @@ namespace flaw {
 		depthStencilAttachmentOp.finalLayout = TextureLayout::DepthStencil;
 		depthStencilAttachmentOp.loadOp = AttachmentLoadOp::Clear;
 		depthStencilAttachmentOp.storeOp = AttachmentStoreOp::Store;
+		depthStencilAttachmentOp.stencilLoadOp = AttachmentLoadOp::Clear;
+		depthStencilAttachmentOp.stencilStoreOp = AttachmentStoreOp::Store;
 
 		RenderPass::Descriptor mainRenderPassDesc;
 		mainRenderPassDesc.layout = _mainRenderPassLayout;
-		mainRenderPassDesc.colorAttachmentOps.resize(1);
-		mainRenderPassDesc.colorAttachmentOps[0] = colorAttachmentOp;
+		mainRenderPassDesc.colorAttachmentOps = { colorAttachmentOp };
 		mainRenderPassDesc.depthStencilAttachmentOp = depthStencilAttachmentOp;
 
 		_mainClearRenderPass = CreateRef<DXRenderPass>(*this, mainRenderPassDesc);
@@ -109,6 +109,10 @@ namespace flaw {
 		colorAttachmentOp.loadOp = AttachmentLoadOp::Load;
 		
 		depthStencilAttachmentOp.loadOp = AttachmentLoadOp::Load;
+		depthStencilAttachmentOp.stencilLoadOp = AttachmentLoadOp::Load;
+
+		mainRenderPassDesc.colorAttachmentOps = { colorAttachmentOp };
+		mainRenderPassDesc.depthStencilAttachmentOp = depthStencilAttachmentOp;
 
 		_mainLoadRenderPass = CreateRef<DXRenderPass>(*this, mainRenderPassDesc);
 

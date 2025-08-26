@@ -33,12 +33,13 @@ namespace flaw {
 		void SetFillMode(FillMode fillMode) override;
 
 		void EnableStencilTest(bool enable) override;
-		void SetStencilTest(const StencilOperator& frontFace, const StencilOperator& backFace) override;
+		void SetStencilTest(const StencilOperation& frontFace, const StencilOperation& backFace) override;
 
 		void SetShaderResourcesLayouts(const std::vector<Ref<ShaderResourcesLayout>>& shaderResourceLayouts) override;
 		void SetShader(const Ref<GraphicsShader>& shader) override;
 
 		void SetRenderPassLayout(const Ref<RenderPassLayout>& renderPassLayout) override;
+		void EnableBlendMode(uint32_t attachmentIndex, bool enable) override;
 		void SetBlendMode(uint32_t attachmentIndex, BlendMode blendMode) override;
 		void SetAlphaToCoverage(bool enable) override;
 
@@ -80,7 +81,7 @@ namespace flaw {
 
 		Ref<DXRenderPassLayout> _renderPassLayout;
 
-		std::vector<BlendMode> _blendModes;
+		std::vector<std::optional<BlendMode>> _blendModes;
 		bool _alphaToCoverage = false;
 		ComPtr<ID3D11BlendState> _blendState;
 

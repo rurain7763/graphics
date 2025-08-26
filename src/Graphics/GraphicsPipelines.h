@@ -9,13 +9,14 @@
 namespace flaw {
 	class GraphicsPipeline {
 	public:
-		struct StencilOperator {
+		struct StencilOperation {
 			StencilOp failOp = StencilOp::Keep; // the action performed on samples that fail the stencil test.
 			StencilOp passOp = StencilOp::Keep; // the action performed on samples that pass both the depth and stencil tests.
 			StencilOp depthFailOp = StencilOp::Keep; // the action performed on samples that pass the stencil test and fail the depth test.
 			CompareOp compareOp = CompareOp::Always; // the comparison operation for the stencil test.
 			uint32_t reference = 0;
-			uint32_t mask = 0xFF;
+			uint32_t writeMask = 0xFF;
+			uint32_t compareMask = 0xFF;
 		};
 
 		enum Behavior {
@@ -39,12 +40,13 @@ namespace flaw {
 		virtual void SetFillMode(FillMode fillMode) = 0;
 
 		virtual void EnableStencilTest(bool enable) = 0;
-		virtual void SetStencilTest(const StencilOperator& frontFace, const StencilOperator& backFace) = 0;
+		virtual void SetStencilTest(const StencilOperation& frontFace, const StencilOperation& backFace) = 0;
 
 		virtual void SetShaderResourcesLayouts(const std::vector<Ref<ShaderResourcesLayout>>& shaderResourceLayouts) = 0;
 		virtual void SetShader(const Ref<GraphicsShader>& shader) = 0;
 
 		virtual void SetRenderPassLayout(const Ref<RenderPassLayout>& renderPassLayout) = 0;
+		virtual void EnableBlendMode(uint32_t attachmentIndex, bool enable) = 0;
 		virtual void SetBlendMode(uint32_t attachmentIndex, BlendMode blendMode) = 0;
 		virtual void SetAlphaToCoverage(bool enable) = 0;
 

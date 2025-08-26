@@ -255,8 +255,6 @@ namespace flaw {
 
     bool VkSwapchain::CreateRenderPasses() {
         RenderPassLayout::Descriptor renderPassLayoutDesc;
-        renderPassLayoutDesc.type = PipelineType::Graphics;
-        
         if (!_context.GetMSAAState()) {
             renderPassLayoutDesc.sampleCount = 1;
             renderPassLayoutDesc.colorAttachments = { { PixelFormat::BGRA8 } };

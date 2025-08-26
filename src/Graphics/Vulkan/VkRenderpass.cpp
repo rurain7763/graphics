@@ -9,7 +9,7 @@
 namespace flaw {
     VkRenderPassLayout::VkRenderPassLayout(VkContext &context, const Descriptor &descriptor)
         : _context(context)
-        , _pipelineBindPoint(ConvertToVkPipelineBindPoint(descriptor.type))
+		, _pipelineBindPoint(vk::PipelineBindPoint::eGraphics)
         , _sampleCount(descriptor.sampleCount)
     {
         for (uint32_t i = 0; i < descriptor.colorAttachments.size(); ++i) {
@@ -78,8 +78,24 @@ namespace flaw {
         return _colorAttachmentRefs.size();
     }
 
+	VkRenderPassLayout::Attachment VkRenderPassLayout::GetColorAttachment(uint32_t index) const {
+		if (index >= _colorAttachmentRefs.size()) {
+			throw std::runtime_error("Color attachment index out of bounds.");
+		}
+
+        return { ConvertToPixelFormat(_vkAttachments[index].format) };
+	}
+
     bool VkRenderPassLayout::HasDepthStencilAttachment() const {
         return _depthAttachmentRef.has_value();
+    }
+
+    VkRenderPassLayout::Attachment VkRenderPassLayout::GetDepthStencilAttachment() const {
+        if (!HasDepthStencilAttachment()) {
+			throw std::runtime_error("No depth-stencil attachment in this render pass layout.");
+        }
+
+		return { ConvertToPixelFormat(_vkAttachments[_depthAttachmentRef->attachment].format) };
     }
 
     bool VkRenderPassLayout::HasResolveAttachment() const {

@@ -16,6 +16,37 @@ Ref<PlatformContext> g_context;
 EventDispatcher g_eventDispatcher;
 Ref<GraphicsContext> g_graphicsContext;
 Ref<EngineCamera> g_camera;
+
+std::vector<Object> g_objects;
+std::unordered_map<std::string, Ref<Texture2D>> g_textures;
+std::unordered_map<std::string, Ref<TextureCube>> g_textureCubes;
+std::unordered_map<std::string, Ref<Mesh>> g_meshes;
+std::unordered_map<std::string, Ref<Material>> g_materials;
+
+Ref<VertexInputLayout> g_texturedVertexInputLayout;
+
+#if USE_VULKAN
+const uint32_t camersConstantsCBBinding = 0;
+const uint32_t lightConstantsCBBinding = 1;
+const uint32_t materialConstantsCBBinding = 3;
+const uint32_t instanceDataSBBinding = 2;
+const uint32_t directionalLightSBBinding = 4;
+const uint32_t pointLightSBBinding = 5;
+const uint32_t spotLightSBBinding = 6;
+const uint32_t diffuseTextureBinding = 0;
+const uint32_t specularTextureBinding = 1;
+#elif USE_DX11
+const uint32_t camersConstantsCBBinding = 0;
+const uint32_t lightConstantsCBBinding = 1;
+const uint32_t materialConstantsCBBinding = 2;
+const uint32_t instanceDataSBBinding = 0;
+const uint32_t directionalLightSBBinding = 1;
+const uint32_t pointLightSBBinding = 2;
+const uint32_t spotLightSBBinding = 3;
+const uint32_t diffuseTextureBinding = 4;
+const uint32_t specularTextureBinding = 5;
+#endif
+
 Ref<ConstantBuffer> g_cameraCB;
 Ref<ConstantBuffer> g_lightCB;
 Ref<StructuredBuffer> g_directionalLightSB;
@@ -45,18 +76,12 @@ uint32_t g_objMaterialCBUsed;
 std::vector<std::vector<Ref<StructuredBuffer>>> g_objInstanceSBsPerFrame;
 uint32_t g_objInstanceSBUsed;
 
-std::vector<Object> g_objects;
-std::unordered_map<std::string, Ref<Texture2D>> g_textures;
-std::unordered_map<std::string, Ref<TextureCube>> g_textureCubes;
-std::unordered_map<std::string, Ref<Mesh>> g_meshes;
-std::unordered_map<std::string, Ref<Material>> g_materials;
-
 CameraConstants g_cameraConstants;
 LightConstants g_lightConstants;
 
 void InitAssets();
 
-void InitBaseBuffers();
+void InitBaseResources();
 
 void InitSkyboxShaderResources();
 void InitSkyboxGraphicsPipeline();
@@ -97,7 +122,7 @@ void World_Init() {
     g_cameraConstants.projection_matrix = Perspective(glm::radians(45.0f), static_cast<float>(windowWidth) / windowHeight, 0.1f, 100.0f);
 
     InitAssets();
-    InitBaseBuffers();
+    InitBaseResources();
     InitSkyboxShaderResources();
     InitSkyboxGraphicsPipeline();
     InitObjectBuffers();
@@ -337,7 +362,19 @@ void InitAssets() {
     g_textureCubes["skybox"] = g_graphicsContext->CreateTextureCube(skyboxDesc);
 }
 
-void InitBaseBuffers() {
+void InitBaseResources() {
+    VertexInputLayout::Descriptor vertexInputLayoutDesc;
+    vertexInputLayoutDesc.binding = 0;
+    vertexInputLayoutDesc.vertexInputRate = VertexInputRate::Vertex;
+    vertexInputLayoutDesc.inputElements = {
+        { "POSITION", ElementType::Float, 3 },
+        { "COLOR", ElementType::Float, 4 },
+        { "TEXCOORD", ElementType::Float, 2 },
+        { "NORMAL", ElementType::Float, 3 }
+    };
+
+    g_texturedVertexInputLayout = g_graphicsContext->CreateVertexInputLayout(vertexInputLayoutDesc);
+
     ConstantBuffer::Descriptor cameraConstantsDesc;
 	cameraConstantsDesc.memProperty = MemoryProperty::Dynamic;
 	cameraConstantsDesc.bufferSize = sizeof(CameraConstants);
@@ -453,46 +490,13 @@ void InitObjectBuffers() {
 }
 
 void InitObjectShaderResources() {
-#if USE_VULKAN
     ShaderResourcesLayout::Descriptor shaderResourceLayoutDesc;
     shaderResourceLayoutDesc.bindings = {
-        { 0, ResourceType::ConstantBuffer, ShaderStage::Vertex | ShaderStage::Pixel, 1 },
-        { 1, ResourceType::ConstantBuffer, ShaderStage::Pixel, 1 },
-        { 4, ResourceType::StructuredBuffer, ShaderStage::Pixel, 1 },
-        { 5, ResourceType::StructuredBuffer, ShaderStage::Pixel, 1 },
-        { 6, ResourceType::StructuredBuffer, ShaderStage::Pixel, 1 },
-    };
-
-    g_objShaderResourcesLayout = g_graphicsContext->CreateShaderResourcesLayout(shaderResourceLayoutDesc);
-
-    ShaderResources::Descriptor shaderResourcesDesc;
-    shaderResourcesDesc.layout = g_objShaderResourcesLayout;
-
-    g_objShaderResources = g_graphicsContext->CreateShaderResources(shaderResourcesDesc);
-    g_objShaderResources->BindConstantBuffer(g_cameraCB, 0);
-    g_objShaderResources->BindConstantBuffer(g_lightCB, 1);
-	g_objShaderResources->BindStructuredBuffer(g_directionalLightSB, 4);
-	g_objShaderResources->BindStructuredBuffer(g_pointLightSB, 5);
-	g_objShaderResources->BindStructuredBuffer(g_spotLightSB, 6);
-
-    shaderResourceLayoutDesc.bindings = {
-        { 0, ResourceType::Texture2D, ShaderStage::Pixel, 1 },
-		{ 1, ResourceType::Texture2D, ShaderStage::Pixel, 1 },
-        { 2, ResourceType::StructuredBuffer, ShaderStage::Vertex, 1 },
-        { 3, ResourceType::ConstantBuffer, ShaderStage::Pixel, 1 },
-    };
-
-    g_objDynamicShaderResourcesLayout = g_graphicsContext->CreateShaderResourcesLayout(shaderResourceLayoutDesc);
-#elif USE_DX11
-    ShaderResourcesLayout::Descriptor shaderResourceLayoutDesc;
-    shaderResourceLayoutDesc.bindings = {
-        { 0, ResourceType::ConstantBuffer, ShaderStage::Vertex, 1 },
-        { 1, ResourceType::ConstantBuffer, ShaderStage::Pixel, 1 },
-		{ 2, ResourceType::ConstantBuffer, ShaderStage::Pixel, 1 },
-        { 0, ResourceType::StructuredBuffer, ShaderStage::Vertex, 1 },
-		{ 1, ResourceType::StructuredBuffer, ShaderStage::Pixel, 1 },
-		{ 2, ResourceType::StructuredBuffer, ShaderStage::Pixel, 1 },
-		{ 3, ResourceType::StructuredBuffer, ShaderStage::Pixel, 1 },
+        { camersConstantsCBBinding, ResourceType::ConstantBuffer, ShaderStage::Vertex | ShaderStage::Pixel, 1 },
+        { lightConstantsCBBinding, ResourceType::ConstantBuffer, ShaderStage::Pixel, 1 },
+		{ directionalLightSBBinding, ResourceType::StructuredBuffer, ShaderStage::Pixel, 1 },
+		{ pointLightSBBinding, ResourceType::StructuredBuffer, ShaderStage::Pixel, 1 },
+		{ spotLightSBBinding, ResourceType::StructuredBuffer, ShaderStage::Pixel, 1 },
     };
 
     g_objShaderResourcesLayout = g_graphicsContext->CreateShaderResourcesLayout(shaderResourceLayoutDesc);
@@ -501,21 +505,20 @@ void InitObjectShaderResources() {
 	shaderResourcesDesc.layout = g_objShaderResourcesLayout;
 
 	g_objShaderResources = g_graphicsContext->CreateShaderResources(shaderResourcesDesc);
-    g_objShaderResources->BindConstantBuffer(g_cameraCB, 0);
-    g_objShaderResources->BindConstantBuffer(g_lightCB, 1);
-	g_objShaderResources->BindConstantBuffer(g_materialCB, 2);
-    g_objShaderResources->BindStructuredBuffer(g_instanceDataSB, 0);
-	g_objShaderResources->BindStructuredBuffer(g_directionalLightSB, 1);
-	g_objShaderResources->BindStructuredBuffer(g_pointLightSB, 2);
-	g_objShaderResources->BindStructuredBuffer(g_spotLightSB, 3);
+    g_objShaderResources->BindConstantBuffer(g_cameraCB, camersConstantsCBBinding);
+    g_objShaderResources->BindConstantBuffer(g_lightCB, lightConstantsCBBinding);
+	g_objShaderResources->BindStructuredBuffer(g_directionalLightSB, directionalLightSBBinding);
+	g_objShaderResources->BindStructuredBuffer(g_pointLightSB, pointLightSBBinding);
+	g_objShaderResources->BindStructuredBuffer(g_spotLightSB, spotLightSBBinding);
 
 	shaderResourceLayoutDesc.bindings = {
-        { 4, ResourceType::Texture2D, ShaderStage::Pixel, 1 },
-        { 5, ResourceType::Texture2D, ShaderStage::Pixel, 1 },
+        { diffuseTextureBinding, ResourceType::Texture2D, ShaderStage::Pixel, 1 },
+        { specularTextureBinding, ResourceType::Texture2D, ShaderStage::Pixel, 1 },
+        { materialConstantsCBBinding, ResourceType::ConstantBuffer, ShaderStage::Pixel, 1 },
+        { instanceDataSBBinding, ResourceType::StructuredBuffer, ShaderStage::Vertex, 1 },
 	};
 
-	g_objTexShaderResourcesLayout = g_graphicsContext->CreateShaderResourcesLayout(shaderResourceLayoutDesc);
-#endif
+    g_objDynamicShaderResourcesLayout = g_graphicsContext->CreateShaderResourcesLayout(shaderResourceLayoutDesc);
 
     g_objDynamicShaderResourcesPerFrame.resize(g_graphicsContext->GetMainFramebuffersCount());
 }
@@ -536,27 +539,14 @@ void InitObjectGraphicsPipeline() {
 
     auto graphicsShader = g_graphicsContext->CreateGraphicsShader(shaderDesc);
 
-    VertexInputLayout::Descriptor vertexInputLayoutDesc;
-    vertexInputLayoutDesc.binding = 0;
-    vertexInputLayoutDesc.vertexInputRate = VertexInputRate::Vertex;
-    vertexInputLayoutDesc.inputElements = {
-        { "POSITION", ElementType::Float, 3 },
-        { "COLOR", ElementType::Float, 4 },
-        { "TEXCOORD", ElementType::Float, 2 },
-        { "NORMAL", ElementType::Float, 3 }
-    };
-
-    auto vertexInputLayout = g_graphicsContext->CreateVertexInputLayout(vertexInputLayoutDesc);
-
     g_objPipeline = g_graphicsContext->CreateGraphicsPipeline();
 	g_objPipeline->SetShaderResourcesLayouts({ g_objShaderResourcesLayout, g_objDynamicShaderResourcesLayout });
     g_objPipeline->SetShader(graphicsShader);
     g_objPipeline->SetPrimitiveTopology(PrimitiveTopology::TriangleList);
-    g_objPipeline->SetVertexInputLayouts({ vertexInputLayout });
-    g_objPipeline->SetDepthTest(CompareOp::Less, true);
-    g_objPipeline->SetCullMode(CullMode::Back);
-    g_objPipeline->SetFillMode(FillMode::Solid);
+    g_objPipeline->SetVertexInputLayouts({ g_texturedVertexInputLayout });
     g_objPipeline->SetBehaviorStates(GraphicsPipeline::Behavior::AutoResizeViewport | GraphicsPipeline::Behavior::AutoResizeScissor);
+    g_objPipeline->EnableBlendMode(0, true);
+    g_objPipeline->SetBlendMode(0, BlendMode::Alpha);
 }
 
 Ref<ShaderResources> GetObjDynamicShaderResources(uint32_t frameIndex) {
@@ -600,12 +590,10 @@ Ref<StructuredBuffer> GetObjectInstanceSB(uint32_t frameIndex) {
 	return g_objInstanceSBsPerFrame[frameIndex][g_objInstanceSBUsed++];
 }
 
-void World_Render() {
-    auto& commandQueue = g_graphicsContext->GetCommandQueue();
-
+void World_Update() {
     g_objDynamicShaderResourcesUsed = 0;
-	g_objMaterialCBUsed = 0;
-	g_objInstanceSBUsed = 0;
+    g_objMaterialCBUsed = 0;
+    g_objInstanceSBUsed = 0;
 
     int32_t width, height;
     g_context->GetFrameBufferSize(width, height);
@@ -619,12 +607,12 @@ void World_Render() {
 
     std::vector<PointLight> pointLights(2);
     for (int32_t i = 0; i < pointLights.size(); ++i) {
-		if (i == 0) {
-			pointLights[i].position = vec3(cos(Time::GetTime()), sin(Time::GetTime()), 0) * 2.0f;
-		}
-		else if (i == 1) {
-			pointLights[i].position = vec3(cos(Time::GetTime()), 0, sin(Time::GetTime())) * 2.0f;
-		}
+        if (i == 0) {
+            pointLights[i].position = vec3(cos(Time::GetTime()), sin(Time::GetTime()), 0) * 2.0f;
+        }
+        else if (i == 1) {
+            pointLights[i].position = vec3(cos(Time::GetTime()), 0, sin(Time::GetTime())) * 2.0f;
+        }
         pointLights[i].constant_attenuation = 1.0f;
         pointLights[i].linear_attenuation = 0.09f;
         pointLights[i].quadratic_attenuation = 0.032f;
@@ -637,7 +625,7 @@ void World_Render() {
     for (int32_t i = 0; i < spotLights.size(); ++i) {
         if (i == 0) {
             spotLights[i].position = vec3(0, 0, -5);
-			spotLights[i].direction = normalize(vec3(sin(Time::GetTime()), 0, abs(cos(Time::GetTime()))));
+            spotLights[i].direction = normalize(vec3(sin(Time::GetTime()), 0, abs(cos(Time::GetTime()))));
         }
 
         spotLights[i].cutoff_inner_cosine = glm::cos(glm::radians(15.f));
@@ -659,18 +647,22 @@ void World_Render() {
     g_spotLightSB->Update(spotLights.data(), sizeof(SpotLight) * g_lightConstants.spot_light_count);
     g_lightCB->Update(&g_lightConstants, sizeof(LightConstants));
 
-	const float aspectRatio = static_cast<float>(width) / height;
-	g_camera->SetAspectRatio(aspectRatio);
+    const float aspectRatio = static_cast<float>(width) / height;
+    g_camera->SetAspectRatio(aspectRatio);
 
     const vec2 nearFar = g_camera->GetNearFarClip();
 
-	g_cameraConstants.near_plane = nearFar.x;
-	g_cameraConstants.far_plane = nearFar.y;
-	g_cameraConstants.view_matrix = g_camera->GetViewMatrix();
+    g_cameraConstants.near_plane = nearFar.x;
+    g_cameraConstants.far_plane = nearFar.y;
+    g_cameraConstants.view_matrix = g_camera->GetViewMatrix();
     g_cameraConstants.projection_matrix = g_camera->GetProjectionMatrix();
     g_cameraConstants.view_projection_matrix = g_cameraConstants.projection_matrix * g_cameraConstants.view_matrix;
     g_cameraConstants.world_position = g_camera->GetPosition();
     g_cameraCB->Update(&g_cameraConstants, sizeof(CameraConstants));
+}
+
+void World_Render() {
+    auto& commandQueue = g_graphicsContext->GetCommandQueue();
 
     commandQueue.SetPipeline(g_skyboxPipeline);
     commandQueue.ResetVertexBuffers();
@@ -705,18 +697,8 @@ void World_Render() {
             auto objDynamicResources = GetObjDynamicShaderResources(commandQueue.GetCurrentFrameIndex());
 			auto objMaterialCB = GetObjectMaterialCB(commandQueue.GetCurrentFrameIndex());
 
-#if USE_VULKAN
-            const uint32_t diffuseTextureBinding = 0;
-            const uint32_t specularTextureBinding = 1;
-			const uint32_t instanceDataBufferBinding = 2;
-			const uint32_t materialCBBinding = 3;
-#elif USE_DX11
-            const uint32_t diffuseTextureBinding = 4;
-            const uint32_t specularTextureBinding = 5;
-#endif
-
-			objDynamicResources->BindStructuredBuffer(objInstanceBuffer, instanceDataBufferBinding);
-			objDynamicResources->BindConstantBuffer(objMaterialCB, materialCBBinding);
+			objDynamicResources->BindStructuredBuffer(objInstanceBuffer, instanceDataSBBinding);
+			objDynamicResources->BindConstantBuffer(objMaterialCB, materialConstantsCBBinding);
 
             MaterialConstants materialConstants;
             materialConstants.texture_binding_flags = 0;
@@ -774,6 +756,7 @@ void World_Cleanup() {
 	g_spotLightSB.reset();
     g_lightCB.reset();
     g_cameraCB.reset();
+    g_texturedVertexInputLayout.reset();
     g_meshes.clear();
     g_textureCubes.clear();
     g_materials.clear();

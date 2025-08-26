@@ -11,22 +11,12 @@ layout(set = 0, binding = 0) uniform CameraConstants {
     float padding0;
     float padding1;
     float padding2;
-} cameraConstants;
+} camera_constants;
 
-struct InstanceData {
+layout(set = 1, binding = 0) uniform ObjectConstants {
     mat4 model_matrix;
     mat4 inv_model_matrix;
-};
-
-layout(std140, set = 1, binding = 2) readonly buffer InstanceDataBuffer {
-    InstanceData data[];
-} instance_datas;
-
-/*
-layout(push_constant) uniform PushConstants {
-    mat4 model_matrix;
-} pushConstants;
-*/
+} object_constants;
 
 layout(location = 0) in vec3 in_position;
 layout(location = 1) in vec4 in_color;
@@ -39,11 +29,11 @@ layout(location = 2) out vec2 out_tex_coord;
 layout(location = 3) out vec3 out_normal;
 
 void main() {
-    mat4 model_matrix = instance_datas.data[gl_InstanceIndex].model_matrix;
-    mat4 inv_model_matrix = instance_datas.data[gl_InstanceIndex].inv_model_matrix;
+    mat4 model_matrix = object_constants.model_matrix;
+    mat4 inv_model_matrix = object_constants.inv_model_matrix;
     vec4 world_position = model_matrix * vec4(in_position, 1.0);
 
-    gl_Position = cameraConstants.projection_matrix * cameraConstants.view_matrix * world_position;
+    gl_Position = camera_constants.projection_matrix * camera_constants.view_matrix * world_position;
     out_position = world_position.xyz;
     out_color = in_color;
     out_tex_coord = in_tex_coord;

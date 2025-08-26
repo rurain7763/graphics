@@ -18,32 +18,28 @@ int main() {
     World_Init();
     Outliner_Init();
 
-    vec3 positions[] = {
-        { 0.0f, 0.0f, 0.0f },
-	    { 2.0f, 2.0f, 0.0f },
-	    { -2.0f, 2.0f, 0.0f },
-		{ 0.0f, 2.0f, 0.0f },
-		{ 0.0f, 4.0f, 0.0f },
-		//{ 1.5f, 1.5f, 0.0f },
-		//{ -1.5f, -1.5f, 0.0f },
-		//{ 1.5f, -1.5f, 0.0f },
-		//{ -1.5f, 1.5f, 0.0f },
+    struct ObjectCreateInfo {
+        vec3 position;
+		float rotation;
+		bool drawOutline;
+		std::string meshKey;
     };
 
-	const char* meshKeyes[] = {
-		"sponza",
-        "cube",
-		"sphere",
-        "cube",
-		"sphere",
+	ObjectCreateInfo objectCreateInfos[] = {
+		{ { 0.0f, 0.0f, 0.0f }, 0, false, "sponza" },
+		{ { 2.0f, 2.0f, 0.0f }, 0, true, "cube" },
+		{ { -2.0f, 2.0f, 0.0f }, 0, true, "sphere" },
+		{ { 0.0f, 2.0f, 0.0f }, 0, true, "cube" },
+		{ { 0.0f, 4.0f, 0.0f }, 0, true, "sphere" },
 	};
 
-    for (int32_t i = 0; i < sizeof(positions) / sizeof(vec3); i++) {
- 	    auto& obj = AddObject(meshKeyes[i]);
-		obj.position = positions[i];
+    for (int32_t i = 0; i < sizeof(objectCreateInfos) / sizeof(ObjectCreateInfo); i++) {
+		const auto& info = objectCreateInfos[i];
 
-		float angle = glm::radians(20.0f * i);
-        obj.rotation = glm::vec3(angle);
+ 	    auto& obj = AddObject(info.meshKey.c_str());
+        obj.position = info.position;
+        obj.rotation = glm::vec3(info.rotation);
+		obj.drawOutline = info.drawOutline;
     }
 
     auto& commandQueue = g_graphicsContext->GetCommandQueue();
@@ -59,6 +55,8 @@ int main() {
 
         g_camera->OnUpdate();
 
+		World_Update();
+
 		if (g_context->GetWindowSizeState() == WindowSizeState::Minimized) {
 			continue; // Skip rendering if the window is minimized
 		}
@@ -66,8 +64,8 @@ int main() {
         if (g_graphicsContext->Prepare()) {
             commandQueue.BeginRenderPass();
 
-            World_Render();
 			Outliner_Render();
+            World_Render();
 
             commandQueue.EndRenderPass();
 

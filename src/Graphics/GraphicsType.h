@@ -152,7 +152,6 @@ namespace flaw {
 		Default,  // SRC : 1, DST : 0
 		Alpha,    // SRC : SRC_ALPHA, DST : 1 - SRC_ALPHA
 		Additive, // SRC : SRC_ALPHA, DST : 1
-		Disabled,
 	};
 
 	enum class PixelFormat {

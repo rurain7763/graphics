@@ -245,9 +245,16 @@ namespace flaw {
 			auto& depthStencilTex = std::static_pointer_cast<DXTexture2D>(framebuffer->GetDepthStencilAttachment());
 
 			dsv = depthStencilTex->GetNativeDSV().Get();
+
+			uint32_t clearFlags = 0;
 			if (depthStencilOp.loadOp == AttachmentLoadOp::Clear) {
-				_context.DeviceContext()->ClearDepthStencilView(dsv, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+				clearFlags |= D3D11_CLEAR_DEPTH;
 			}
+			if (depthStencilOp.stencilLoadOp == AttachmentLoadOp::Clear) {
+				clearFlags |= D3D11_CLEAR_STENCIL;
+			}
+
+			_context.DeviceContext()->ClearDepthStencilView(dsv, clearFlags, 1.0f, 0);
 		}
 
 		_context.DeviceContext()->OMSetRenderTargets(rtvs.size(), rtvs.data(), dsv);

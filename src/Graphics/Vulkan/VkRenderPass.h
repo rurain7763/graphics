@@ -16,8 +16,10 @@ namespace flaw {
         ~VkRenderPassLayout() = default;
 
         virtual uint32_t GetColorAttachmentCount() const override;
+		virtual Attachment GetColorAttachment(uint32_t index) const override;
 
         virtual bool HasDepthStencilAttachment() const override;
+		virtual Attachment GetDepthStencilAttachment() const override;
 
         virtual bool HasResolveAttachment() const override;
 

@@ -13,7 +13,6 @@ namespace flaw {
 		};
 
 		struct Descriptor {
-			PipelineType type;
 			uint32_t sampleCount = 1;
 			std::vector<Attachment> colorAttachments;
 			std::optional<Attachment> depthStencilAttachment;
@@ -23,7 +22,9 @@ namespace flaw {
 		virtual ~RenderPassLayout() = default;
 
 		virtual uint32_t GetColorAttachmentCount() const = 0;
+		virtual Attachment GetColorAttachment(uint32_t index) const = 0;
 		virtual bool HasDepthStencilAttachment() const = 0;
+		virtual Attachment GetDepthStencilAttachment() const = 0;
 		virtual bool HasResolveAttachment() const = 0;
 
 		virtual uint32_t GetSampleCount() const = 0;

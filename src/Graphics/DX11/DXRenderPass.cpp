@@ -21,8 +21,18 @@ namespace flaw {
 		return _colorAttachments.size();
 	}
 
+	DXRenderPassLayout::Attachment DXRenderPassLayout::GetColorAttachment(uint32_t index) const {
+		FASSERT(index < _colorAttachments.size(), "Color attachment index out of bounds");
+		return _colorAttachments[index];
+	}
+
 	bool DXRenderPassLayout::HasDepthStencilAttachment() const {
 		return _depthStencilAttachment.has_value();
+	}
+
+	DXRenderPassLayout::Attachment DXRenderPassLayout::GetDepthStencilAttachment() const {
+		FASSERT(_depthStencilAttachment.has_value(), "No depth-stencil attachment in this render pass layout");
+		return _depthStencilAttachment.value();
 	}
 
 	bool DXRenderPassLayout::HasResolveAttachment() const {

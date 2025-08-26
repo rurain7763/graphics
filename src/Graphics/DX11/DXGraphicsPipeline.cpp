@@ -42,6 +42,7 @@ namespace flaw {
 		EnableDepthTest(true);
 		SetDepthTest(CompareOp::Less, true);
 		EnableStencilTest(false);
+		EnableBlendMode(0, true);
 		SetBlendMode(0, BlendMode::Default);
 		SetAlphaToCoverage(false);
 	}
@@ -136,14 +137,19 @@ namespace flaw {
 		_depthStencilDesc.StencilEnable = enable;
 	}
 
-	void DXGraphicsPipeline::SetStencilTest(const StencilOperator& frontFace, const StencilOperator& backFace) {
+	void DXGraphicsPipeline::SetStencilTest(const StencilOperation& frontFace, const StencilOperation& backFace) {
 		if (!_depthStencilDesc.StencilEnable) {
 			LOG_ERROR("Stencil test is not enabled");
 			return;
 		}
 
-		if (frontFace.mask != backFace.mask) {
+		if (frontFace.writeMask != backFace.writeMask) {
 			LOG_ERROR("DX11 does not support different masks for front and back faces");
+			return;
+		}
+
+		if (frontFace.compareMask != backFace.compareMask) {
+			LOG_ERROR("DX11 does not support different compare masks for front and back faces");
 			return;
 		}
 
@@ -152,24 +158,21 @@ namespace flaw {
 			return;
 		}
 
-		D3D11_DEPTH_STENCILOP_DESC frontOp = {};
-		frontOp.StencilFailOp = ConvertToDXStencilOp(frontFace.failOp);
-		frontOp.StencilDepthFailOp = ConvertToDXStencilOp(frontFace.depthFailOp);
-		frontOp.StencilPassOp = ConvertToDXStencilOp(frontFace.passOp);
-		frontOp.StencilFunc = ConvertToDXComparisonFunc(frontFace.compareOp);
-
-		D3D11_DEPTH_STENCILOP_DESC backOp = {};
-		backOp.StencilFailOp = ConvertToDXStencilOp(backFace.failOp);
-		backOp.StencilDepthFailOp = ConvertToDXStencilOp(backFace.depthFailOp);
-		backOp.StencilPassOp = ConvertToDXStencilOp(backFace.passOp);
-		backOp.StencilFunc = ConvertToDXComparisonFunc(backFace.compareOp);
-
 		_depthStencilState = nullptr;
 
-		_depthStencilDesc.StencilReadMask = frontFace.mask;
-		_depthStencilDesc.StencilWriteMask = frontFace.mask;
-		_depthStencilDesc.FrontFace = frontOp;
-		_depthStencilDesc.BackFace = backOp;
+		_depthStencilDesc.FrontFace.StencilFailOp = ConvertToDXStencilOp(frontFace.failOp);
+		_depthStencilDesc.FrontFace.StencilDepthFailOp = ConvertToDXStencilOp(frontFace.depthFailOp);
+		_depthStencilDesc.FrontFace.StencilPassOp = ConvertToDXStencilOp(frontFace.passOp);
+		_depthStencilDesc.FrontFace.StencilFunc = ConvertToDXComparisonFunc(frontFace.compareOp);
+
+		_depthStencilDesc.BackFace.StencilFailOp = ConvertToDXStencilOp(backFace.failOp);
+		_depthStencilDesc.BackFace.StencilDepthFailOp = ConvertToDXStencilOp(backFace.depthFailOp);
+		_depthStencilDesc.BackFace.StencilPassOp = ConvertToDXStencilOp(backFace.passOp);
+		_depthStencilDesc.BackFace.StencilFunc = ConvertToDXComparisonFunc(backFace.compareOp);
+
+		_depthStencilDesc.StencilReadMask = frontFace.compareMask;
+		_depthStencilDesc.StencilWriteMask = frontFace.writeMask;
+
 		_stencilRef = frontFace.reference;
 	}
 
@@ -211,18 +214,40 @@ namespace flaw {
 		_blendState = nullptr;
 	}
 
-	void DXGraphicsPipeline::SetBlendMode(uint32_t attachmentIndex, BlendMode blendMode) {
-		if (!_renderPassLayout) {
-			LOG_ERROR("Render pass layout is not set");
-			return;
-		}
-
-		if (attachmentIndex >= _renderPassLayout->GetColorAttachmentCount()) {
+	void DXGraphicsPipeline::EnableBlendMode(uint32_t attachmentIndex, bool enable) {
+		if (attachmentIndex >= _blendModes.size()) {
 			LOG_ERROR("Attachment index out of bounds for blend mode setting");
 			return;
 		}
 
 		auto& mode = _blendModes[attachmentIndex];
+
+		if (mode.has_value() == enable) {
+			return; // No change needed
+		}
+
+		if (enable) {
+			mode = BlendMode::Default;
+		}
+		else {
+			mode.reset();
+		}
+
+		_blendState = nullptr;
+	}
+
+	void DXGraphicsPipeline::SetBlendMode(uint32_t attachmentIndex, BlendMode blendMode) {
+		if (attachmentIndex >= _blendModes.size()) {
+			LOG_ERROR("Attachment index out of bounds for blend mode setting");
+			return;
+		}
+
+		auto& mode = _blendModes[attachmentIndex];
+
+		if (!mode.has_value()) {
+			LOG_ERROR("Blend mode is not enabled for attachment index %d", attachmentIndex);
+			return;
+		}
 
 		if (mode == blendMode) {
 			return;
@@ -319,14 +344,14 @@ namespace flaw {
 			const auto& blendMode = _blendModes[i];
 			auto& renderTargetDesc = blendDesc.RenderTarget[i];
 
-			if (blendMode == BlendMode::Disabled) {
+			if (!blendMode.has_value()) {
 				renderTargetDesc.BlendEnable = FALSE;
 				renderTargetDesc.RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
 				continue;
 			}
 
 			renderTargetDesc.BlendEnable = TRUE;
-			ConvertDXBlend(blendMode, renderTargetDesc.SrcBlend, renderTargetDesc.DestBlend);
+			ConvertDXBlend(blendMode.value(), renderTargetDesc.SrcBlend, renderTargetDesc.DestBlend);
 			renderTargetDesc.BlendOp = D3D11_BLEND_OP_ADD;
 			renderTargetDesc.SrcBlendAlpha = D3D11_BLEND_ONE;
 			renderTargetDesc.DestBlendAlpha = D3D11_BLEND_ZERO;
