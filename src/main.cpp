@@ -11,12 +11,16 @@
 #include "Model/Model.h"
 #include "world.h"
 #include "outliner.h"
+#include "sprite.h"
 
 using namespace flaw;
 
 int main() {
     World_Init();
     Outliner_Init();
+    Sprite_Init();
+
+    srand(static_cast<uint32_t>(time(0)));
 
     struct ObjectCreateInfo {
         vec3 position;
@@ -36,10 +40,37 @@ int main() {
     for (int32_t i = 0; i < sizeof(objectCreateInfos) / sizeof(ObjectCreateInfo); i++) {
 		const auto& info = objectCreateInfos[i];
 
- 	    auto& obj = AddObject(info.meshKey.c_str());
+ 	    auto& obj = AddObject();
         obj.position = info.position;
         obj.rotation = glm::vec3(info.rotation);
-		obj.drawOutline = info.drawOutline;
+
+        auto meshComp = obj.AddComponent<StaticMeshComponent>();
+        meshComp->mesh = g_meshes[info.meshKey];
+        meshComp->drawOutline = info.drawOutline;
+    }
+
+    struct SpriteCreateInfo {
+        vec3 position;
+        std::string textureKey;
+    };
+
+    std::vector<SpriteCreateInfo> spriteCreateInfos = {
+        { { rand() % 10, 0.5f, rand() % 10 }, "window" },
+        { { rand() % 10, 0.5f, rand() % 10 }, "window" },
+        { { rand() % 10, 0.5f, rand() % 10 }, "window" },
+        { { rand() % 10, 0.5f, rand() % 10 }, "window" },
+        { { rand() % 10, 0.5f, rand() % 10 }, "window" },
+        { { rand() % 10, 0.5f, rand() % 10 }, "window" },
+        { { rand() % 10, 0.5f, rand() % 10 }, "window" },
+        { { 2.0f, 0.5f, 0.0f }, "grass" }
+    };
+
+    for (const auto& info : spriteCreateInfos) {
+        auto& sprite = AddObject();
+        sprite.position = info.position;
+
+        auto spriteComp = sprite.AddComponent<SpriteComponent>();
+        spriteComp->texture = g_textures[info.textureKey];
     }
 
     auto& commandQueue = g_graphicsContext->GetCommandQueue();
@@ -66,6 +97,7 @@ int main() {
 
 			Outliner_Render();
             World_Render();
+            Sprite_Render();
 
             commandQueue.EndRenderPass();
 
@@ -75,6 +107,7 @@ int main() {
         }
     }
 
+    Sprite_Cleanup();
     Outliner_Cleanup();
     World_Cleanup();
 

@@ -9,8 +9,8 @@
 
 using namespace flaw;
 
-#define USE_VULKAN 0
-#define USE_DX11 1
+#define USE_VULKAN 1 
+#define USE_DX11 0
 
 #define MAX_DIRECTIONAL_LIGHTS 1
 #define MAX_POINT_LIGHTS 8
@@ -122,13 +122,66 @@ struct Mesh {
     std::vector<Ref<Material>> materials;
 };
 
+struct IObjectComponent {
+    static inline uint32_t nextId = 0;
+};
+
+template<typename T>
+class ObjectComponent : public IObjectComponent { 
+public:
+    virtual ~ObjectComponent() = default;
+    
+    static uint32_t GetID() {
+        if (id == UINT32_MAX) {
+            id = nextId++;
+        }
+        
+        return id;
+    }
+
+private:
+    static inline uint32_t id = UINT32_MAX;
+};
+
+struct StaticMeshComponent : public ObjectComponent<StaticMeshComponent> {
+    bool drawOutline;
+    Ref<Mesh> mesh;
+};
+
+struct SpriteComponent : public ObjectComponent<SpriteComponent> {
+    Ref<Texture2D> texture;
+};
+
 struct Object {
     glm::vec3 position;
     glm::vec3 rotation;
     glm::vec3 scale;
 
-	bool drawOutline;
-	Ref<Mesh> mesh;
+    std::array<Ref<IObjectComponent>, 32> components;
+
+    template<typename T>
+    Ref<T> AddComponent() {
+        static_assert(std::is_base_of<IObjectComponent, T>::value, "T must be derived from IObjectComponent");
+
+        Ref<T> component = CreateRef<T>();
+        components[T::GetID()] = component;
+
+        return component;
+    }
+
+    template<typename T>
+    bool HasComponent() const {
+        static_assert(std::is_base_of<IObjectComponent, T>::value, "T must be derived from IObjectComponent");
+
+        return components[T::GetID()] != nullptr;
+    }
+
+    template<typename T>
+    Ref<T> GetComponent() const {
+        static_assert(std::is_base_of<IObjectComponent, T>::value, "T must be derived from IObjectComponent");
+
+        return std::static_pointer_cast<T>(components[T::GetID()]);
+    }
 };
 
 extern Ref<PlatformContext> g_context;
@@ -149,6 +202,6 @@ void World_Update();
 void World_Render();
 void World_Cleanup();
 
-Object& AddObject(const char* meshKey);
+Object& AddObject();
 
 std::vector<uint8_t> GenerateTextureCubeData(Image& left, Image& right, Image& top, Image& bottom, Image& front, Image& back);

@@ -290,6 +290,8 @@ void InitAssets() {
 
 	g_textures["dummy"] = g_graphicsContext->CreateTexture2D(textureDesc);
 
+    LoadTexture("assets/textures/grass.png", "grass");
+    LoadTexture("assets/textures/window.png", "window");
 	LoadTexture("assets/textures/haus.jpg", "haus");
 	LoadTexture("assets/textures/container2.png", "container2");
 	LoadTexture("assets/textures/container2_specular.png", "container2_specular");
@@ -301,8 +303,18 @@ void InitAssets() {
 
     g_materials["default"] = defaultMaterial;
 
-    Ref<Mesh> cubeMesh = CreateRef<Mesh>();
-    
+    std::vector<TexturedVertex> quadVertices;
+    std::vector<uint32_t> quadIndices;
+
+    GenerateQuad([&](const glm::vec3& position, const glm::vec2& texCoord, const glm::vec3& normal, const glm::vec3& tangent, const glm::vec3& binormal) {
+        TexturedVertex vertex;
+        vertex.position = position;
+        vertex.color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+        vertex.texCoord = texCoord;
+        vertex.normal = normal;
+        quadVertices.push_back(vertex);
+    }, quadIndices);
+
     std::vector<TexturedVertex> cubeVertices;
     std::vector<uint32_t> cubeIndices;
 	GenerateCube(
@@ -334,6 +346,7 @@ void InitAssets() {
         0.5f
 	);
 
+    LoadPrimitiveModel(quadVertices, quadIndices, "quad");
 	LoadPrimitiveModel(cubeVertices, cubeIndices, "cube");
 	LoadPrimitiveModel(sphereVertices, sphereIndices, "sphere");
     //LoadModel("assets/models/girl.obj", 1.0f, "girl");
@@ -675,58 +688,87 @@ void World_Render() {
 
     commandQueue.SetPipeline(g_objPipeline);
 
-	for (const auto& obj : g_objects) {
-        if (!obj.mesh) {
-            continue;
-        }
+    struct RenderObject {
+        Ref<VertexBuffer> vertexBuffer;
+        Ref<IndexBuffer> indexBuffer;
+        Ref<Material> material;
 
-        auto mesh = obj.mesh;
-        commandQueue.SetVertexBuffers({ mesh->vertexBuffer });
+        mat4 modelMatrix;
+        mat4 invModelMatrix;
+
+        uint32_t vertexOffset;
+        uint32_t indexOffset;
+        uint32_t indexCount;
+    };
+
+    std::vector<RenderObject> renderObjects;
+
+    for (const auto& obj : g_objects) {
+        if (obj.HasComponent<StaticMeshComponent>()) {
+            auto comp = obj.GetComponent<StaticMeshComponent>();
+
+            for (uint32_t i = 0; i < comp->mesh->subMeshes.size(); i++) {
+                auto& subMesh = comp->mesh->subMeshes[i];
+                auto material = comp->mesh->materials[i];
+
+                RenderObject renderObj;
+                renderObj.vertexBuffer = comp->mesh->vertexBuffer;
+                renderObj.indexBuffer = comp->mesh->indexBuffer;
+                renderObj.material = material;
+                renderObj.modelMatrix = ModelMatrix(obj.position, obj.rotation, obj.scale);
+                renderObj.invModelMatrix = glm::inverse(renderObj.modelMatrix);
+                renderObj.vertexOffset = subMesh.vertexOffset;
+                renderObj.indexOffset = subMesh.indexOffset;
+                renderObj.indexCount = subMesh.indexCount;
+
+                renderObjects.push_back(renderObj);
+            }
+        }
+    }
+
+	for (const auto& obj : renderObjects) {
+        commandQueue.SetVertexBuffers({ obj.vertexBuffer });
 
 		auto objInstanceBuffer = GetObjectInstanceSB(commandQueue.GetCurrentFrameIndex());
 
         InstanceData instanceData;
-		instanceData.model_matrix = ModelMatrix(obj.position, obj.rotation, obj.scale);
-		instanceData.inv_model_matrix = glm::inverse(instanceData.model_matrix);
+		instanceData.model_matrix = obj.modelMatrix;
+		instanceData.inv_model_matrix = obj.invModelMatrix;
 
         objInstanceBuffer->Update(&instanceData, sizeof(InstanceData));
 
-        for (uint32_t i = 0; i < mesh->subMeshes.size(); i++) {
-            auto& subMesh = mesh->subMeshes[i];
-            auto material = mesh->materials[i];
-            auto objDynamicResources = GetObjDynamicShaderResources(commandQueue.GetCurrentFrameIndex());
-			auto objMaterialCB = GetObjectMaterialCB(commandQueue.GetCurrentFrameIndex());
+        auto objDynamicResources = GetObjDynamicShaderResources(commandQueue.GetCurrentFrameIndex());
+        auto objMaterialCB = GetObjectMaterialCB(commandQueue.GetCurrentFrameIndex());
 
-			objDynamicResources->BindStructuredBuffer(objInstanceBuffer, instanceDataSBBinding);
-			objDynamicResources->BindConstantBuffer(objMaterialCB, materialConstantsCBBinding);
+        objDynamicResources->BindStructuredBuffer(objInstanceBuffer, instanceDataSBBinding);
+        objDynamicResources->BindConstantBuffer(objMaterialCB, materialConstantsCBBinding);
 
-            MaterialConstants materialConstants;
-            materialConstants.texture_binding_flags = 0;
-            materialConstants.diffuseColor = material->diffuseColor;
-            materialConstants.specularColor = material->specularColor;
-            materialConstants.shininess = material->shininess;
+        MaterialConstants materialConstants;
+        materialConstants.texture_binding_flags = 0;
+        materialConstants.diffuseColor = obj.material->diffuseColor;
+        materialConstants.specularColor = obj.material->specularColor;
+        materialConstants.shininess = obj.material->shininess;
 
-            if (material->diffuseTexture) {
-                materialConstants.texture_binding_flags |= static_cast<uint32_t>(TextureBindingFlag::Diffuse);
-                objDynamicResources->BindTexture2D(material->diffuseTexture, diffuseTextureBinding);
-            }
-            else {
-                objDynamicResources->BindTexture2D(g_textures["dummy"], diffuseTextureBinding);
-            }
-
-            if (material->specularTexture) {
-                materialConstants.texture_binding_flags |= static_cast<uint32_t>(TextureBindingFlag::Specular);
-                objDynamicResources->BindTexture2D(material->specularTexture, specularTextureBinding);
-            }
-            else {
-                objDynamicResources->BindTexture2D(g_textures["dummy"], specularTextureBinding);
-            }
-
-            objMaterialCB->Update(&materialConstants, sizeof(MaterialConstants));
-
-            commandQueue.SetShaderResources({ g_objShaderResources, objDynamicResources });
-            commandQueue.DrawIndexed(mesh->indexBuffer, subMesh.indexCount, subMesh.indexOffset, subMesh.vertexOffset);
+        if (obj.material->diffuseTexture) {
+            materialConstants.texture_binding_flags |= static_cast<uint32_t>(TextureBindingFlag::Diffuse);
+            objDynamicResources->BindTexture2D(obj.material->diffuseTexture, diffuseTextureBinding);
         }
+        else {
+            objDynamicResources->BindTexture2D(g_textures["dummy"], diffuseTextureBinding);
+        }
+
+        if (obj.material->specularTexture) {
+            materialConstants.texture_binding_flags |= static_cast<uint32_t>(TextureBindingFlag::Specular);
+            objDynamicResources->BindTexture2D(obj.material->specularTexture, specularTextureBinding);
+        }
+        else {
+            objDynamicResources->BindTexture2D(g_textures["dummy"], specularTextureBinding);
+        }
+
+        objMaterialCB->Update(&materialConstants, sizeof(MaterialConstants));
+
+        commandQueue.SetShaderResources({ g_objShaderResources, objDynamicResources });
+        commandQueue.DrawIndexed(obj.indexBuffer, obj.indexCount, obj.indexOffset, obj.vertexOffset);
 	}
 }
 
@@ -769,16 +811,11 @@ void World_Cleanup() {
     Log::Cleanup();
 }
 
-Object& AddObject(const char* meshKey) {
+Object& AddObject() {
     Object object;
     object.position = glm::vec3(0.f);
     object.rotation = glm::vec3(0.f);
     object.scale = glm::vec3(1.f);
-
-	auto it = g_meshes.find(meshKey);
-	if (it != g_meshes.end()) {
-        object.mesh = it->second;
-	}
 
     g_objects.push_back(object);
 

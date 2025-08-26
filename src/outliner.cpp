@@ -143,7 +143,7 @@ void Outliner_Cleanup() {
 	g_renderPass.reset();
 }
 
-Ref<ShaderResources> GetDynamicShaderResources(uint32_t frameIndex) {
+static Ref<ShaderResources> GetDynamicShaderResources(uint32_t frameIndex) {
 	if (g_dynamicShaderResourcesUsed >= g_dynamicShaderResourcesPerFrame[frameIndex].size()) {
 		ShaderResources::Descriptor shaderResourcesDesc;
 		shaderResourcesDesc.layout = g_dynamicShaderResourcesLayout;
@@ -154,7 +154,7 @@ Ref<ShaderResources> GetDynamicShaderResources(uint32_t frameIndex) {
 	return g_dynamicShaderResourcesPerFrame[frameIndex][g_dynamicShaderResourcesUsed++];
 }
 
-Ref<ConstantBuffer> GetObjectConstantsCB(uint32_t frameIndex) {
+static Ref<ConstantBuffer> GetObjectConstantsCB(uint32_t frameIndex) {
 	if (g_objectConstantsCBUsed >= g_objectConstantsCBsPerFrame[frameIndex].size()) {
 		ConstantBuffer::Descriptor constantBufferDesc;
 		constantBufferDesc.memProperty = MemoryProperty::Dynamic;
@@ -177,15 +177,15 @@ void Outliner_Render() {
 	g_dynamicShaderResourcesUsed = 0;
 
 	for (const auto& object : g_objects) {
-		if (!object.drawOutline) {
-			continue;
-		}
-		
-		auto mesh = object.mesh;
-		if (!mesh) {
+		if (!object.HasComponent<StaticMeshComponent>()) {
 			continue;
 		}
 
+		auto meshComp = object.GetComponent<StaticMeshComponent>();
+		if (!meshComp->drawOutline) {
+			continue;
+		}
+		
 		auto dynamicResources = GetDynamicShaderResources(frameIndex);
 		auto objectConstantsCB = GetObjectConstantsCB(frameIndex);
 
@@ -200,9 +200,9 @@ void Outliner_Render() {
 		commandQueue.BeginRenderPass(g_renderPass, g_renderPass, frameBuffer);
 
 		commandQueue.SetPipeline(g_writeStencilPipeline);
-		commandQueue.SetVertexBuffers({ mesh->vertexBuffer });
+		commandQueue.SetVertexBuffers({ meshComp->mesh->vertexBuffer });
 		commandQueue.SetShaderResources({ g_staticShaderResources, dynamicResources });
-		commandQueue.DrawIndexed(mesh->indexBuffer, mesh->indexBuffer->IndexCount());
+		commandQueue.DrawIndexed(meshComp->mesh->indexBuffer, meshComp->mesh->indexBuffer->IndexCount());
 
 		dynamicResources = GetDynamicShaderResources(frameIndex);
 		objectConstantsCB = GetObjectConstantsCB(frameIndex);
@@ -215,9 +215,9 @@ void Outliner_Render() {
 		objectConstantsCB->Update(&objectConstants, sizeof(ObjectConstants));
 
 		commandQueue.SetPipeline(g_outlinePipeline);
-		commandQueue.SetVertexBuffers({ mesh->vertexBuffer });
+		commandQueue.SetVertexBuffers({ meshComp->mesh->vertexBuffer });
 		commandQueue.SetShaderResources({ g_staticShaderResources, dynamicResources });
-		commandQueue.DrawIndexed(mesh->indexBuffer, mesh->indexBuffer->IndexCount());
+		commandQueue.DrawIndexed(meshComp->mesh->indexBuffer, meshComp->mesh->indexBuffer->IndexCount());
 
 		commandQueue.EndRenderPass();
 	}
