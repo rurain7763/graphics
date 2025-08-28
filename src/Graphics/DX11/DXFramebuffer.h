@@ -11,14 +11,15 @@ namespace flaw {
 	class DXContext;
 	class DXRenderPassLayout;
 
-	class DXFramebuffer : public GraphicsFramebuffer {
+	class DXFramebuffer : public Framebuffer {
 	public:
 		DXFramebuffer(DXContext& context, const Descriptor& descriptor);
 		~DXFramebuffer();
 
 		void Resize(uint32_t width, uint32_t height) override;
 
-		inline Ref<Texture> GetAttachment(uint32_t index) const override { return _colorAttachments[index]; }
+		inline uint32_t GetColorAttachmentCount() const override { return _colorAttachments.size(); }
+		inline Ref<Texture> GetColorAttachment(uint32_t index) const override { return _colorAttachments[index]; }
 		inline Ref<Texture> GetDepthStencilAttachment() const override { return _depthStencilAttachment; }
 		inline Ref<Texture> GetResolveAttachment() const override { return _resolveAttachment; }
 

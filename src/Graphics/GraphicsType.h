@@ -261,9 +261,11 @@ namespace flaw {
 
 	enum class TextureLayout {
 		Undefined,
-		Color,
-		DepthStencil,
-		Present,
+		ColorAttachment,
+		DepthStencilAttachment,
+		PresentSource,
+		General,
+		ShaderReadOnly,
 	};
 
 	enum class ResourceType {

@@ -12,7 +12,7 @@ namespace flaw {
     class VkRenderPassLayout;
     class VkRenderPass;
 
-    class VkFramebuffer : public GraphicsFramebuffer
+    class VkFramebuffer : public Framebuffer
     {
     public:
         VkFramebuffer(VkContext &context, const Descriptor &descriptor);
@@ -20,7 +20,8 @@ namespace flaw {
 
         void Resize(uint32_t width, uint32_t height) override;
 
-        inline Ref<Texture> GetAttachment(uint32_t index) const override { return _colorAttachments[index]; }
+		inline uint32_t GetColorAttachmentCount() const override { return _colorAttachments.size(); }
+        inline Ref<Texture> GetColorAttachment(uint32_t index) const override { return _colorAttachments[index]; }
         inline Ref<Texture> GetDepthStencilAttachment() const override { return _depthStencilAttachment; }
         inline Ref<Texture> GetResolveAttachment() const override { return _resolveAttachment; }
         

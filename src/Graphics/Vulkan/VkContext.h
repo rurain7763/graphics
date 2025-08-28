@@ -39,12 +39,14 @@ namespace flaw {
 
 		Ref<RenderPassLayout> CreateRenderPassLayout(const RenderPassLayout::Descriptor& desc) override;
 		Ref<RenderPass> CreateRenderPass(const RenderPass::Descriptor& desc) override;
-		Ref<GraphicsFramebuffer> CreateFramebuffer(const GraphicsFramebuffer::Descriptor& desc) override;
+		Ref<Framebuffer> CreateFramebuffer(const Framebuffer::Descriptor& desc) override;
 		
 		Ref<RenderPassLayout> GetMainRenderPassLayout() override;
 
-		uint32_t GetMainFramebuffersCount() const override;
-		Ref<GraphicsFramebuffer> GetMainFramebuffer(uint32_t index) override;
+		uint32_t GetFrameCount() const override;
+		uint32_t GetCurrentFrameIndex() const override;
+
+		Ref<Framebuffer> GetMainFramebuffer(uint32_t index) override;
 
 		GraphicsCommandQueue& GetCommandQueue() override;
 
@@ -65,7 +67,6 @@ namespace flaw {
         inline vk::PhysicalDevice GetVkPhysicalDevice() const { return _physicalDevice; }
         inline vk::Device GetVkDevice() const { return _device; }
         inline vk::SurfaceKHR GetVkSurface() const { return _surface; }
-		inline uint32_t GetFrameCount() const { return _frameCount; }
 		inline VkSwapchain& GetVkSwapchain() { return *_swapchain; }
 		inline vk::Queue GetVkGraphicsQueue() const { return _graphicsQueue; }
 		inline uint32_t GetVkGraphicsQueueFamilyIndex() const { return _queueFamilyIndices.graphicsFamily.value(); }
@@ -94,7 +95,7 @@ namespace flaw {
 		constexpr static uint32_t MaxDescriptorSetsCount = 1000;
 		constexpr static uint32_t MaxConstantBufferBindingCount = 16;
 		constexpr static uint32_t MaxStructuredBufferBindingCount = 16;
-		constexpr static uint32_t MaxTextureBindingCount = 16;
+		constexpr static uint32_t MaxTextureBindingCount = 64;
 		
 		constexpr static uint32_t MaxDeletionCounter = 1000;
 

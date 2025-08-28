@@ -35,7 +35,7 @@ namespace flaw {
         void DrawIndexedInstanced(const Ref<IndexBuffer>& indexBuffer, uint32_t indexCount, uint32_t instanceCount, uint32_t indexOffset = 0, uint32_t vertexOffset = 0) override;
 
         void BeginRenderPass() override;
-        void BeginRenderPass(const Ref<RenderPass>& beginRenderPass, const Ref<RenderPass>& resumeRenderPass, const Ref<GraphicsFramebuffer>& framebuffer) override;
+        void BeginRenderPass(const Ref<RenderPass>& beginRenderPass, const Ref<RenderPass>& resumeRenderPass, const Ref<Framebuffer>& framebuffer) override;
         void EndRenderPass() override;
         void Submit() override;
 
@@ -97,16 +97,7 @@ namespace flaw {
         uint32_t _currentCommandBufferIndex;
         uint32_t _currentFrameIndex;
         std::vector<BeginInfo> _currentBeginInfoStack;
-        vk::Viewport _currentViewport;
-        vk::Rect2D _currentScissor;
-        vk::Pipeline _currentPipeline;
-        vk::PipelineLayout _currentPipelineLayout;
-        std::vector<vk::PushConstantRange> _currentPushConstantRanges;
-        bool _needBindVertexBuffers;
-		std::vector<vk::Buffer> _currentVertexBuffers;
-		std::vector<vk::DeviceSize> _currentVertexBufferOffsets;
-		bool _needBindDescriptorSets;
-        std::vector<vk::DescriptorSet> _currentDescriptorSets;
+		Ref<VkGraphicsPipeline> _currentPipeline;
 
         vk::Queue _oneTimeCommandQueue;
         vk::CommandBuffer _oneTimeCommandBuffer;

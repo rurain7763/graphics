@@ -39,12 +39,14 @@ namespace flaw {
 
 		Ref<RenderPassLayout> CreateRenderPassLayout(const RenderPassLayout::Descriptor& desc) override;
 		Ref<RenderPass> CreateRenderPass(const RenderPass::Descriptor& desc) override;
-		Ref<GraphicsFramebuffer> CreateFramebuffer(const GraphicsFramebuffer::Descriptor& desc) override;
+		Ref<Framebuffer> CreateFramebuffer(const Framebuffer::Descriptor& desc) override;
 
 		Ref<RenderPassLayout> GetMainRenderPassLayout() override;
 
-		uint32_t GetMainFramebuffersCount() const override;
-		Ref<GraphicsFramebuffer> GetMainFramebuffer(uint32_t index) override;
+		uint32_t GetFrameCount() const override;
+		uint32_t GetCurrentFrameIndex() const override;
+
+		Ref<Framebuffer> GetMainFramebuffer(uint32_t index) override;
 
 		GraphicsCommandQueue& GetCommandQueue() override;
 

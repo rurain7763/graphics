@@ -37,7 +37,7 @@ namespace flaw {
 
 		inline vk::Image GetVkImage() const { return _image; }
 		inline vk::ImageView GetVkImageView() const { return _imageView; }
-		inline const vk::DescriptorImageInfo& GetVkDescriptorImageInfo() const { return _imageInfo; }
+		inline vk::Sampler GetVkSampler() const { return _sampler; }
 
 	private:
 		bool CreateImage(bool hasData);
@@ -46,7 +46,7 @@ namespace flaw {
 
 		bool GenerateMipmaps();
 
-		bool TransitionFinalImageLayout();
+		bool TransitionFinalImageLayout(TextureLayout layout);
 
 		bool CreateImageView();
 		bool CreateSampler();
@@ -60,7 +60,6 @@ namespace flaw {
 		vk::DeviceMemory _imageMemory;
 		vk::ImageView _imageView;
 		vk::Sampler _sampler;
-		vk::DescriptorImageInfo _imageInfo;
 
 		vk::ImageLayout _currentLayout;
 		vk::AccessFlags _currentAccessFlags;
@@ -101,7 +100,7 @@ namespace flaw {
 
 		bool GenerateMipmaps();
 
-		bool TransitionFinalImageLayout();
+		bool TransitionFinalImageLayout(TextureLayout layout);
 
 		bool CreateImageView();
 		bool CreateSampler();
@@ -113,7 +112,6 @@ namespace flaw {
 		vk::DeviceMemory _imageMemory;
 		vk::ImageView _imageView;
 		vk::Sampler _sampler;
-		vk::DescriptorImageInfo _imageInfo;
 
 		vk::ImageLayout _currentLayout;
 		vk::AccessFlags _currentAccessFlags;
@@ -150,7 +148,7 @@ namespace flaw {
 
 		inline vk::Image GetVkImage() const { return _image; }
 		inline vk::ImageView GetVkImageView() const { return _imageView; }
-		inline const vk::DescriptorImageInfo& GetVkDescriptorImageInfo() const { return _imageInfo; }
+		inline vk::Sampler GetVkSampler() const { return _sampler; }
 
 	private:
 		bool CreateImage(bool hasData);
@@ -159,7 +157,7 @@ namespace flaw {
 
 		bool GenerateMipmaps();
 
-		bool TransitionFinalImageLayout();
+		bool TransitionFinalImageLayout(TextureLayout layout);
 
 		bool CreateImageView();
 		bool CreateSampler();
@@ -171,7 +169,6 @@ namespace flaw {
 		vk::DeviceMemory _imageMemory;
 		vk::ImageView _imageView;
 		vk::Sampler _sampler;
-		vk::DescriptorImageInfo _imageInfo;
 
 		vk::ImageLayout _currentLayout;
 		vk::AccessFlags _currentAccessFlags;

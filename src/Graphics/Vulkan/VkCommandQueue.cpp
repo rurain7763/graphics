@@ -36,13 +36,6 @@ namespace flaw {
         _currentCommandBufferIndex = 0;
         _currentFrameIndex = 0;
 		_currentPipeline = nullptr;
-		_currentPipelineLayout = nullptr;
-		_currentPushConstantRanges.clear();
-		_needBindVertexBuffers = false;
-		_currentVertexBuffers.clear();
-		_currentVertexBufferOffsets.clear();
-		_needBindDescriptorSets = false;
-		_currentDescriptorSets.clear();
 
         Log::Info("Vulkan command queue initialized successfully.");
     }
@@ -146,75 +139,111 @@ namespace flaw {
     }
 
     void VkCommandQueue::SetPipeline(const Ref<GraphicsPipeline>& pipeline) {
-        auto vkPipeline = std::dynamic_pointer_cast<VkGraphicsPipeline>(pipeline);
+        auto vkPipeline = std::static_pointer_cast<VkGraphicsPipeline>(pipeline);
         FASSERT(vkPipeline, "Invalid pipeline type for Vulkan command queue");
         
-        _currentPipeline = vkPipeline->GetNativeVkGraphicsPipeline();
-        _currentPipelineLayout = vkPipeline->GetVkPipelineLayout();
-        _currentPushConstantRanges = vkPipeline->GetVkPushConstantRanges();
-
         auto& commandBuffer = _graphicsFrameCommandBuffers[_currentCommandBufferIndex];
-        commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, _currentPipeline);
+		
+        _currentPipeline = vkPipeline;
+        
+        commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, _currentPipeline->GetNativeVkGraphicsPipeline());
 
         const uint32_t behaviorStates = vkPipeline->GetBehaviorStates();
 
         if (behaviorStates & GraphicsPipeline::Behavior::AutoResizeViewport) {
-            commandBuffer.setViewport(0, 1, &_currentViewport);
+			if (_currentBeginInfoStack.empty()) {
+				LOG_ERROR("No framebuffer bound for the command queue.");
+				return;
+			}
+
+			const auto& beginInfo = _currentBeginInfoStack.back();
+
+			vk::Viewport newViewport;
+			newViewport.x = 0.0f;
+			newViewport.y = 0.0f;
+			newViewport.width = static_cast<float>(beginInfo.framebuffer->GetWidth());
+			newViewport.height = static_cast<float>(beginInfo.framebuffer->GetHeight());
+			newViewport.minDepth = 0.0f;
+			newViewport.maxDepth = 1.0f;
+
+            commandBuffer.setViewport(0, 1, &newViewport);
         }
 
         if (behaviorStates & GraphicsPipeline::Behavior::AutoResizeScissor) {
-            commandBuffer.setScissor(0, 1, &_currentScissor);
+            if (_currentBeginInfoStack.empty()) {
+                LOG_ERROR("No framebuffer bound for the command queue.");
+                return;
+            }
+
+			const auto& beginInfo = _currentBeginInfoStack.back();
+
+			vk::Rect2D newScissor;
+			newScissor.offset = vk::Offset2D{ 0, 0 };
+			newScissor.extent = vk::Extent2D{ beginInfo.framebuffer->GetWidth(), beginInfo.framebuffer->GetHeight() };
+
+			commandBuffer.setScissor(0, 1, &newScissor);
         }
     }
 
     void VkCommandQueue::SetPipelinePushConstant(uint32_t rangeIndex, const void* data) {
         if (!_currentPipeline) {
-            Log::Error("No pipeline set for the command queue.");
+            LOG_ERROR("No pipeline set for the command queue.");
             return;
         }
 
-        const auto& pushConstantRange = _currentPushConstantRanges.at(rangeIndex);
+        const auto& pushConstantRanges = _currentPipeline->GetVkPushConstantRanges();
+		if (rangeIndex >= pushConstantRanges.size()) {
+			LOG_ERROR("Push constant range index out of bounds.");
+			return;
+		}
 
-        auto& commandBuffer = _graphicsFrameCommandBuffers[_currentCommandBufferIndex];
-        commandBuffer.pushConstants(_currentPipelineLayout, pushConstantRange.stageFlags, pushConstantRange.offset, pushConstantRange.size, data);
+		const auto& pushConstantRange = pushConstantRanges[rangeIndex];
+		auto& commandBuffer = _graphicsFrameCommandBuffers[_currentCommandBufferIndex];
+
+		commandBuffer.pushConstants(_currentPipeline->GetVkPipelineLayout(), pushConstantRange.stageFlags, pushConstantRange.offset, pushConstantRange.size, data);
     }
 
     void VkCommandQueue::SetVertexBuffers(const std::vector<Ref<VertexBuffer>>& vertexBuffers) {
-		_needBindVertexBuffers = true;
+		auto& commandBuffer = _graphicsFrameCommandBuffers[_currentCommandBufferIndex];
 
-		_currentVertexBuffers.resize(vertexBuffers.size());
-		_currentVertexBufferOffsets.resize(vertexBuffers.size());
+		std::vector<vk::Buffer> vkVertexBuffers(vertexBuffers.size());
+		std::vector<vk::DeviceSize> vkVertexBufferOffsets(vertexBuffers.size());
         for (uint32_t i = 0; i < vertexBuffers.size(); i++) {
-			auto vkVertexBuffer = std::static_pointer_cast<VkVertexBuffer>(vertexBuffers[i]);
-			FASSERT(vkVertexBuffer, "Invalid vertex buffer type for Vulkan command queue");
+            auto vkVertexBuffer = std::static_pointer_cast<VkVertexBuffer>(vertexBuffers[i]);
+            FASSERT(vkVertexBuffer, "Invalid vertex buffer type for Vulkan command queue");
 
-			_currentVertexBuffers[i] = vkVertexBuffer->GetVkBuffer();
-			_currentVertexBufferOffsets[i] = 0; // Assuming no offset for simplicity
-		}
+            vkVertexBuffers[i] = vkVertexBuffer->GetVkBuffer();
+            vkVertexBufferOffsets[i] = 0; // Assuming no offset for simplicity
+        }
+
+        commandBuffer.bindVertexBuffers(0, vkVertexBuffers.size(), vkVertexBuffers.data(), vkVertexBufferOffsets.data());
     }
 
     void VkCommandQueue::ResetVertexBuffers() {
-        _needBindVertexBuffers = true;
-
-		_currentVertexBuffers.clear();
-		_currentVertexBufferOffsets.clear();
+		// NOTE: Nothing to do because vkBindVertexBuffers not allows 0 count buffers
     }
 
     void VkCommandQueue::SetShaderResources(const std::vector<Ref<ShaderResources>>& shaderResources) {
-		_needBindDescriptorSets = true;
-
-		_currentDescriptorSets.resize(shaderResources.size());
-		for (uint32_t i = 0; i < shaderResources.size(); ++i) {
-            auto vkShaderResources = std::static_pointer_cast<VkShaderResources>(shaderResources[i]);
-            FASSERT(vkShaderResources, "Invalid shader resources type for Vulkan command queue");
-
-            _currentDescriptorSets[i] = vkShaderResources->GetVkDescriptorSet();
+		if (_currentPipeline == nullptr) {
+			LOG_ERROR("No pipeline set for the command queue.");
+			return;
 		}
+
+        auto& commandBuffer = _graphicsFrameCommandBuffers[_currentCommandBufferIndex];
+
+		std::vector<vk::DescriptorSet> vkDescriptorSets(shaderResources.size());
+		for (uint32_t i = 0; i < shaderResources.size(); ++i) {
+			auto vkShaderResources = std::static_pointer_cast<VkShaderResources>(shaderResources[i]);
+			FASSERT(vkShaderResources, "Invalid shader resources type for Vulkan command queue");
+
+			vkDescriptorSets[i] = vkShaderResources->GetVkDescriptorSet();
+		}
+
+        commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, _currentPipeline->GetVkPipelineLayout(), 0, vkDescriptorSets.size(), vkDescriptorSets.data(), 0, nullptr);
     }
 
     void VkCommandQueue::ResetShaderResources() {
-        _needBindDescriptorSets = true;
-        _currentDescriptorSets.clear();
+		// NOTE: Nothing to do because vkBindDescriptorSets not allows 0 count sets
     }
 
     void VkCommandQueue::Draw(uint32_t vertexCount, uint32_t vertexOffset) {
@@ -223,18 +252,6 @@ namespace flaw {
 
     void VkCommandQueue::DrawInstanced(uint32_t vertexCount, uint32_t instanceCount, uint32_t vertexOffset) {
         auto& commandBuffer = _graphicsFrameCommandBuffers[_currentCommandBufferIndex];
-
-        if (_needBindDescriptorSets) {
-            commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, _currentPipelineLayout, 0, _currentDescriptorSets.size(), _currentDescriptorSets.data(), 0, nullptr);
-			_needBindDescriptorSets = false;
-        }
-
-        if (_needBindVertexBuffers) {
-            if (!_currentVertexBuffers.empty()) {
-		        commandBuffer.bindVertexBuffers(0, _currentVertexBuffers.size(), _currentVertexBuffers.data(), _currentVertexBufferOffsets.data());
-            }
-			_needBindVertexBuffers = false;
-        }
 
         commandBuffer.draw(vertexCount, instanceCount, vertexOffset, 0);
     }
@@ -248,18 +265,6 @@ namespace flaw {
         FASSERT(vkIndexBuffer, "Invalid index buffer type for Vulkan command queue");
 
         auto& commandBuffer = _graphicsFrameCommandBuffers[_currentCommandBufferIndex];
-
-        if (_needBindDescriptorSets) {                
-            commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, _currentPipelineLayout, 0, _currentDescriptorSets.size(), _currentDescriptorSets.data(), 0, nullptr);
-			_needBindDescriptorSets = false;
-        }
-
-        if (_needBindVertexBuffers) {
-            if (!_currentVertexBuffers.empty()) {
-                commandBuffer.bindVertexBuffers(0, _currentVertexBuffers.size(), _currentVertexBuffers.data(), _currentVertexBufferOffsets.data());
-            }
-            _needBindVertexBuffers = false;
-        }
 
         commandBuffer.bindIndexBuffer(vkIndexBuffer->GetVkBuffer(), 0, vk::IndexType::eUint32);
         commandBuffer.drawIndexed(indexCount, instanceCount, indexOffset, vertexOffset, 0);
@@ -299,7 +304,7 @@ namespace flaw {
         BeginRenderPass(swapchain.GetClearOpRenderPass(), swapchain.GetLoadOpRenderPass(), vkFramebuffer);
     }
 
-    void VkCommandQueue::BeginRenderPass(const Ref<RenderPass>& beginRenderPass, const Ref<RenderPass>& resumeRenderPass, const Ref<GraphicsFramebuffer>& framebuffer) {
+    void VkCommandQueue::BeginRenderPass(const Ref<RenderPass>& beginRenderPass, const Ref<RenderPass>& resumeRenderPass, const Ref<Framebuffer>& framebuffer) {
         auto vkBeginRenderPass = std::static_pointer_cast<VkRenderPass>(beginRenderPass);
         FASSERT(vkBeginRenderPass, "Invalid render pass type for Vulkan command queue");
 
@@ -314,16 +319,6 @@ namespace flaw {
             commandBuffer.endRenderPass();
         }
         
-        _currentViewport.x = 0.0f;
-        _currentViewport.y = 0.0f;
-        _currentViewport.width = static_cast<float>(vkFramebuffer->GetWidth());
-        _currentViewport.height = static_cast<float>(vkFramebuffer->GetHeight());
-        _currentViewport.minDepth = 0.0f;
-        _currentViewport.maxDepth = 1.0f;
-
-        _currentScissor.offset = vk::Offset2D{ 0, 0 };
-        _currentScissor.extent = vk::Extent2D{ vkFramebuffer->GetWidth(), vkFramebuffer->GetHeight() };
-
         _currentBeginInfoStack.push_back({ vkFramebuffer, vkBeginRenderPass, vkResumeRenderPass });
 
         BeginRenderPassImpl(vkBeginRenderPass, vkFramebuffer);
@@ -347,16 +342,6 @@ namespace flaw {
         auto& currentBeginInfo = _currentBeginInfoStack.back();
         auto vkFramebuffer = currentBeginInfo.framebuffer;
         auto vkRenderPass = currentBeginInfo.resumeRenderPass;
-
-        _currentViewport.x = 0.0f;
-        _currentViewport.y = 0.0f;
-        _currentViewport.width = static_cast<float>(vkFramebuffer->GetWidth());
-        _currentViewport.height = static_cast<float>(vkFramebuffer->GetHeight());
-        _currentViewport.minDepth = 0.0f;
-        _currentViewport.maxDepth = 1.0f;
-
-        _currentScissor.offset = vk::Offset2D{ 0, 0 };
-        _currentScissor.extent = vk::Extent2D{ vkFramebuffer->GetWidth(), vkFramebuffer->GetHeight() };
 
         BeginRenderPassImpl(vkRenderPass, vkFramebuffer);
     }

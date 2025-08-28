@@ -95,7 +95,7 @@ namespace flaw {
         for (uint32_t i = 0; i < renderPassDesc.colorAttachmentOps.size(); ++i) {
             auto& op = renderPassDesc.colorAttachmentOps[i];
             op.initialLayout = TextureLayout::Undefined;
-            op.finalLayout = TextureLayout::Color;
+            op.finalLayout = TextureLayout::ColorAttachment;
             op.loadOp = AttachmentLoadOp::Clear;
             op.storeOp = AttachmentStoreOp::Store;
         }
@@ -103,7 +103,7 @@ namespace flaw {
         if (_renderPassLayout->HasDepthStencilAttachment()) {
             renderPassDesc.depthStencilAttachmentOp = {
                 TextureLayout::Undefined,
-                TextureLayout::DepthStencil,
+                TextureLayout::DepthStencilAttachment,
                 AttachmentLoadOp::Clear,
                 AttachmentStoreOp::Store,
                 AttachmentLoadOp::DontCare,
@@ -114,7 +114,7 @@ namespace flaw {
         if (_renderPassLayout->HasResolveAttachment()) {
             renderPassDesc.resolveAttachmentOp = {
                 TextureLayout::Undefined,
-                TextureLayout::Color,
+                TextureLayout::ColorAttachment,
                 AttachmentLoadOp::Clear,
                 AttachmentStoreOp::Store
             };

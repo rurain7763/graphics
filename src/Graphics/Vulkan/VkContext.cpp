@@ -409,11 +409,15 @@ namespace flaw {
         return _swapchain->GetRenderPassLayout();
     }
 
-    uint32_t VkContext::GetMainFramebuffersCount() const {
-        return _swapchain->GetRenderTextureCount();
+    uint32_t VkContext::GetFrameCount() const {
+        return _frameCount;
     }
 
-    Ref<GraphicsFramebuffer> VkContext::GetMainFramebuffer(uint32_t index) {
+	uint32_t VkContext::GetCurrentFrameIndex() const {
+		return _commandQueue->GetCurrentFrameIndex();
+	}
+
+    Ref<Framebuffer> VkContext::GetMainFramebuffer(uint32_t index) {
         return _swapchain->GetFramebuffer(index);
     }
 
@@ -429,7 +433,7 @@ namespace flaw {
         return CreateRef<VkRenderPass>(*this, desc);
     }
 
-    Ref<GraphicsFramebuffer> VkContext::CreateFramebuffer(const GraphicsFramebuffer::Descriptor& desc) {
+    Ref<Framebuffer> VkContext::CreateFramebuffer(const Framebuffer::Descriptor& desc) {
         return CreateRef<VkFramebuffer>(*this, desc);
     }
 
@@ -449,6 +453,10 @@ namespace flaw {
         _device.waitIdle();
 
         _swapchain->Resize(static_cast<uint32_t>(width), static_cast<uint32_t>(height));
+
+		for (const auto& handler : _onResizeHandlers) {
+			handler.second(width, height);
+		}
 	}
 
 	void VkContext::GetSize(int32_t& width, int32_t& height) {

@@ -26,7 +26,7 @@ namespace flaw {
 		virtual void DrawIndexedInstanced(const Ref<IndexBuffer>& indexBuffer, uint32_t indexCount, uint32_t instanceCount, uint32_t indexOffset = 0, uint32_t vertexOffset = 0) = 0;
 	
 		virtual void BeginRenderPass() = 0;
-		virtual void BeginRenderPass(const Ref<RenderPass>& beginRenderPass, const Ref<RenderPass>& resumeRenderPass, const Ref<GraphicsFramebuffer>& framebuffer) = 0;
+		virtual void BeginRenderPass(const Ref<RenderPass>& beginRenderPass, const Ref<RenderPass>& resumeRenderPass, const Ref<Framebuffer>& framebuffer) = 0;
 		virtual void EndRenderPass() = 0;
 
 		virtual void Submit() = 0;

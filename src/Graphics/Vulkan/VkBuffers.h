@@ -75,7 +75,6 @@ namespace flaw {
 
 		vk::Buffer _buffer;
 		vk::DeviceMemory _memory;
-		vk::DescriptorBufferInfo _bufferInfo;
 
 		void* _mappedData = nullptr;
 
@@ -94,7 +93,7 @@ namespace flaw {
 
 		uint32_t Size() const override { return _size; }
 
-		const vk::DescriptorBufferInfo& GetVkDescriptorBufferInfo() const { return _bufferInfo; }
+		inline const vk::Buffer& GetVkBuffer() const { return _buffer; }
 
 	private:
 		bool CreateBuffer();
@@ -105,7 +104,6 @@ namespace flaw {
 
 		vk::Buffer _buffer;
 		vk::DeviceMemory _memory;
-		vk::DescriptorBufferInfo _bufferInfo;
 
 		void* _mappedData = nullptr;
 
@@ -126,7 +124,7 @@ namespace flaw {
 
 		uint32_t Size() const override { return _size; }
 
-		inline const vk::DescriptorBufferInfo& GetVkDescriptorBufferInfo() const { return _bufferInfo; }
+		inline const vk::Buffer& GetVkBuffer() const { return _buffer; }
 
 	private:
 		bool CreateBuffer();
@@ -137,7 +135,6 @@ namespace flaw {
 
 		vk::Buffer _buffer;
 		vk::DeviceMemory _memory;
-		vk::DescriptorBufferInfo _bufferInfo;
 
 		void* _mappedData = nullptr;
 

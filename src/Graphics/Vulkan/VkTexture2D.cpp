@@ -48,7 +48,7 @@ namespace flaw {
             }
         }
 
-        if (!TransitionFinalImageLayout()) {
+        if (!TransitionFinalImageLayout(descriptor.initialLayout)) {
             return;
         }
 
@@ -61,10 +61,6 @@ namespace flaw {
         if (!CreateSampler()) {
             return;
         }
-
-        _imageInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-        _imageInfo.imageView = _imageView;
-        _imageInfo.sampler = _sampler;
     }
 
     VkTexture2D::VkTexture2D(VkContext& context, vk::Image image, uint32_t width, uint32_t height, PixelFormat format, MemoryProperty usage, uint32_t bindFlags, uint32_t sampleCount, uint32_t mipLevels, uint32_t shaderStages)
@@ -79,6 +75,9 @@ namespace flaw {
         , _sampleCount(sampleCount)
         , _mipLevels(mipLevels)
 		, _shaderStages(shaderStages)
+		, _currentLayout(vk::ImageLayout::eUndefined)
+		, _currentAccessFlags(vk::AccessFlagBits::eNone)
+		, _currentPipelineStage(vk::PipelineStageFlagBits::eTopOfPipe)
     {
         if (!CreateImageView()) {
             Log::Fatal("Failed to create image view for texture");
@@ -214,10 +213,10 @@ namespace flaw {
         return true;
     }
 
-    bool VkTexture2D::TransitionFinalImageLayout() {
+    bool VkTexture2D::TransitionFinalImageLayout(TextureLayout layout) {
         auto& vkCmdQueue = static_cast<VkCommandQueue&>(_context.GetCommandQueue());
 
-		vk::ImageLayout finalLayout = ConvertToVkImageLayout(_texUsages);
+        vk::ImageLayout finalLayout = ConvertToVkImageLayout(layout);
 		vk::PipelineStageFlags finalPipelineStage = ConvertToVkPipelineStageFlags(_texUsages, _shaderStages);
 
         vk::AccessFlags finalAccessFlags;

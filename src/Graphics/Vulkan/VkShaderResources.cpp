@@ -73,13 +73,18 @@ namespace flaw {
         auto vkTexture = std::dynamic_pointer_cast<VkTexture2D>(texture);
         FASSERT(vkTexture, "Invalid texture type for Vulkan shader resources");
 
+		vk::DescriptorImageInfo imageInfo;
+		imageInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+		imageInfo.imageView = vkTexture->GetVkImageView();
+		imageInfo.sampler = vkTexture->GetVkSampler();
+
         vk::WriteDescriptorSet writeDescSet;
         writeDescSet.dstSet = _descriptorSet;
         writeDescSet.dstBinding = binding;
         writeDescSet.dstArrayElement = 0;
         writeDescSet.descriptorType = vk::DescriptorType::eCombinedImageSampler;
         writeDescSet.descriptorCount = 1;
-        writeDescSet.pImageInfo = &vkTexture->GetVkDescriptorImageInfo();
+		writeDescSet.pImageInfo = &imageInfo;
 
         _context.GetVkDevice().updateDescriptorSets(1, &writeDescSet, 0, nullptr);
     }
@@ -88,13 +93,18 @@ namespace flaw {
         auto vkTexture = std::dynamic_pointer_cast<VkTextureCube>(texture);
         FASSERT(vkTexture, "Invalid texture cube type for Vulkan shader resources");
 
+        vk::DescriptorImageInfo imageInfo;
+		imageInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+		imageInfo.imageView = vkTexture->GetVkImageView();
+		imageInfo.sampler = vkTexture->GetVkSampler();
+
         vk::WriteDescriptorSet writeDescSet;
         writeDescSet.dstSet = _descriptorSet;
         writeDescSet.dstBinding = binding;
         writeDescSet.dstArrayElement = 0;
         writeDescSet.descriptorType = vk::DescriptorType::eCombinedImageSampler;
         writeDescSet.descriptorCount = 1;
-        writeDescSet.pImageInfo = &vkTexture->GetVkDescriptorImageInfo();
+        writeDescSet.pImageInfo = &imageInfo;
 
         _context.GetVkDevice().updateDescriptorSets(1, &writeDescSet, 0, nullptr);
     }
@@ -103,13 +113,18 @@ namespace flaw {
         auto vkConstantBuffer = std::dynamic_pointer_cast<VkConstantBuffer>(constantBuffer);
         FASSERT(vkConstantBuffer, "Invalid constant buffer type for Vulkan shader resources");
 
+        vk::DescriptorBufferInfo bufferInfo;
+		bufferInfo.buffer = vkConstantBuffer->GetVkBuffer();
+		bufferInfo.offset = 0;
+		bufferInfo.range = vkConstantBuffer->Size();
+
         vk::WriteDescriptorSet writeDescSet;
         writeDescSet.dstSet = _descriptorSet;
         writeDescSet.dstBinding = binding;
         writeDescSet.dstArrayElement = 0;
         writeDescSet.descriptorType = vk::DescriptorType::eUniformBuffer;
         writeDescSet.descriptorCount = 1;
-        writeDescSet.pBufferInfo = &vkConstantBuffer->GetVkDescriptorBufferInfo();
+        writeDescSet.pBufferInfo = &bufferInfo;
 
         _context.GetVkDevice().updateDescriptorSets(1, &writeDescSet, 0, nullptr);
     }
@@ -118,13 +133,18 @@ namespace flaw {
         auto vkStructuredBuffer = std::dynamic_pointer_cast<VkStructuredBuffer>(structuredBuffer);
         FASSERT(vkStructuredBuffer, "Invalid structured buffer type for Vulkan shader resources");
 
+		vk::DescriptorBufferInfo bufferInfo;
+		bufferInfo.buffer = vkStructuredBuffer->GetVkBuffer();
+		bufferInfo.offset = 0;
+		bufferInfo.range = vkStructuredBuffer->Size();
+
         vk::WriteDescriptorSet writeDescSet;
         writeDescSet.dstSet = _descriptorSet;
         writeDescSet.dstBinding = binding;
         writeDescSet.dstArrayElement = 0;
         writeDescSet.descriptorType = vk::DescriptorType::eStorageBuffer;
         writeDescSet.descriptorCount = 1;
-        writeDescSet.pBufferInfo = &vkStructuredBuffer->GetVkDescriptorBufferInfo();
+        writeDescSet.pBufferInfo = &bufferInfo;
 
         _context.GetVkDevice().updateDescriptorSets(1, &writeDescSet, 0, nullptr);
     }

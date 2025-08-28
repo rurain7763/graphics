@@ -124,32 +124,14 @@ namespace flaw {
     vk::ImageLayout ConvertToVkImageLayout(TextureLayout layout) {
         switch (layout) {
         case TextureLayout::Undefined: return vk::ImageLayout::eUndefined;
-        case TextureLayout::Color: return vk::ImageLayout::eColorAttachmentOptimal;
-        case TextureLayout::DepthStencil: return vk::ImageLayout::eDepthStencilAttachmentOptimal;
-        case TextureLayout::Present: return vk::ImageLayout::ePresentSrcKHR;
+        case TextureLayout::ColorAttachment: return vk::ImageLayout::eColorAttachmentOptimal;
+        case TextureLayout::DepthStencilAttachment: return vk::ImageLayout::eDepthStencilAttachmentOptimal;
+        case TextureLayout::PresentSource: return vk::ImageLayout::ePresentSrcKHR;
+		case TextureLayout::ShaderReadOnly: return vk::ImageLayout::eShaderReadOnlyOptimal;
+		case TextureLayout::General: return vk::ImageLayout::eGeneral;
         default:
             throw std::runtime_error("Unknown texture layout");
         }
-    }
-
-    vk::ImageLayout ConvertToVkImageLayout(TextureUsages texUsages) {
-        if (texUsages & TextureUsage::RenderTarget) {
-            return vk::ImageLayout::eColorAttachmentOptimal;
-        }
-        
-        if (texUsages & TextureUsage::DepthStencil) {
-            return vk::ImageLayout::eDepthStencilAttachmentOptimal;
-        }
-
-        if (texUsages & TextureUsage::UnorderedAccess) {
-            return vk::ImageLayout::eGeneral;
-        }
-
-        if (texUsages & TextureUsage::ShaderResource) {
-            return vk::ImageLayout::eShaderReadOnlyOptimal;
-        }
-
-        return vk::ImageLayout::eUndefined;
     }
 
     vk::ImageAspectFlags ConvertToVkImageAspectFlags(PixelFormat pixelForamt) {

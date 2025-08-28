@@ -16,41 +16,99 @@ namespace flaw {
 	DXCommandQueue::DXCommandQueue(DXContext& context)
 		: _context(context)
 		, _currentGraphicsPipeline(nullptr)
-		, _needBindGraphicsPipeline(false)
-		, _needBindVertexBuffers(false)
-		, _needBindShaderResources(false)
 	{
-		int32_t width, height;
-		_context.GetSize(width, height);
-
-		_currentViewport.TopLeftX = 0.0f;
-		_currentViewport.TopLeftY = 0.0f;
-		_currentViewport.Width = static_cast<float>(width);
-		_currentViewport.Height = static_cast<float>(height);
-		_currentViewport.MinDepth = 0.0f;
-		_currentViewport.MaxDepth = 1.0f;
-
-		_currentScissor.left = 0;
-		_currentScissor.top = 0;
-		_currentScissor.right = width;
-		_currentScissor.bottom = height;
 	}
 
 	void DXCommandQueue::SetPipeline(const Ref<GraphicsPipeline>& pipeline) {
-		if (pipeline == _currentGraphicsPipeline) {
-			return; // Already set
-		}
-
 		auto dxPipeline = std::static_pointer_cast<DXGraphicsPipeline>(pipeline);
 		FASSERT(dxPipeline, "Pipeline is not a DXGraphicsPipeline");
 
+		auto shader = dxPipeline->GetDXShader();
+		auto inputLayout = dxPipeline->GetDXInputLayout();
+		auto primitiveTopology = dxPipeline->GetDXPrimitiveTopology();
+		auto depthStencilState = dxPipeline->GetDXDepthStencilState();
+		uint32_t stencilRef = dxPipeline->GetDXStencilRef();
+		auto rasterizerState = dxPipeline->GetDXRasterizerState();
+		auto blendState = dxPipeline->GetDXBlendState();
+
+		_context.DeviceContext()->VSSetShader(shader->GetNativeDXVertexShader().Get(), nullptr, 0);
+		_context.DeviceContext()->PSSetShader(shader->GetPixelShader().Get(), nullptr, 0);
+		_context.DeviceContext()->GSSetShader(shader->GetGeometryShader().Get(), nullptr, 0);
+		_context.DeviceContext()->HSSetShader(shader->GetHullShader().Get(), nullptr, 0);
+		_context.DeviceContext()->DSSetShader(shader->GetDomainShader().Get(), nullptr, 0);
+
+		_context.DeviceContext()->IASetInputLayout(inputLayout.Get());
+		_context.DeviceContext()->IASetPrimitiveTopology(primitiveTopology);
+		_context.DeviceContext()->OMSetDepthStencilState(depthStencilState.Get(), stencilRef);
+		_context.DeviceContext()->RSSetState(rasterizerState.Get());
+		_context.DeviceContext()->OMSetBlendState(blendState.Get(), nullptr, 0xFFFFFFFF);
+
+		bool needBindViewport = false;
+		bool needBindScissor = false;
+
+		const uint32_t behaviorStates = dxPipeline->GetBehaviorStates();
+		if (behaviorStates & GraphicsPipeline::Behavior::AutoResizeViewport) {
+			if (_currentBeginInfoStack.empty()) {
+				LOG_ERROR("No framebuffer bound for the command queue.");
+				return;
+			}
+			
+			const auto& beginInfo = _currentBeginInfoStack.back();
+
+			D3D11_VIEWPORT newViewport;
+			newViewport.TopLeftX = 0.0f;
+			newViewport.TopLeftY = 0.0f;
+			newViewport.Width = static_cast<float>(beginInfo.framebuffer->GetWidth());
+			newViewport.Height = static_cast<float>(beginInfo.framebuffer->GetHeight());
+			newViewport.MinDepth = 0.0f;
+			newViewport.MaxDepth = 1.0f;
+
+			needBindViewport = _currentViewport != newViewport;
+			_currentViewport = newViewport;
+		}
+		else {
+			const auto& newViewport = dxPipeline->GetDXViewport();
+
+			needBindViewport = _currentViewport != newViewport;
+			_currentViewport = newViewport;
+		}
+
+		if (behaviorStates & GraphicsPipeline::Behavior::AutoResizeScissor) {
+			if (_currentBeginInfoStack.empty()) {
+				LOG_ERROR("No framebuffer bound for the command queue.");
+				return;
+			}
+
+			const auto& beginInfo = _currentBeginInfoStack.back();
+
+			D3D11_RECT newScissor;
+			newScissor.left = 0;
+			newScissor.top = 0;
+			newScissor.right = beginInfo.framebuffer->GetWidth();
+			newScissor.bottom = beginInfo.framebuffer->GetHeight();
+
+			needBindScissor = newScissor != _currentScissor;
+			_currentScissor = newScissor;
+		}
+		else {
+			const auto& newScissor = dxPipeline->GetDXScissorRect();
+
+			needBindScissor = newScissor != _currentScissor;
+			_currentScissor = newScissor;
+		}
+
+		if (needBindViewport) {
+			_context.DeviceContext()->RSSetViewports(1, &_currentViewport);
+		}
+
+		if (needBindScissor) {
+			_context.DeviceContext()->RSSetScissorRects(1, &_currentScissor);
+		}
+
 		_currentGraphicsPipeline = dxPipeline;
-		_needBindGraphicsPipeline = true;
 	}
 
 	void DXCommandQueue::SetVertexBuffers(const std::vector<Ref<VertexBuffer>>& vertexBuffers) {
-		_needBindVertexBuffers = true;
-
 		_currentVertexBuffers.clear();
 		_currentDXVertexBuffers.clear();
 		_currentDXVertexBufferStrides.clear();
@@ -64,11 +122,11 @@ namespace flaw {
 			_currentDXVertexBufferStrides.push_back(dxVertexBuffer->ElementSize());
 			_currentDXVertexBufferOffsets.push_back(0); // Offset is always 0 for now
 		}
+
+		_context.DeviceContext()->IASetVertexBuffers(0, _currentDXVertexBuffers.size(), _currentDXVertexBuffers.data(), _currentDXVertexBufferStrides.data(), _currentDXVertexBufferOffsets.data());
 	}
 
 	void DXCommandQueue::ResetVertexBuffers() {
-		_needBindVertexBuffers = true;
-
 		_currentVertexBuffers.clear();
 		_currentDXVertexBuffers.clear();
 		_currentDXVertexBufferStrides.clear();
@@ -76,142 +134,128 @@ namespace flaw {
 	}
 
 	void DXCommandQueue::SetShaderResources(const std::vector<Ref<ShaderResources>>& shaderResources) {
-		_currentShaderResourcesVec.clear();
+		ResetShaderResources();
+
+		_currentShaderResourcesVec.reserve(shaderResources.size());
 		for (const auto& resource : shaderResources) {
 			auto dxShaderResources = std::static_pointer_cast<DXShaderResources>(resource);
 			FASSERT(dxShaderResources, "ShaderResources is not a DXShaderResources");
 
+			auto dxShaderResourcesLayout = dxShaderResources->GetLayout();
+
+			const auto& tRegistryBindings = dxShaderResourcesLayout->GetTRegistryBindings();
+			const auto& tRegistryResources = dxShaderResources->GetTRegistryResources();
+
+			for (const auto& [slot, resource] : tRegistryResources) {
+				const auto& binding = tRegistryBindings.at(slot);
+
+				if (binding.shaderStages & ShaderStage::Vertex) {
+					_context.DeviceContext()->VSSetShaderResources(slot, 1, resource.GetAddressOf());
+				}
+				if (binding.shaderStages & ShaderStage::Pixel) {
+					_context.DeviceContext()->PSSetShaderResources(slot, 1, resource.GetAddressOf());
+				}
+				if (binding.shaderStages & ShaderStage::Geometry) {
+					_context.DeviceContext()->GSSetShaderResources(slot, 1, resource.GetAddressOf());
+				}
+				if (binding.shaderStages & ShaderStage::Hull) {
+					_context.DeviceContext()->HSSetShaderResources(slot, 1, resource.GetAddressOf());
+				}
+				if (binding.shaderStages & ShaderStage::Domain) {
+					_context.DeviceContext()->DSSetShaderResources(slot, 1, resource.GetAddressOf());
+				}
+			}
+
+			const auto& cRegistryBindings = dxShaderResourcesLayout->GetCRegistryBindings();
+			const auto& cRegistryResources = dxShaderResources->GetCRegistryResources();
+
+			for (const auto& [slot, resource] : cRegistryResources) {
+				const auto& binding = cRegistryBindings.at(slot);
+
+				if (binding.shaderStages & ShaderStage::Vertex) {
+					_context.DeviceContext()->VSSetConstantBuffers(slot, 1, resource.GetAddressOf());
+				}
+				if (binding.shaderStages & ShaderStage::Pixel) {
+					_context.DeviceContext()->PSSetConstantBuffers(slot, 1, resource.GetAddressOf());
+				}
+				if (binding.shaderStages & ShaderStage::Geometry) {
+					_context.DeviceContext()->GSSetConstantBuffers(slot, 1, resource.GetAddressOf());
+				}
+				if (binding.shaderStages & ShaderStage::Hull) {
+					_context.DeviceContext()->HSSetConstantBuffers(slot, 1, resource.GetAddressOf());
+				}
+				if (binding.shaderStages & ShaderStage::Domain) {
+					_context.DeviceContext()->DSSetConstantBuffers(slot, 1, resource.GetAddressOf());
+				}
+			}
+
 			_currentShaderResourcesVec.push_back(dxShaderResources);
 		}
-
-		_needBindShaderResources = true;
 	}
 
 	void DXCommandQueue::ResetShaderResources() {
-		_needBindShaderResources = true;
+		ID3D11ShaderResourceView* nullSRV[] = { nullptr };
+		ID3D11Buffer* nullCB[] = { nullptr };
+
+		for (const auto& dxResources : _currentShaderResourcesVec) {
+			auto dxResourcesLayout = dxResources->GetLayout();
+
+			const auto& tRegistryBindings = dxResourcesLayout->GetTRegistryBindings();
+
+			for (const auto& [slot, binding] : tRegistryBindings) {
+				if (binding.shaderStages & ShaderStage::Vertex) {
+					_context.DeviceContext()->VSSetShaderResources(slot, 1, nullSRV);
+				}
+				if (binding.shaderStages & ShaderStage::Pixel) {
+					_context.DeviceContext()->PSSetShaderResources(slot, 1, nullSRV);
+				}
+				if (binding.shaderStages & ShaderStage::Geometry) {
+					_context.DeviceContext()->GSSetShaderResources(slot, 1, nullSRV);
+				}
+				if (binding.shaderStages & ShaderStage::Hull) {
+					_context.DeviceContext()->HSSetShaderResources(slot, 1, nullSRV);
+				}
+				if (binding.shaderStages & ShaderStage::Domain) {
+					_context.DeviceContext()->DSSetShaderResources(slot, 1, nullSRV);
+				}
+			}
+
+			const auto& cRegistryBindings = dxResourcesLayout->GetCRegistryBindings();
+
+			for (const auto& [slot, binding] : tRegistryBindings) {
+				if (binding.shaderStages & ShaderStage::Vertex) {
+					_context.DeviceContext()->VSSetConstantBuffers(slot, 1, nullCB);
+				}
+				if (binding.shaderStages & ShaderStage::Pixel) {
+					_context.DeviceContext()->PSSetConstantBuffers(slot, 1, nullCB);
+				}
+				if (binding.shaderStages & ShaderStage::Geometry) {
+					_context.DeviceContext()->GSSetConstantBuffers(slot, 1, nullCB);
+				}
+				if (binding.shaderStages & ShaderStage::Hull) {
+					_context.DeviceContext()->HSSetConstantBuffers(slot, 1, nullCB);
+				}
+				if (binding.shaderStages & ShaderStage::Domain) {
+					_context.DeviceContext()->DSSetConstantBuffers(slot, 1, nullCB);
+				}
+			}
+		}
 
 		_currentShaderResourcesVec.clear();
 	}
 
-	void DXCommandQueue::BindRenderResources() {
-		if (_needBindGraphicsPipeline) {
-			auto shader = _currentGraphicsPipeline->GetDXShader();
-			auto inputLayout = _currentGraphicsPipeline->GetDXInputLayout();
-			auto primitiveTopology = _currentGraphicsPipeline->GetDXPrimitiveTopology();
-			auto depthStencilState = _currentGraphicsPipeline->GetDXDepthStencilState();
-			uint32_t stencilRef = _currentGraphicsPipeline->GetDXStencilRef();
-			auto rasterizerState = _currentGraphicsPipeline->GetDXRasterizerState();
-			auto blendState = _currentGraphicsPipeline->GetDXBlendState();
-
-			_context.DeviceContext()->VSSetShader(shader->GetNativeDXVertexShader().Get(), nullptr, 0);
-			_context.DeviceContext()->PSSetShader(shader->GetPixelShader().Get(), nullptr, 0);
-			_context.DeviceContext()->GSSetShader(shader->GetGeometryShader().Get(), nullptr, 0);
-			_context.DeviceContext()->HSSetShader(shader->GetHullShader().Get(), nullptr, 0);
-			_context.DeviceContext()->DSSetShader(shader->GetDomainShader().Get(), nullptr, 0);
-
-			_context.DeviceContext()->IASetInputLayout(inputLayout.Get());
-			_context.DeviceContext()->IASetPrimitiveTopology(primitiveTopology);
-			_context.DeviceContext()->OMSetDepthStencilState(depthStencilState.Get(), stencilRef);
-			_context.DeviceContext()->RSSetState(rasterizerState.Get());
-			_context.DeviceContext()->OMSetBlendState(blendState.Get(), nullptr, 0xFFFFFFFF);
-
-			const uint32_t behaviorStates = _currentGraphicsPipeline->GetBehaviorStates();
-			if (behaviorStates & GraphicsPipeline::Behavior::AutoResizeScissor) {
-				_context.DeviceContext()->RSSetScissorRects(1, &_currentScissor);
-			}
-			else {
-				_context.DeviceContext()->RSSetScissorRects(1, &_currentGraphicsPipeline->GetDXScissorRect());
-			}
-
-			if (behaviorStates & GraphicsPipeline::Behavior::AutoResizeViewport) {
-				_context.DeviceContext()->RSSetViewports(1, &_currentViewport);
-			}
-			else {
-				_context.DeviceContext()->RSSetViewports(1, &_currentGraphicsPipeline->GetDXViewport());
-			}
-
-			_needBindGraphicsPipeline = false;
-		}
-
-		if (_needBindVertexBuffers) {
-			_context.DeviceContext()->IASetVertexBuffers(0, _currentDXVertexBuffers.size(), _currentDXVertexBuffers.data(), _currentDXVertexBufferStrides.data(), _currentDXVertexBufferOffsets.data());
-
-			_needBindVertexBuffers = false;
-		}
-
-		if (_needBindShaderResources) {
-			for (const auto& dxShaderResources : _currentShaderResourcesVec) {
-				auto dxShaderResourcesLayout = dxShaderResources->GetLayout();
-
-				const auto& tRegistryBindings = dxShaderResourcesLayout->GetTRegistryBindings();
-				const auto& tRegistryResources = dxShaderResources->GetTRegistryResources();
-
-				for (const auto& [slot, resource] : tRegistryResources) {
-					const auto& binding = tRegistryBindings.at(slot);
-
-					if (binding.shaderStages & ShaderStage::Vertex) {
-						_context.DeviceContext()->VSSetShaderResources(slot, 1, resource.GetAddressOf());
-					}
-					if (binding.shaderStages & ShaderStage::Pixel) {
-						_context.DeviceContext()->PSSetShaderResources(slot, 1, resource.GetAddressOf());
-					}
-					if (binding.shaderStages & ShaderStage::Geometry) {
-						_context.DeviceContext()->GSSetShaderResources(slot, 1, resource.GetAddressOf());
-					}
-					if (binding.shaderStages & ShaderStage::Hull) {
-						_context.DeviceContext()->HSSetShaderResources(slot, 1, resource.GetAddressOf());
-					}
-					if (binding.shaderStages & ShaderStage::Domain) {
-						_context.DeviceContext()->DSSetShaderResources(slot, 1, resource.GetAddressOf());
-					}
-				}
-
-				const auto& cRegistryBindings = dxShaderResourcesLayout->GetCRegistryBindings();
-				const auto& cRegistryResources = dxShaderResources->GetCRegistryResources();
-
-				for (const auto& [slot, resource] : cRegistryResources) {
-					const auto& binding = cRegistryBindings.at(slot);
-
-					if (binding.shaderStages & ShaderStage::Vertex) {
-						_context.DeviceContext()->VSSetConstantBuffers(slot, 1, resource.GetAddressOf());
-					}
-					if (binding.shaderStages & ShaderStage::Pixel) {
-						_context.DeviceContext()->PSSetConstantBuffers(slot, 1, resource.GetAddressOf());
-					}
-					if (binding.shaderStages & ShaderStage::Geometry) {
-						_context.DeviceContext()->GSSetConstantBuffers(slot, 1, resource.GetAddressOf());
-					}
-					if (binding.shaderStages & ShaderStage::Hull) {
-						_context.DeviceContext()->HSSetConstantBuffers(slot, 1, resource.GetAddressOf());
-					}
-					if (binding.shaderStages & ShaderStage::Domain) {
-						_context.DeviceContext()->DSSetConstantBuffers(slot, 1, resource.GetAddressOf());
-					}
-				}
-			}
-
-			_needBindShaderResources = false;
-		}
-	}
-
 	void DXCommandQueue::Draw(uint32_t vertexCount, uint32_t vertexOffset) {
-		BindRenderResources();
-
 		_context.DeviceContext()->Draw(vertexCount, vertexOffset);
 	}
 
 	void DXCommandQueue::DrawInstanced(uint32_t vertexCount, uint32_t instanceCount, uint32_t vertexOffset) {
-		BindRenderResources();
-
 		_context.DeviceContext()->DrawInstanced(vertexCount, instanceCount, vertexOffset, 0);
 	}
 
 	void DXCommandQueue::DrawIndexed(const Ref<IndexBuffer>& indexBuffer, uint32_t indexCount, uint32_t indexOffset, uint32_t vertexOffset) {
 		auto dxIndexBuffer = std::static_pointer_cast<DXIndexBuffer>(indexBuffer);
 		FASSERT(dxIndexBuffer, "IndexBuffer is not a DXIndexBuffer");
-		
-		BindRenderResources();
-		
+				
 		_context.DeviceContext()->IASetIndexBuffer(dxIndexBuffer->GetNativeDXBuffer().Get(), DXGI_FORMAT_R32_UINT, 0);
 		_context.DeviceContext()->DrawIndexed(indexCount, indexOffset, vertexOffset);
 	}
@@ -219,9 +263,7 @@ namespace flaw {
 	void DXCommandQueue::DrawIndexedInstanced(const Ref<IndexBuffer>& indexBuffer, uint32_t indexCount, uint32_t instanceCount, uint32_t indexOffset, uint32_t vertexOffset) {
 		auto dxIndexBuffer = std::static_pointer_cast<DXIndexBuffer>(indexBuffer);
 		FASSERT(dxIndexBuffer, "IndexBuffer is not a DXIndexBuffer");
-		
-		BindRenderResources();
-		
+				
 		_context.DeviceContext()->IASetIndexBuffer(dxIndexBuffer->GetNativeDXBuffer().Get(), DXGI_FORMAT_R32_UINT, 0);
 		_context.DeviceContext()->DrawIndexedInstanced(indexCount, instanceCount, indexOffset, vertexOffset, 0);
 	}
@@ -230,7 +272,7 @@ namespace flaw {
 		std::vector<ID3D11RenderTargetView*> rtvs(beginRenderPass->GetColorAttachmentOpCount());
 		for (uint32_t i = 0; i < beginRenderPass->GetColorAttachmentOpCount(); i++) {
 			auto& op = beginRenderPass->GetColorAttachmentOp(i);
-			auto& renderTargetTex = std::static_pointer_cast<DXTexture2D>(framebuffer->GetAttachment(i));
+			auto& renderTargetTex = std::static_pointer_cast<DXTexture2D>(framebuffer->GetColorAttachment(i));
 
 			rtvs[i] = renderTargetTex->GetNativeRTV().Get();
 			if (op.loadOp == AttachmentLoadOp::Clear) {
@@ -261,14 +303,14 @@ namespace flaw {
 	}
 
 	void DXCommandQueue::BeginRenderPass() {
-		auto framebuffer = std::static_pointer_cast<GraphicsFramebuffer>(_context.MainDXFramebuffer());
+		auto framebuffer = std::static_pointer_cast<Framebuffer>(_context.MainDXFramebuffer());
 		auto beginRenderPass = std::static_pointer_cast<RenderPass>(_context.MainClearDXRenderPass());
 		auto resumeRenderPass = std::static_pointer_cast<RenderPass>(_context.MainLoadDXRenderPass());
 
 		BeginRenderPass(beginRenderPass, resumeRenderPass, framebuffer);
 	}
 
-	void DXCommandQueue::BeginRenderPass(const Ref<RenderPass>& beginRenderPass, const Ref<RenderPass>& resumeRenderPass, const Ref<GraphicsFramebuffer>& framebuffer) {
+	void DXCommandQueue::BeginRenderPass(const Ref<RenderPass>& beginRenderPass, const Ref<RenderPass>& resumeRenderPass, const Ref<Framebuffer>& framebuffer) {
 		auto dxBeginRenderPass = std::static_pointer_cast<DXRenderPass>(beginRenderPass);
 		FASSERT(dxBeginRenderPass, "Invalid render pass type for DXCommandQueue");
 
@@ -277,18 +319,6 @@ namespace flaw {
 
 		auto dxFramebuffer = std::static_pointer_cast<DXFramebuffer>(framebuffer);
 		FASSERT(dxFramebuffer, "Invalid framebuffer type for DXCommandQueue");
-
-		_currentViewport.TopLeftX = 0.0f;
-		_currentViewport.TopLeftY = 0.0f;
-		_currentViewport.Width = static_cast<float>(dxFramebuffer->GetWidth());
-		_currentViewport.Height = static_cast<float>(dxFramebuffer->GetHeight());
-		_currentViewport.MinDepth = 0.0f;
-		_currentViewport.MaxDepth = 1.0f;
-
-		_currentScissor.left = 0;
-		_currentScissor.top = 0;
-		_currentScissor.right = static_cast<LONG>(dxFramebuffer->GetWidth());
-		_currentScissor.bottom = static_cast<LONG>(dxFramebuffer->GetHeight());
 
 		_currentBeginInfoStack.push_back({ dxFramebuffer, dxBeginRenderPass, dxResumeRenderPass });
 
@@ -305,18 +335,6 @@ namespace flaw {
 		auto& currentBeginInfo = _currentBeginInfoStack.back();
 		auto dxFramebuffer = currentBeginInfo.framebuffer;
 		auto dxResumeRenderPass = currentBeginInfo.resumeRenderPass;
-
-		_currentViewport.TopLeftX = 0.0f;
-		_currentViewport.TopLeftY = 0.0f;
-		_currentViewport.Width = static_cast<float>(dxFramebuffer->GetWidth());
-		_currentViewport.Height = static_cast<float>(dxFramebuffer->GetHeight());
-		_currentViewport.MinDepth = 0.0f;
-		_currentViewport.MaxDepth = 1.0f;
-
-		_currentScissor.left = 0;
-		_currentScissor.top = 0;
-		_currentScissor.right = static_cast<LONG>(dxFramebuffer->GetWidth());
-		_currentScissor.bottom = static_cast<LONG>(dxFramebuffer->GetHeight());
 
 		BeginRenderPassImpl(dxResumeRenderPass, dxFramebuffer);
 	}

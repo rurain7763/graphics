@@ -18,10 +18,6 @@ namespace flaw {
 		VkShaderResourcesLayout(VkContext& context, const Descriptor& descriptor);
 		~VkShaderResourcesLayout();
 
-		inline const std::vector<vk::DescriptorSetLayoutBinding>& GetVkDescriptorSetLayoutBindings() const {
-			return _bindings;
-		}
-
 		inline const vk::DescriptorSetLayout& GetVkDescriptorSetLayout() const {
 			return _descriptorSetLayout;
 		}
@@ -30,7 +26,6 @@ namespace flaw {
 		VkContext& _context;
 
 		vk::DescriptorSetLayout _descriptorSetLayout;
-		std::vector<vk::DescriptorSetLayoutBinding> _bindings;
 	};
 
 	class VkShaderResources : public ShaderResources {

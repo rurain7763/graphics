@@ -23,10 +23,6 @@ namespace flaw {
             return;
         }
 
-        _bufferInfo.buffer = _buffer;
-        _bufferInfo.offset = 0;
-        _bufferInfo.range = _size;
-
         auto mappedDataWrapper = _context.GetVkDevice().mapMemory(_memory, 0, _size, vk::MemoryMapFlags());
         if (mappedDataWrapper.result != vk::Result::eSuccess) {
             Log::Fatal("Failed to map structured buffer memory.");

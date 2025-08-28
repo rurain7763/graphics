@@ -31,6 +31,7 @@ namespace flaw {
 			TextureUsages texUsages = 0;
 			uint32_t mipLevels = 1;
 			uint32_t sampleCount = 1;
+			TextureLayout initialLayout = TextureLayout::Undefined;
 			ShaderStages shaderStages = 0;
 		};
 
@@ -54,6 +55,7 @@ namespace flaw {
 			uint32_t arraySize = 0;
 			uint32_t mipLevels = 1;
 			uint32_t sampleCount = 1;
+			TextureLayout initialLayout = TextureLayout::Undefined;
 			ShaderStages shaderStages = 0;
 		};
 
@@ -77,6 +79,7 @@ namespace flaw {
 			TextureUsages texUsages = 0;
 			uint32_t mipLevels = 1;
 			uint32_t sampleCount = 1;
+			TextureLayout initialLayout = TextureLayout::Undefined;
 			ShaderStages shaderStages = 0;
 		};
 

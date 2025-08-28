@@ -23,31 +23,19 @@ const uint32_t objectConstantsCBBinding = 1;
 
 void Outliner_Init() {
 	// NOTE: Create render pass
-	auto mainRenderPassLayout = g_graphicsContext->GetMainRenderPassLayout();
-
 	RenderPass::Descriptor renderPassDesc;
-	renderPassDesc.layout = mainRenderPassLayout;
-
-	RenderPass::ColorAttachmentOperation colorOp;
-	colorOp.initialLayout = TextureLayout::Present;
-	colorOp.finalLayout = TextureLayout::Present;
-	colorOp.loadOp = AttachmentLoadOp::Load;
-	colorOp.storeOp = AttachmentStoreOp::Store;
-	renderPassDesc.colorAttachmentOps.push_back(colorOp);
-
-	RenderPass::DepthStencilAttachmentOperation depthOp;
-	depthOp.initialLayout = TextureLayout::DepthStencil;
-	depthOp.finalLayout = TextureLayout::DepthStencil;
-	depthOp.loadOp = AttachmentLoadOp::Load;
-	depthOp.storeOp = AttachmentStoreOp::Store;
-	depthOp.stencilLoadOp = AttachmentLoadOp::Clear;
-	depthOp.stencilStoreOp = AttachmentStoreOp::Store;
-	renderPassDesc.depthStencilAttachmentOp = depthOp;
+	renderPassDesc.layout = g_sceneRenderPassLayout;
+	renderPassDesc.colorAttachmentOps = {
+		{ TextureLayout::ShaderReadOnly, TextureLayout::ShaderReadOnly, AttachmentLoadOp::Load, AttachmentStoreOp::Store }
+	};
+	renderPassDesc.depthStencilAttachmentOp = {
+		TextureLayout::DepthStencilAttachment, TextureLayout::DepthStencilAttachment, AttachmentLoadOp::Load, AttachmentStoreOp::Store, AttachmentLoadOp::Clear, AttachmentStoreOp::Store
+	};
 
 	g_renderPass = g_graphicsContext->CreateRenderPass(renderPassDesc);
 
 	// NOTE: Create buffers
-	g_objectConstantsCBsPerFrame.resize(g_graphicsContext->GetMainFramebuffersCount());
+	g_objectConstantsCBsPerFrame.resize(g_graphicsContext->GetFrameCount());
 
 	// NOTE: Create shader resources
 	ShaderResourcesLayout::Descriptor staticSRLDesc;
@@ -70,7 +58,7 @@ void Outliner_Init() {
 
 	g_dynamicShaderResourcesLayout = g_graphicsContext->CreateShaderResourcesLayout(dynamicSRLDesc);
 
-	g_dynamicShaderResourcesPerFrame.resize(g_graphicsContext->GetMainFramebuffersCount());
+	g_dynamicShaderResourcesPerFrame.resize(g_graphicsContext->GetFrameCount());
 
 	// NOTE: Create pipelines
 	GraphicsShader::Descriptor objectShaderDesc;
@@ -98,6 +86,7 @@ void Outliner_Init() {
 	g_writeStencilPipeline->SetStencilTest(stencilOp, stencilOp);
 	g_writeStencilPipeline->EnableBlendMode(0, false);
 	g_writeStencilPipeline->SetShaderResourcesLayouts({ g_staticShaderResourcesLayout, g_dynamicShaderResourcesLayout });
+	g_writeStencilPipeline->SetRenderPassLayout(g_sceneRenderPassLayout);
 	g_writeStencilPipeline->SetVertexInputLayouts({ g_texturedVertexInputLayout });
 	g_writeStencilPipeline->SetBehaviorStates(GraphicsPipeline::Behavior::AutoResizeViewport | GraphicsPipeline::Behavior::AutoResizeScissor);
 
@@ -128,6 +117,7 @@ void Outliner_Init() {
 	g_outlinePipeline->EnableStencilTest(true);
 	g_outlinePipeline->SetStencilTest(outlineStencilOp, outlineStencilOp);
 	g_outlinePipeline->SetShaderResourcesLayouts({ g_staticShaderResourcesLayout, g_dynamicShaderResourcesLayout });
+	g_outlinePipeline->SetRenderPassLayout(g_sceneRenderPassLayout);
 	g_outlinePipeline->SetVertexInputLayouts({ g_texturedVertexInputLayout });
 	g_outlinePipeline->SetBehaviorStates(GraphicsPipeline::Behavior::AutoResizeViewport | GraphicsPipeline::Behavior::AutoResizeScissor);
 }
@@ -171,7 +161,6 @@ static Ref<ConstantBuffer> GetObjectConstantsCB(uint32_t frameIndex) {
 void Outliner_Render() {
 	auto& commandQueue = g_graphicsContext->GetCommandQueue();
 	uint32_t frameIndex = commandQueue.GetCurrentFrameIndex();
-	auto frameBuffer = g_graphicsContext->GetMainFramebuffer(frameIndex);
 
 	g_objectConstantsCBUsed = 0;
 	g_dynamicShaderResourcesUsed = 0;
@@ -197,7 +186,7 @@ void Outliner_Render() {
 
 		objectConstantsCB->Update(&objectConstants, sizeof(ObjectConstants));
 
-		commandQueue.BeginRenderPass(g_renderPass, g_renderPass, frameBuffer);
+		commandQueue.BeginRenderPass(g_renderPass, g_renderPass, g_sceneFramebuffers[frameIndex]);
 
 		commandQueue.SetPipeline(g_writeStencilPipeline);
 		commandQueue.SetVertexBuffers({ meshComp->mesh->vertexBuffer });

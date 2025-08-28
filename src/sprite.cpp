@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "sprite.h"
 #include "world.h"
+#include "asset.h"
 
 #include <map>
 
@@ -25,7 +26,7 @@ const uint32_t diffuseTextureBinding = 0;
 
 void Sprite_Init() {
     // NOTE: Create buffers
-	g_objectConstantsCBsPerFrame.resize(g_graphicsContext->GetMainFramebuffersCount());
+	g_objectConstantsCBsPerFrame.resize(g_graphicsContext->GetFrameCount());
 
     // NOTE: Create shader resources
 	ShaderResourcesLayout::Descriptor staticSRLDesc;
@@ -49,7 +50,7 @@ void Sprite_Init() {
 
 	g_dynamicShaderResourcesLayout = g_graphicsContext->CreateShaderResourcesLayout(dynamicSRLDesc);
 
-	g_dynamicShaderResourcesPerFrame.resize(g_graphicsContext->GetMainFramebuffersCount());
+	g_dynamicShaderResourcesPerFrame.resize(g_graphicsContext->GetFrameCount());
 
     // NOTE: Create pipelines
 	GraphicsShader::Descriptor spriteShaderDesc;
@@ -73,6 +74,7 @@ void Sprite_Init() {
     g_spritePipeline->EnableBlendMode(0, true);
     g_spritePipeline->SetBlendMode(0, BlendMode::Alpha);
 	g_spritePipeline->SetShaderResourcesLayouts({ g_staticShaderResourcesLayout, g_dynamicShaderResourcesLayout });
+	g_spritePipeline->SetRenderPassLayout(g_sceneRenderPassLayout);
 	g_spritePipeline->SetVertexInputLayouts({ g_texturedVertexInputLayout });
 	g_spritePipeline->SetBehaviorStates(GraphicsPipeline::Behavior::AutoResizeViewport | GraphicsPipeline::Behavior::AutoResizeScissor);
 }
@@ -119,7 +121,7 @@ void Sprite_Render() {
     g_objectConstantsCBUsed = 0;
     g_dynamicShaderResourcesUsed = 0;
 
-    auto quadMesh = g_meshes["quad"];
+    auto quadMesh = GetMesh("quad");
 
     std::map<float, Object*> sorted;
     vec3 cameraPos = g_camera->GetPosition();
@@ -147,7 +149,7 @@ void Sprite_Render() {
         dynamicShaderResources->BindConstantBuffer(objectConstantsCB, objectConstantsCBBinding);
         
         if (!spriteComponent->texture) {
-            spriteComponent->texture = g_textures["dummy"];
+            spriteComponent->texture = GetTexture2D("dummy");
         }
         else {
             dynamicShaderResources->BindTexture2D(spriteComponent->texture, diffuseTextureBinding);

@@ -12,15 +12,27 @@
 #include "world.h"
 #include "outliner.h"
 #include "sprite.h"
+#include "asset.h"
 
 using namespace flaw;
 
 int main() {
     World_Init();
+    Asset_Init();
     Outliner_Init();
     Sprite_Init();
 
     srand(static_cast<uint32_t>(time(0)));
+
+    LoadTexture("assets/textures/grass.png", "grass");
+    LoadTexture("assets/textures/window.png", "window");
+    LoadTexture("assets/textures/haus.jpg", "haus");
+    LoadTexture("assets/textures/container2.png", "container2");
+    LoadTexture("assets/textures/container2_specular.png", "container2_specular");
+
+    //LoadModel("assets/models/girl.obj", 1.0f, "girl");
+    //LoadModel("assets/models/survival-guitar-backpack/backpack.obj", 1.0f, "survival_backpack");
+    LoadModel("assets/models/Sponza/Sponza.gltf", 0.05f, "sponza");
 
     struct ObjectCreateInfo {
         vec3 position;
@@ -45,7 +57,7 @@ int main() {
         obj.rotation = glm::vec3(info.rotation);
 
         auto meshComp = obj.AddComponent<StaticMeshComponent>();
-        meshComp->mesh = g_meshes[info.meshKey];
+        meshComp->mesh = GetMesh(info.meshKey.c_str());
         meshComp->drawOutline = info.drawOutline;
     }
 
@@ -70,7 +82,7 @@ int main() {
         sprite.position = info.position;
 
         auto spriteComp = sprite.AddComponent<SpriteComponent>();
-        spriteComp->texture = g_textures[info.textureKey];
+        spriteComp->texture = GetTexture2D(info.textureKey.c_str());
     }
 
     auto& commandQueue = g_graphicsContext->GetCommandQueue();
@@ -93,11 +105,20 @@ int main() {
 		}
 
         if (g_graphicsContext->Prepare()) {
+			uint32_t frameIndex = commandQueue.GetCurrentFrameIndex();
+			auto sceneFramebuffer = g_sceneFramebuffers[frameIndex];
+
             commandQueue.BeginRenderPass();
 
+            commandQueue.BeginRenderPass(g_sceneClearRenderPass, g_sceneLoadRenderPass, sceneFramebuffer);
 			Outliner_Render();
             World_Render();
             Sprite_Render();
+            commandQueue.EndRenderPass();
+
+			// TODO: apply post-processing effects here
+
+            World_FinalizeRender();
 
             commandQueue.EndRenderPass();
 
@@ -109,6 +130,7 @@ int main() {
 
     Sprite_Cleanup();
     Outliner_Cleanup();
+    Asset_Cleanup();
     World_Cleanup();
 
     return 0;

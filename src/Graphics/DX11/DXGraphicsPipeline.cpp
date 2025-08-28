@@ -206,11 +206,6 @@ namespace flaw {
 		FASSERT(_renderPassLayout, "Invalid render pass layout");
 
 		_blendModes.resize(_renderPassLayout->GetColorAttachmentCount());
-		for (uint32_t i = 0; i < _blendModes.size(); ++i) {
-			_blendModes[i] = BlendMode::Default;
-		}
-		_alphaToCoverage = false;
-
 		_blendState = nullptr;
 	}
 

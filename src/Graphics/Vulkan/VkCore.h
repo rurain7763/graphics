@@ -45,7 +45,6 @@ namespace flaw {
     vk::ShaderStageFlagBits ConvertToVkShaderStage(ShaderStage flag);
     vk::VertexInputRate ConvertToVkVertexInputRate(VertexInputRate rate);
     vk::ImageLayout ConvertToVkImageLayout(TextureLayout layout);
-    vk::ImageLayout ConvertToVkImageLayout(TextureUsages texUsages);
     vk::ImageAspectFlags ConvertToVkImageAspectFlags(PixelFormat pixelForamt);
     vk::ImageUsageFlags ConvertToVkImageUsageFlags(TextureUsages texUsages);
     vk::Format ConvertToVkFormat(ElementType type, uint32_t count);

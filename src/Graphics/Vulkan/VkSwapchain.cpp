@@ -148,7 +148,7 @@ namespace flaw {
 
     vk::SurfaceFormatKHR VkSwapchain::ChooseSurfaceFormat(const std::vector<vk::SurfaceFormatKHR>& formats) const {
         for (const auto& format : formats) {
-            if (format.format == vk::Format::eB8G8R8A8Unorm && format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear) {
+            if (format.format == vk::Format::eR8G8B8A8Unorm && format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear) {
                 return format; // Prefer sRGB format
             }
         }
@@ -203,7 +203,7 @@ namespace flaw {
             _renderTextures[i] = CreateRef<VkTexture2D>(
                 _context, 
                 image, 
-                _extent.width, _extent.height, PixelFormat::BGRA8, 
+                _extent.width, _extent.height, PixelFormat::RGBA8, 
                 MemoryProperty::Static,
                 TextureUsage::RenderTarget | TextureUsage::ShaderResource,
                 1,
@@ -222,6 +222,7 @@ namespace flaw {
         desc.format = _depthStencilFormat;
         desc.memProperty = MemoryProperty::Static;
         desc.texUsages = TextureUsage::DepthStencil;
+		desc.initialLayout = TextureLayout::DepthStencilAttachment;
         desc.sampleCount = _context.GetMSAAState() ? _context.GetMSAASampleCount() : 1;
 
         _depthStencilTextures.reserve(_renderTextures.size());
@@ -242,9 +243,10 @@ namespace flaw {
             Texture2D::Descriptor desc;
             desc.width = _extent.width;
             desc.height = _extent.height;
-            desc.format = PixelFormat::BGRA8;
+            desc.format = PixelFormat::RGBA8;
             desc.memProperty = MemoryProperty::Static;
             desc.texUsages = TextureUsage::RenderTarget;
+			desc.initialLayout = TextureLayout::ColorAttachment;
             desc.sampleCount = _context.GetMSAASampleCount();
 
             _msaaColorTextures.push_back(CreateRef<VkTexture2D>(_context, desc));
@@ -257,13 +259,13 @@ namespace flaw {
         RenderPassLayout::Descriptor renderPassLayoutDesc;
         if (!_context.GetMSAAState()) {
             renderPassLayoutDesc.sampleCount = 1;
-            renderPassLayoutDesc.colorAttachments = { { PixelFormat::BGRA8 } };
+            renderPassLayoutDesc.colorAttachments = { { PixelFormat::RGBA8 } };
             renderPassLayoutDesc.depthStencilAttachment = { _depthStencilFormat };
         } else {
             renderPassLayoutDesc.sampleCount = _context.GetMSAASampleCount();
-            renderPassLayoutDesc.colorAttachments = { { PixelFormat::BGRA8 } };
+            renderPassLayoutDesc.colorAttachments = { { PixelFormat::RGBA8 } };
             renderPassLayoutDesc.depthStencilAttachment = { _depthStencilFormat };
-            renderPassLayoutDesc.resolveAttachment = { PixelFormat::BGRA8 };
+            renderPassLayoutDesc.resolveAttachment = { PixelFormat::RGBA8 };
         }
 
         _renderPassLayout = CreateRef<VkRenderPassLayout>(_context, renderPassLayoutDesc);
@@ -272,38 +274,38 @@ namespace flaw {
         renderPassDesc.layout = _renderPassLayout;
 
         renderPassDesc.depthStencilAttachmentOp = {
-            { TextureLayout::Undefined, TextureLayout::DepthStencil, AttachmentLoadOp::Clear, AttachmentStoreOp::Store, AttachmentLoadOp::DontCare, AttachmentStoreOp::DontCare }
+            { TextureLayout::Undefined, TextureLayout::DepthStencilAttachment, AttachmentLoadOp::Clear, AttachmentStoreOp::Store, AttachmentLoadOp::DontCare, AttachmentStoreOp::DontCare }
         };
 
         if (_context.GetMSAAState()) {
             renderPassDesc.colorAttachmentOps = {
-                { TextureLayout::Undefined, TextureLayout::Color, AttachmentLoadOp::Clear, AttachmentStoreOp::Store }
+                { TextureLayout::Undefined, TextureLayout::ColorAttachment, AttachmentLoadOp::Clear, AttachmentStoreOp::Store }
             };
             renderPassDesc.resolveAttachmentOp = {
-                { TextureLayout::Undefined, TextureLayout::Present, AttachmentLoadOp::Clear, AttachmentStoreOp::Store }
+                { TextureLayout::Undefined, TextureLayout::PresentSource, AttachmentLoadOp::Clear, AttachmentStoreOp::Store }
             };
         } else {
             renderPassDesc.colorAttachmentOps = {
-                { TextureLayout::Undefined, TextureLayout::Present, AttachmentLoadOp::Clear, AttachmentStoreOp::Store }
+                { TextureLayout::Undefined, TextureLayout::PresentSource, AttachmentLoadOp::Clear, AttachmentStoreOp::Store }
             };
         }
 
         _clearOpRenderPass = CreateRef<VkRenderPass>(_context, renderPassDesc);
 
         renderPassDesc.depthStencilAttachmentOp = {
-            { TextureLayout::DepthStencil, TextureLayout::DepthStencil, AttachmentLoadOp::Load, AttachmentStoreOp::Store, AttachmentLoadOp::DontCare, AttachmentStoreOp::DontCare }
+            { TextureLayout::DepthStencilAttachment, TextureLayout::DepthStencilAttachment, AttachmentLoadOp::Load, AttachmentStoreOp::Store, AttachmentLoadOp::DontCare, AttachmentStoreOp::DontCare }
         };
 
         if (_context.GetMSAAState()) {
             renderPassDesc.colorAttachmentOps = {
-                { TextureLayout::Color, TextureLayout::Color, AttachmentLoadOp::Load, AttachmentStoreOp::Store }
+                { TextureLayout::ColorAttachment, TextureLayout::ColorAttachment, AttachmentLoadOp::Load, AttachmentStoreOp::Store }
             };
             renderPassDesc.resolveAttachmentOp = {
-                { TextureLayout::Present, TextureLayout::Present, AttachmentLoadOp::Load, AttachmentStoreOp::Store }
+                { TextureLayout::PresentSource, TextureLayout::PresentSource, AttachmentLoadOp::Load, AttachmentStoreOp::Store }
             };
         } else {
             renderPassDesc.colorAttachmentOps = {
-                { TextureLayout::Present, TextureLayout::Present, AttachmentLoadOp::Load, AttachmentStoreOp::Store }
+                { TextureLayout::PresentSource, TextureLayout::PresentSource, AttachmentLoadOp::Load, AttachmentStoreOp::Store }
             };
         }
 
@@ -318,7 +320,7 @@ namespace flaw {
             auto renderTexture = _renderTextures[i];
             auto depthTexture = _depthStencilTextures[i];
             
-            GraphicsFramebuffer::Descriptor desc;
+            Framebuffer::Descriptor desc;
             desc.width = _extent.width;
             desc.height = _extent.height;
             desc.renderPassLayout = _renderPassLayout;

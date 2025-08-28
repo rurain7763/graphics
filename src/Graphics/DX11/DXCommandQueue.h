@@ -34,7 +34,7 @@ namespace flaw {
 		void DrawIndexedInstanced(const Ref<IndexBuffer>& indexBuffer, uint32_t indexCount, uint32_t instanceCount, uint32_t indexOffset = 0, uint32_t vertexOffset = 0) override;
 		
 		void BeginRenderPass() override;
-		void BeginRenderPass(const Ref<RenderPass>& beginRenderPass, const Ref<RenderPass>& resumeRenderPass, const Ref<GraphicsFramebuffer>& framebuffer) override;
+		void BeginRenderPass(const Ref<RenderPass>& beginRenderPass, const Ref<RenderPass>& resumeRenderPass, const Ref<Framebuffer>& framebuffer) override;
 		void EndRenderPass() override;
 
 		void Submit() override;
@@ -53,7 +53,6 @@ namespace flaw {
 		void Dispatch(uint32_t x, uint32_t y, uint32_t z) override;
 
 	private:
-		void BindRenderResources();
 		void BeginRenderPassImpl(const Ref<DXRenderPass>& beginRenderPass, const Ref<DXFramebuffer>& framebuffer);
 
 		void BindComputeResources();
@@ -61,16 +60,13 @@ namespace flaw {
 	private:
 		DXContext& _context;
 
-		bool _needBindVertexBuffers;
 		std::vector<Ref<DXVertexBuffer>> _currentVertexBuffers;
 		std::vector<ID3D11Buffer*> _currentDXVertexBuffers;
 		std::vector<UINT> _currentDXVertexBufferStrides;
 		std::vector<UINT> _currentDXVertexBufferOffsets;
 
-		bool _needBindGraphicsPipeline;
 		Ref<DXGraphicsPipeline> _currentGraphicsPipeline;
 
-		bool _needBindShaderResources;
 		std::vector<Ref<DXShaderResources>> _currentShaderResourcesVec;
 
 		struct BeginInfo {

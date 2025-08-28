@@ -6,6 +6,7 @@
 #include "Math/Math.h"
 #include "Image/Image.h"
 #include "EngineCamera.h"
+#include "object.h"
 
 using namespace flaw;
 
@@ -45,13 +46,6 @@ struct MaterialConstants {
     float shininess;
 	glm::vec3 specularColor;
     uint32_t texture_binding_flags;
-};
-
-struct TexturedVertex {
-    glm::vec3 position;
-    glm::vec4 color;
-    glm::vec2 texCoord;
-    glm::vec3 normal;
 };
 
 struct ObjectConstants {
@@ -99,108 +93,25 @@ struct SpotLight {
     float quadratic_attenuation;
 };
 
-struct Material {
-	glm::vec3 diffuseColor;
-	glm::vec3 specularColor;
-	float shininess;
-
-    Ref<Texture2D> diffuseTexture;
-	Ref<Texture2D> specularTexture;
-};
-
-struct SubMesh {
-    uint32_t vertexOffset;
-    uint32_t indexOffset;
-    uint32_t indexCount;
-};
-
-struct Mesh {
-    Ref<VertexBuffer> vertexBuffer;
-    Ref<IndexBuffer> indexBuffer;
-
-    std::vector<SubMesh> subMeshes;
-    std::vector<Ref<Material>> materials;
-};
-
-struct IObjectComponent {
-    static inline uint32_t nextId = 0;
-};
-
-template<typename T>
-class ObjectComponent : public IObjectComponent { 
-public:
-    virtual ~ObjectComponent() = default;
-    
-    static uint32_t GetID() {
-        if (id == UINT32_MAX) {
-            id = nextId++;
-        }
-        
-        return id;
-    }
-
-private:
-    static inline uint32_t id = UINT32_MAX;
-};
-
-struct StaticMeshComponent : public ObjectComponent<StaticMeshComponent> {
-    bool drawOutline;
-    Ref<Mesh> mesh;
-};
-
-struct SpriteComponent : public ObjectComponent<SpriteComponent> {
-    Ref<Texture2D> texture;
-};
-
-struct Object {
-    glm::vec3 position;
-    glm::vec3 rotation;
-    glm::vec3 scale;
-
-    std::array<Ref<IObjectComponent>, 32> components;
-
-    template<typename T>
-    Ref<T> AddComponent() {
-        static_assert(std::is_base_of<IObjectComponent, T>::value, "T must be derived from IObjectComponent");
-
-        Ref<T> component = CreateRef<T>();
-        components[T::GetID()] = component;
-
-        return component;
-    }
-
-    template<typename T>
-    bool HasComponent() const {
-        static_assert(std::is_base_of<IObjectComponent, T>::value, "T must be derived from IObjectComponent");
-
-        return components[T::GetID()] != nullptr;
-    }
-
-    template<typename T>
-    Ref<T> GetComponent() const {
-        static_assert(std::is_base_of<IObjectComponent, T>::value, "T must be derived from IObjectComponent");
-
-        return std::static_pointer_cast<T>(components[T::GetID()]);
-    }
-};
-
 extern Ref<PlatformContext> g_context;
 extern EventDispatcher g_eventDispatcher;
 extern Ref<GraphicsContext> g_graphicsContext;
+
 extern Ref<EngineCamera> g_camera;
 extern std::vector<Object> g_objects;
-extern std::unordered_map<std::string, Ref<Texture2D>> g_textures;
-extern std::unordered_map<std::string, Ref<TextureCube>> g_textureCubes;
-extern std::unordered_map<std::string, Ref<Mesh>> g_meshes;
-extern std::unordered_map<std::string, Ref<Material>> g_materials;
 
+extern std::vector<Ref<Framebuffer>> g_sceneFramebuffers;
+extern Ref<RenderPassLayout> g_sceneRenderPassLayout;
+extern Ref<RenderPass> g_sceneClearRenderPass;
+extern Ref<RenderPass> g_sceneLoadRenderPass;
 extern Ref<VertexInputLayout> g_texturedVertexInputLayout;
 extern Ref<ConstantBuffer> g_cameraCB;
 
 void World_Init();
+void World_Cleanup();
 void World_Update();
 void World_Render();
-void World_Cleanup();
+void World_FinalizeRender();
 
 Object& AddObject();
 

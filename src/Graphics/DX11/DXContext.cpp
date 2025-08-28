@@ -87,13 +87,13 @@ namespace flaw {
 	int32_t DXContext::CreateMainRenderPass() {
 		RenderPass::ColorAttachmentOperation colorAttachmentOp;
 		colorAttachmentOp.initialLayout = TextureLayout::Undefined;
-		colorAttachmentOp.finalLayout = TextureLayout::Present;
+		colorAttachmentOp.finalLayout = TextureLayout::PresentSource;
 		colorAttachmentOp.loadOp = AttachmentLoadOp::Clear;
 		colorAttachmentOp.storeOp = AttachmentStoreOp::Store;
 
 		RenderPass::DepthStencilAttachmentOperation depthStencilAttachmentOp;
 		depthStencilAttachmentOp.initialLayout = TextureLayout::Undefined;
-		depthStencilAttachmentOp.finalLayout = TextureLayout::DepthStencil;
+		depthStencilAttachmentOp.finalLayout = TextureLayout::DepthStencilAttachment;
 		depthStencilAttachmentOp.loadOp = AttachmentLoadOp::Clear;
 		depthStencilAttachmentOp.storeOp = AttachmentStoreOp::Store;
 		depthStencilAttachmentOp.stencilLoadOp = AttachmentLoadOp::Clear;
@@ -165,10 +165,11 @@ namespace flaw {
 		descDepth.height = _renderHeight;
 		descDepth.memProperty = MemoryProperty::Static;
 		descDepth.texUsages = TextureUsage::DepthStencil;
+		descDepth.initialLayout = TextureLayout::DepthStencilAttachment;
 
 		auto depthStencilTex = CreateRef<DXTexture2D>(*this, descDepth);
 
-		GraphicsFramebuffer::Descriptor framebufferDesc;
+		Framebuffer::Descriptor framebufferDesc;
 		framebufferDesc.width = _renderWidth;
 		framebufferDesc.height = _renderHeight;
 		framebufferDesc.renderPassLayout = _mainRenderPassLayout;
@@ -200,6 +201,7 @@ namespace flaw {
 			desc.height = height;
 			desc.memProperty = MemoryProperty::Static;
 			desc.texUsages = TextureUsage::DepthStencil;
+			desc.initialLayout = TextureLayout::DepthStencilAttachment;
 
 			tex = CreateRef<DXTexture2D>(*this, desc);
 
@@ -304,7 +306,7 @@ namespace flaw {
 		return CreateRef<DXRenderPass>(*this, desc);
 	}
 
-	Ref<GraphicsFramebuffer> DXContext::CreateFramebuffer(const GraphicsFramebuffer::Descriptor& desc) {
+	Ref<Framebuffer> DXContext::CreateFramebuffer(const Framebuffer::Descriptor& desc) {
 		return CreateRef<DXFramebuffer>(*this, desc);
 	}
 
@@ -312,11 +314,15 @@ namespace flaw {
 		return _mainRenderPassLayout;
 	}
 
-	uint32_t DXContext::GetMainFramebuffersCount() const {
+	uint32_t DXContext::GetFrameCount() const {
 		return 1;
 	}
 
-	Ref<GraphicsFramebuffer> DXContext::GetMainFramebuffer(uint32_t index) {
+	uint32_t DXContext::GetCurrentFrameIndex() const {
+		return 0;
+	}
+
+	Ref<Framebuffer> DXContext::GetMainFramebuffer(uint32_t index) {
 		if (index != 0) {
 			LOG_ERROR("Invalid framebuffer index: %d", index);
 			return nullptr;

@@ -37,12 +37,14 @@ namespace flaw {
 
 		virtual Ref<RenderPassLayout> CreateRenderPassLayout(const RenderPassLayout::Descriptor& desc) = 0;
 		virtual Ref<RenderPass> CreateRenderPass(const RenderPass::Descriptor& desc) = 0;
-		virtual Ref<GraphicsFramebuffer> CreateFramebuffer(const GraphicsFramebuffer::Descriptor& desc) = 0;
+		virtual Ref<Framebuffer> CreateFramebuffer(const Framebuffer::Descriptor& desc) = 0;
 
 		virtual Ref<RenderPassLayout> GetMainRenderPassLayout() = 0;
 
-		virtual uint32_t GetMainFramebuffersCount() const = 0;
-		virtual Ref<GraphicsFramebuffer> GetMainFramebuffer(uint32_t index) = 0;
+		virtual uint32_t GetFrameCount() const = 0;
+		virtual uint32_t GetCurrentFrameIndex() const = 0;
+
+		virtual Ref<Framebuffer> GetMainFramebuffer(uint32_t index) = 0;
 
 		virtual GraphicsCommandQueue& GetCommandQueue() = 0;
 		

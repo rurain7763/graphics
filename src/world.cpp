@@ -5,6 +5,7 @@
 #include "Graphics/Vulkan/VkContext.h"
 #include "Graphics/DX11/DXContext.h"
 #include "Graphics/GraphicsFunc.h"
+#include "Graphics/GraphicsHelper.h"
 #include "Time/Time.h"
 #include "Math/Math.h"
 #include "Image/Image.h"
@@ -18,12 +19,6 @@ Ref<GraphicsContext> g_graphicsContext;
 Ref<EngineCamera> g_camera;
 
 std::vector<Object> g_objects;
-std::unordered_map<std::string, Ref<Texture2D>> g_textures;
-std::unordered_map<std::string, Ref<TextureCube>> g_textureCubes;
-std::unordered_map<std::string, Ref<Mesh>> g_meshes;
-std::unordered_map<std::string, Ref<Material>> g_materials;
-
-Ref<VertexInputLayout> g_texturedVertexInputLayout;
 
 #if USE_VULKAN
 const uint32_t camersConstantsCBBinding = 0;
@@ -47,44 +42,35 @@ const uint32_t diffuseTextureBinding = 4;
 const uint32_t specularTextureBinding = 5;
 #endif
 
+std::vector<Ref<Framebuffer>> g_sceneFramebuffers;
+Ref<RenderPassLayout> g_sceneRenderPassLayout;
+Ref<RenderPass> g_sceneClearRenderPass;
+Ref<RenderPass> g_sceneLoadRenderPass;
+
+Ref<VertexInputLayout> g_texturedVertexInputLayout;
+
 Ref<ConstantBuffer> g_cameraCB;
 Ref<ConstantBuffer> g_lightCB;
 Ref<StructuredBuffer> g_directionalLightSB;
 Ref<StructuredBuffer> g_pointLightSB;
 Ref<StructuredBuffer> g_spotLightSB;
-Ref<GraphicsPipeline> g_skyboxPipeline;
 Ref<GraphicsPipeline> g_objPipeline;
-#if USE_VULKAN
-Ref<ShaderResourcesLayout> g_skyboxShaderResourcesLayout;
-Ref<ShaderResources> g_skyboxShaderResources;
-Ref<ShaderResourcesLayout> g_skyboxTexShaderResourcesLayout;
-Ref<ShaderResources> g_skyboxTexShaderResources;
-#elif USE_DX11
-Ref<ShaderResourcesLayout> g_skyboxShaderResourcesLayout;
-Ref<ShaderResources> g_skyboxShaderResources;
-#endif
 Ref<ShaderResourcesLayout> g_objShaderResourcesLayout;
 Ref<ShaderResources> g_objShaderResources;
 Ref<ShaderResourcesLayout> g_objDynamicShaderResourcesLayout;
 
-std::vector<std::vector<Ref<ShaderResources>>> g_objDynamicShaderResourcesPerFrame;
-uint32_t g_objDynamicShaderResourcesUsed;
+Ref<ShaderResourcesPool> g_objDynamicShaderResourcesPool;
+Ref<ConstantBufferPool> g_objMaterialCBPool;
+Ref<StructuredBufferPool> g_objInstanceSBPool;
 
-std::vector<std::vector<Ref<ConstantBuffer>>> g_objMaterialCBsPerFrame;
-uint32_t g_objMaterialCBUsed;
+Ref<GraphicsPipeline> g_finalizePipeline;
 
-std::vector<std::vector<Ref<StructuredBuffer>>> g_objInstanceSBsPerFrame;
-uint32_t g_objInstanceSBUsed;
+Ref<ShaderResourcesPool> g_finalizeShaderResourcesPool;
 
 CameraConstants g_cameraConstants;
 LightConstants g_lightConstants;
 
-void InitAssets();
-
 void InitBaseResources();
-
-void InitSkyboxShaderResources();
-void InitSkyboxGraphicsPipeline();
 
 void InitObjectBuffers();
 void InitObjectShaderResources();
@@ -121,261 +107,105 @@ void World_Init() {
     g_cameraConstants.view_matrix = ViewMatrix(vec3(0.f, 0.f, -5.f), vec3(0.f));
     g_cameraConstants.projection_matrix = Perspective(glm::radians(45.0f), static_cast<float>(windowWidth) / windowHeight, 0.1f, 100.0f);
 
-    InitAssets();
     InitBaseResources();
-    InitSkyboxShaderResources();
-    InitSkyboxGraphicsPipeline();
     InitObjectBuffers();
     InitObjectShaderResources();
     InitObjectGraphicsPipeline();
 }
 
-void LoadTexture(const char* filePath, const char* key) {
-    Image image(filePath, 4);
+void InitBaseResources() {
+    int32_t width, height;
+    g_graphicsContext->GetSize(width, height);
 
-    if (!image.IsValid()) {
-        Log::Error("Failed to load texture: %s", filePath);
-        return;
-    }
+    // NOTE: Create render passes
+    RenderPassLayout::Descriptor sceneRenderPassLayoutDesc;
+    sceneRenderPassLayoutDesc.colorAttachments = { { PixelFormat::RGBA8 } };
+    sceneRenderPassLayoutDesc.depthStencilAttachment = { PixelFormat::D24S8_UINT };
 
-    Texture2D::Descriptor textureDesc;
-    textureDesc.width = image.Width();
-    textureDesc.height = image.Height();
-    textureDesc.data = image.Data().data();
-    textureDesc.memProperty = MemoryProperty::Static;
-    textureDesc.texUsages = TextureUsage::ShaderResource;
-    textureDesc.format = PixelFormat::RGBA8;
-	textureDesc.mipLevels = GetMaxMipLevels(textureDesc.width, textureDesc.height);
-    textureDesc.shaderStages = ShaderStage::Pixel;
-    Ref<Texture2D> texture = g_graphicsContext->CreateTexture2D(textureDesc);
+    g_sceneRenderPassLayout = g_graphicsContext->CreateRenderPassLayout(sceneRenderPassLayoutDesc);
 
-    g_textures[key] = texture;
-}
-
-void LoadPrimitiveModel(const std::vector<TexturedVertex>& vertices, const std::vector<uint32_t>& indices, const char* key) {
-    Ref<Mesh> mesh = CreateRef<Mesh>();
-
-    VertexBuffer::Descriptor vertexBufferDesc;
-    vertexBufferDesc.memProperty = MemoryProperty::Static;
-    vertexBufferDesc.elmSize = sizeof(TexturedVertex);
-    vertexBufferDesc.bufferSize = sizeof(TexturedVertex) * vertices.size();
-    vertexBufferDesc.initialData = vertices.data();
-
-    mesh->vertexBuffer = g_graphicsContext->CreateVertexBuffer(vertexBufferDesc);
-
-    IndexBuffer::Descriptor indexBufferDesc;
-    indexBufferDesc.memProperty = MemoryProperty::Static;
-    indexBufferDesc.bufferSize = sizeof(uint32_t) * indices.size();
-    indexBufferDesc.initialData = indices.data();
-
-    mesh->indexBuffer = g_graphicsContext->CreateIndexBuffer(indexBufferDesc);
-
-    SubMesh subMesh;
-    subMesh.vertexOffset = 0;
-    subMesh.indexOffset = 0;
-    subMesh.indexCount = indices.size();
-
-    mesh->subMeshes.push_back(subMesh);
-    mesh->materials.push_back(g_materials["default"]);
-
-    g_meshes[key] = mesh;
-}
-
-void LoadModel(const char* filePath, float scale, const char* key) {
-    Ref<Mesh> mesh = CreateRef<Mesh>();
-    Model model(filePath, scale);
-
-    std::vector<TexturedVertex> vertices;
-    for (const auto& vertex : model.GetVertices()) {
-        TexturedVertex texturedVertex;
-        texturedVertex.position = vertex.position;
-        texturedVertex.color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-        texturedVertex.texCoord = vertex.texCoord;
-        texturedVertex.normal = vertex.normal;
-        vertices.push_back(texturedVertex);
-    }
-
-	VertexBuffer::Descriptor vertexBufferDesc;
-    vertexBufferDesc.memProperty = MemoryProperty::Static;
-    vertexBufferDesc.elmSize = sizeof(TexturedVertex);
-    vertexBufferDesc.bufferSize = sizeof(TexturedVertex) * vertices.size();
-    vertexBufferDesc.initialData = vertices.data();
-
-    mesh->vertexBuffer = g_graphicsContext->CreateVertexBuffer(vertexBufferDesc);
-
-    const std::vector<uint32_t>& indices = model.GetIndices();
-
-	IndexBuffer::Descriptor indexBufferDesc;
-    indexBufferDesc.memProperty = MemoryProperty::Static;
-    indexBufferDesc.bufferSize = sizeof(uint32_t) * indices.size();
-    indexBufferDesc.initialData = indices.data();
-
-    mesh->indexBuffer = g_graphicsContext->CreateIndexBuffer(indexBufferDesc);
-
-    std::unordered_map<Ref<Image>, Ref<Texture2D>> textureCache;
-    std::function<Ref<Texture2D>(const Ref<Image>&)> createTexture = [&](const Ref<Image>& image) {
-        auto it = textureCache.find(image);
-        if (it != textureCache.end()) {
-            return it->second;
-        }
-
-        Texture2D::Descriptor textureDesc;
-        textureDesc.width = image->Width();
-        textureDesc.height = image->Height();
-        textureDesc.data = image->Data().data();
-        textureDesc.memProperty = MemoryProperty::Static;
-        textureDesc.texUsages = TextureUsage::ShaderResource;
-        textureDesc.format = PixelFormat::RGBA8;
-        textureDesc.mipLevels = 1;
-        textureDesc.shaderStages = ShaderStage::Pixel;
-
-        Ref<Texture2D> texture = g_graphicsContext->CreateTexture2D(textureDesc);
-        textureCache[image] = texture;
-
-        return texture;
+    RenderPass::Descriptor sceneClearRenderPassDesc;
+    sceneClearRenderPassDesc.layout = g_sceneRenderPassLayout;
+    sceneClearRenderPassDesc.colorAttachmentOps = {
+        { TextureLayout::Undefined, TextureLayout::ShaderReadOnly, AttachmentLoadOp::Clear, AttachmentStoreOp::Store }
+    };
+    sceneClearRenderPassDesc.depthStencilAttachmentOp = {
+        TextureLayout::DepthStencilAttachment, TextureLayout::DepthStencilAttachment, AttachmentLoadOp::Clear, AttachmentStoreOp::Store, AttachmentLoadOp::Clear, AttachmentStoreOp::Store
     };
 
-	std::unordered_map<uint32_t, Ref<Material>> materialCache;
-	std::function<Ref<Material>(uint32_t, const ModelMaterial&)> createMaterial = [&](uint32_t index, const ModelMaterial& modelMaterial) {
-		auto it = materialCache.find(index);
-		if (it != materialCache.end()) {
-			return it->second;
-		}
+    g_sceneClearRenderPass = g_graphicsContext->CreateRenderPass(sceneClearRenderPassDesc);
 
-		Ref<Material> material = CreateRef<Material>();
-        material->diffuseColor = modelMaterial.baseColor;
-		if (modelMaterial.diffuse) {
-			material->diffuseTexture = createTexture(modelMaterial.diffuse);
-		}
-		material->specularColor = glm::vec3(1.0f, 1.0f, 1.0f);
-        if (modelMaterial.specular) {
-			material->specularTexture = createTexture(modelMaterial.specular);
-        }
-		material->shininess = 32.0f;
-		materialCache[index] = material;
+    RenderPass::Descriptor sceneLoadRenderPassDesc;
+    sceneLoadRenderPassDesc.layout = g_sceneRenderPassLayout;
+    sceneLoadRenderPassDesc.colorAttachmentOps = {
+        { TextureLayout::ShaderReadOnly, TextureLayout::ShaderReadOnly, AttachmentLoadOp::Load, AttachmentStoreOp::Store }
+    };
+    sceneLoadRenderPassDesc.depthStencilAttachmentOp = {
+        TextureLayout::DepthStencilAttachment, TextureLayout::DepthStencilAttachment, AttachmentLoadOp::Load, AttachmentStoreOp::Store, AttachmentLoadOp::Load, AttachmentStoreOp::Store
+    };
 
-		return material;
-	};
+	g_sceneLoadRenderPass = g_graphicsContext->CreateRenderPass(sceneLoadRenderPassDesc);
 
-    for (const auto& modelSubMesh : model.GetMeshs()) {
-        SubMesh subMesh;
-        subMesh.vertexOffset = modelSubMesh.vertexStart;
-        subMesh.indexOffset = modelSubMesh.indexStart;
-        subMesh.indexCount = modelSubMesh.indexCount;
-        mesh->subMeshes.push_back(subMesh);
+	// NOTE: Create framebuffers
+	g_sceneFramebuffers.resize(g_graphicsContext->GetFrameCount());
+	for (uint32_t i = 0; i < g_graphicsContext->GetFrameCount(); i++) {
+	    Texture2D::Descriptor sceneColorAttachmentDesc;
+	    sceneColorAttachmentDesc.width = width;
+	    sceneColorAttachmentDesc.height = height;
+	    sceneColorAttachmentDesc.format = PixelFormat::RGBA8;
+        sceneColorAttachmentDesc.memProperty = MemoryProperty::Static;
+	    sceneColorAttachmentDesc.texUsages = TextureUsage::RenderTarget | TextureUsage::ShaderResource;
+		sceneColorAttachmentDesc.initialLayout = TextureLayout::ColorAttachment;
+	    sceneColorAttachmentDesc.shaderStages = ShaderStage::Pixel;
 
-		Ref<Material> material;
-        if (modelSubMesh.materialIndex == -1) {
-			material = g_materials["default"];
-        }
-        else {
-		    material = createMaterial(modelSubMesh.materialIndex, model.GetMaterialAt(modelSubMesh.materialIndex));
-        }
+	    Ref<Texture2D> sceneColorAttachment = g_graphicsContext->CreateTexture2D(sceneColorAttachmentDesc);
 
-		mesh->materials.push_back(material);
-    }
+	    Texture2D::Descriptor sceneDepthStencilAttachmentDesc;
+	    sceneDepthStencilAttachmentDesc.width = width;
+	    sceneDepthStencilAttachmentDesc.height = height;
+	    sceneDepthStencilAttachmentDesc.format = PixelFormat::D24S8_UINT;
+	    sceneDepthStencilAttachmentDesc.memProperty = MemoryProperty::Static;
+		sceneDepthStencilAttachmentDesc.initialLayout = TextureLayout::DepthStencilAttachment;
+	    sceneDepthStencilAttachmentDesc.texUsages = TextureUsage::DepthStencil;
 
-	g_meshes[key] = mesh;
-}
+	    Ref<Texture2D> sceneDepthStencilAttachment = g_graphicsContext->CreateTexture2D(sceneDepthStencilAttachmentDesc);
 
-void InitAssets() {
-    Texture2D::Descriptor textureDesc;
-    textureDesc.width = 1;
-	textureDesc.height = 1;
-	textureDesc.memProperty = MemoryProperty::Static;
-	textureDesc.texUsages = TextureUsage::ShaderResource;
-	textureDesc.format = PixelFormat::RGBA8;
-	textureDesc.mipLevels = 1;
-	textureDesc.shaderStages = ShaderStage::Pixel;
+	    Framebuffer::Descriptor sceneFramebufferDesc;
+		sceneFramebufferDesc.renderPassLayout = g_sceneRenderPassLayout;
+	    sceneFramebufferDesc.width = width;
+	    sceneFramebufferDesc.height = height;
+	    sceneFramebufferDesc.colorAttachments = { sceneColorAttachment };
+		sceneFramebufferDesc.colorResizeHandler = [](Ref<Texture>& texture, int32_t width, int32_t height) -> bool {
+			Texture2D::Descriptor desc;
+			desc.width = width;
+			desc.height = height;
+			desc.format = PixelFormat::RGBA8;
+			desc.memProperty = MemoryProperty::Static;
+			desc.texUsages = TextureUsage::RenderTarget | TextureUsage::ShaderResource;
+			desc.initialLayout = TextureLayout::ColorAttachment;
+			desc.shaderStages = ShaderStage::Pixel;
+			texture = g_graphicsContext->CreateTexture2D(desc);
 
-	g_textures["dummy"] = g_graphicsContext->CreateTexture2D(textureDesc);
+            return true;
+		};
+	    sceneFramebufferDesc.depthStencilAttachment = sceneDepthStencilAttachment;
+        sceneFramebufferDesc.depthStencilResizeHandler = [](Ref<Texture>& texture, int32_t width, int32_t height) -> bool {
+            Texture2D::Descriptor desc;
+            desc.width = width;
+            desc.height = height;
+            desc.format = PixelFormat::D24S8_UINT;
+            desc.memProperty = MemoryProperty::Static;
+            desc.texUsages = TextureUsage::DepthStencil;
+			desc.initialLayout = TextureLayout::DepthStencilAttachment;
+            texture = g_graphicsContext->CreateTexture2D(desc);
+        
+            return true;
+        };
 
-    LoadTexture("assets/textures/grass.png", "grass");
-    LoadTexture("assets/textures/window.png", "window");
-	LoadTexture("assets/textures/haus.jpg", "haus");
-	LoadTexture("assets/textures/container2.png", "container2");
-	LoadTexture("assets/textures/container2_specular.png", "container2_specular");
+	    g_sceneFramebuffers[i] = g_graphicsContext->CreateFramebuffer(sceneFramebufferDesc);
+	}
 
-    Ref<Material> defaultMaterial = CreateRef<Material>();
-    defaultMaterial->diffuseColor = glm::vec3(0.5f, 0.5f, 0.5f);
-    defaultMaterial->specularColor = glm::vec3(1.0f, 1.0f, 1.0f);
-    defaultMaterial->shininess = 32.0f;
-
-    g_materials["default"] = defaultMaterial;
-
-    std::vector<TexturedVertex> quadVertices;
-    std::vector<uint32_t> quadIndices;
-
-    GenerateQuad([&](const glm::vec3& position, const glm::vec2& texCoord, const glm::vec3& normal, const glm::vec3& tangent, const glm::vec3& binormal) {
-        TexturedVertex vertex;
-        vertex.position = position;
-        vertex.color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-        vertex.texCoord = texCoord;
-        vertex.normal = normal;
-        quadVertices.push_back(vertex);
-    }, quadIndices);
-
-    std::vector<TexturedVertex> cubeVertices;
-    std::vector<uint32_t> cubeIndices;
-	GenerateCube(
-		[&](const glm::vec3& position, const glm::vec2& texCoord, const glm::vec3& normal, const glm::vec3& tangent, const glm::vec3& binormal) {
-			TexturedVertex vertex;
-			vertex.position = position;
-			vertex.color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-			vertex.texCoord = texCoord;
-			vertex.normal = normal;
-			cubeVertices.push_back(vertex);
-		},
-		cubeIndices
-	);
-
-	std::vector<TexturedVertex> sphereVertices;
-	std::vector<uint32_t> sphereIndices;
-	GenerateSphere(
-		[&](const glm::vec3& position, const glm::vec2& texCoord, const glm::vec3& normal, const glm::vec3& tangent, const glm::vec3& binormal) {
-			TexturedVertex vertex;
-			vertex.position = position;
-			vertex.color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-			vertex.texCoord = texCoord;
-			vertex.normal = normal;
-			sphereVertices.push_back(vertex);
-		},
-		sphereIndices,
-        16,
-        16,
-        0.5f
-	);
-
-    LoadPrimitiveModel(quadVertices, quadIndices, "quad");
-	LoadPrimitiveModel(cubeVertices, cubeIndices, "cube");
-	LoadPrimitiveModel(sphereVertices, sphereIndices, "sphere");
-    //LoadModel("assets/models/girl.obj", 1.0f, "girl");
-	//LoadModel("assets/models/survival-guitar-backpack/backpack.obj", 1.0f, "survival_backpack");
-    LoadModel("assets/models/Sponza/Sponza.gltf", 0.05f, "sponza");
-
-    Image left("./assets/textures/sky/sky_left.png", 4);
-    Image right("./assets/textures/sky/sky_right.png", 4);
-    Image top("./assets/textures/sky/sky_top.png", 4);
-    Image bottom("./assets/textures/sky/sky_bottom.png", 4);
-    Image front("./assets/textures/sky/sky_front.png", 4);
-    Image back("./assets/textures/sky/sky_back.png", 4);
-
-    std::vector<uint8_t> textureData = GenerateTextureCubeData(left, right, top, bottom, front, back);
-
-    TextureCube::Descriptor skyboxDesc = {};
-    skyboxDesc.width = left.Width();
-    skyboxDesc.height = left.Height();
-    skyboxDesc.data = textureData.data();
-    skyboxDesc.format = PixelFormat::RGBA8;
-    skyboxDesc.memProperty = MemoryProperty::Static;
-    skyboxDesc.texUsages = TextureUsage::ShaderResource;
-    skyboxDesc.mipLevels = GetMaxMipLevels(skyboxDesc.width, skyboxDesc.height);
-	skyboxDesc.shaderStages = ShaderStage::Pixel;
-
-    g_textureCubes["skybox"] = g_graphicsContext->CreateTextureCube(skyboxDesc);
-}
-
-void InitBaseResources() {
+	// NOTE: Vertex input layout
     VertexInputLayout::Descriptor vertexInputLayoutDesc;
     vertexInputLayoutDesc.binding = 0;
     vertexInputLayoutDesc.vertexInputRate = VertexInputRate::Vertex;
@@ -388,6 +218,7 @@ void InitBaseResources() {
 
     g_texturedVertexInputLayout = g_graphicsContext->CreateVertexInputLayout(vertexInputLayoutDesc);
 
+	// NOTE: Create buffers
     ConstantBuffer::Descriptor cameraConstantsDesc;
 	cameraConstantsDesc.memProperty = MemoryProperty::Dynamic;
 	cameraConstantsDesc.bufferSize = sizeof(CameraConstants);
@@ -425,81 +256,58 @@ void InitBaseResources() {
 	spotLightDesc.bufferUsages = BufferUsage::ShaderResource;
 
 	g_spotLightSB = g_graphicsContext->CreateStructuredBuffer(spotLightDesc);
-}
 
-void InitSkyboxShaderResources() {
-#if USE_VULKAN
-    ShaderResourcesLayout::Descriptor skyboxResourceLayoutDesc;
-    skyboxResourceLayoutDesc.bindings = {
-        { 0, ResourceType::ConstantBuffer, ShaderStage::Vertex, 1 }
-    };
-
-    g_skyboxShaderResourcesLayout = g_graphicsContext->CreateShaderResourcesLayout(skyboxResourceLayoutDesc);
-
-    ShaderResources::Descriptor skyboxResourcesDesc;
-    skyboxResourcesDesc.layout = g_skyboxShaderResourcesLayout;
-
-    g_skyboxShaderResources = g_graphicsContext->CreateShaderResources(skyboxResourcesDesc);
-    g_skyboxShaderResources->BindConstantBuffer(g_cameraCB, 0);
-
-    skyboxResourceLayoutDesc.bindings = {
-        { 0, ResourceType::TextureCube, ShaderStage::Pixel, 1 },
-    };
-
-    g_skyboxTexShaderResourcesLayout = g_graphicsContext->CreateShaderResourcesLayout(skyboxResourceLayoutDesc);
-
-    skyboxResourcesDesc.layout = g_skyboxTexShaderResourcesLayout;
-
-    g_skyboxTexShaderResources = g_graphicsContext->CreateShaderResources(skyboxResourcesDesc);
-    g_skyboxTexShaderResources->BindTextureCube(g_textureCubes["skybox"], 0);
-#elif USE_DX11
-	ShaderResourcesLayout::Descriptor skyboxResourceLayoutDesc;
-	skyboxResourceLayoutDesc.bindings = {
-		{ 0, ResourceType::ConstantBuffer, ShaderStage::Vertex, 1 },
-		{ 0, ResourceType::TextureCube, ShaderStage::Pixel, 1 }
+	// NOTE: Create finalize shader resources
+	ShaderResourcesLayout::Descriptor finalizeSRLDesc;
+	finalizeSRLDesc.bindings = {
+		{ 0, ResourceType::Texture2D, ShaderStage::Pixel, 1 },
 	};
 
-	g_skyboxShaderResourcesLayout = g_graphicsContext->CreateShaderResourcesLayout(skyboxResourceLayoutDesc);
+	auto finalizeSRL = g_graphicsContext->CreateShaderResourcesLayout(finalizeSRLDesc);
 
-	ShaderResources::Descriptor skyboxResourcesDesc;
-	skyboxResourcesDesc.layout = g_skyboxShaderResourcesLayout;
+	ShaderResources::Descriptor finalizeSRDesc;
+	finalizeSRDesc.layout = finalizeSRL;
 
-	g_skyboxShaderResources = g_graphicsContext->CreateShaderResources(skyboxResourcesDesc);
-    g_skyboxShaderResources->BindConstantBuffer(g_cameraCB, 0);
-    g_skyboxShaderResources->BindTextureCube(g_textureCubes["skybox"], 0);
-#endif
-}
+	g_finalizeShaderResourcesPool = CreateRef<ShaderResourcesPool>(*g_graphicsContext, finalizeSRDesc);
 
-void InitSkyboxGraphicsPipeline() {
-    GraphicsShader::Descriptor skyboxShaderDesc;
+	// NOTE: Create finalize pipeline
+	GraphicsShader::Descriptor finalizeShaderDesc;
 #if USE_VULKAN
-    skyboxShaderDesc.vertexShaderFile = "./assets/shaders/sky.vert.spv";
-    skyboxShaderDesc.vertexShaderEntry = "main";
-    skyboxShaderDesc.pixelShaderFile = "./assets/shaders/sky.frag.spv";
-    skyboxShaderDesc.pixelShaderEntry = "main";
-#elif USE_DX11
-    skyboxShaderDesc.vertexShaderFile = "./assets/shaders/sky.fx";
-    skyboxShaderDesc.vertexShaderEntry = "VSMain";
-    skyboxShaderDesc.pixelShaderFile = "./assets/shaders/sky.fx";
-    skyboxShaderDesc.pixelShaderEntry = "PSMain";
+	finalizeShaderDesc.vertexShaderFile = "assets/shaders/fullscreen.vert.spv";
+	finalizeShaderDesc.vertexShaderEntry = "main";
+	finalizeShaderDesc.pixelShaderFile = "assets/shaders/finalize.frag.spv";
+	finalizeShaderDesc.pixelShaderEntry = "main";
+#else
+	finalizeShaderDesc.vertexShaderFile = "assets/shaders/fullscreen.fx";
+	finalizeShaderDesc.vertexShaderEntry = "VSMain";
+	finalizeShaderDesc.pixelShaderFile = "assets/shaders/finalize.fx";
+	finalizeShaderDesc.pixelShaderEntry = "PSMain";
 #endif
 
-    auto skyboxShader = g_graphicsContext->CreateGraphicsShader(skyboxShaderDesc);
+	auto finalizeShader = g_graphicsContext->CreateGraphicsShader(finalizeShaderDesc);
 
-    g_skyboxPipeline = g_graphicsContext->CreateGraphicsPipeline();
-    g_skyboxPipeline->SetShader(skyboxShader);
-#if USE_VULKAN
-    g_skyboxPipeline->SetShaderResourcesLayouts({ g_skyboxShaderResourcesLayout, g_skyboxTexShaderResourcesLayout });
-#elif USE_DX11
-    g_skyboxPipeline->SetShaderResourcesLayouts({ g_skyboxShaderResourcesLayout });
-#endif
-    g_skyboxPipeline->SetDepthTest(CompareOp::LessEqual, false);
-    g_skyboxPipeline->SetBehaviorStates(GraphicsPipeline::Behavior::AutoResizeViewport | GraphicsPipeline::Behavior::AutoResizeScissor);
+	g_finalizePipeline = g_graphicsContext->CreateGraphicsPipeline();
+	g_finalizePipeline->SetShader(finalizeShader);
+	g_finalizePipeline->SetVertexInputLayouts({ g_texturedVertexInputLayout });
+	g_finalizePipeline->SetShaderResourcesLayouts({ finalizeSRL });
+    g_finalizePipeline->EnableDepthTest(false);
+	g_finalizePipeline->SetBehaviorStates(GraphicsPipeline::Behavior::AutoResizeViewport | GraphicsPipeline::Behavior::AutoResizeScissor);
 }
 
 void InitObjectBuffers() {
-	g_objMaterialCBsPerFrame.resize(g_graphicsContext->GetMainFramebuffersCount());
-	g_objInstanceSBsPerFrame.resize(g_graphicsContext->GetMainFramebuffersCount());
+	ConstantBuffer::Descriptor materialCBDesc;
+	materialCBDesc.memProperty = MemoryProperty::Dynamic;
+	materialCBDesc.bufferSize = sizeof(MaterialConstants);
+
+	g_objMaterialCBPool = CreateRef<ConstantBufferPool>(*g_graphicsContext, materialCBDesc);
+
+	StructuredBuffer::Descriptor instanceSBDesc;
+	instanceSBDesc.memProperty = MemoryProperty::Dynamic;
+	instanceSBDesc.elmSize = sizeof(InstanceData);
+	instanceSBDesc.bufferSize = sizeof(InstanceData) * 1;
+	instanceSBDesc.bufferUsages = BufferUsage::ShaderResource;
+
+	g_objInstanceSBPool = CreateRef<StructuredBufferPool>(*g_graphicsContext, instanceSBDesc);
 }
 
 void InitObjectShaderResources() {
@@ -533,7 +341,10 @@ void InitObjectShaderResources() {
 
     g_objDynamicShaderResourcesLayout = g_graphicsContext->CreateShaderResourcesLayout(shaderResourceLayoutDesc);
 
-    g_objDynamicShaderResourcesPerFrame.resize(g_graphicsContext->GetMainFramebuffersCount());
+	ShaderResources::Descriptor dynamicShaderResourcesDesc;
+	dynamicShaderResourcesDesc.layout = g_objDynamicShaderResourcesLayout;
+
+	g_objDynamicShaderResourcesPool = CreateRef<ShaderResourcesPool>(*g_graphicsContext, dynamicShaderResourcesDesc);
 }
 
 void InitObjectGraphicsPipeline() {
@@ -557,56 +368,45 @@ void InitObjectGraphicsPipeline() {
     g_objPipeline->SetShader(graphicsShader);
     g_objPipeline->SetPrimitiveTopology(PrimitiveTopology::TriangleList);
     g_objPipeline->SetVertexInputLayouts({ g_texturedVertexInputLayout });
+	g_objPipeline->SetRenderPassLayout(g_sceneRenderPassLayout);
     g_objPipeline->SetBehaviorStates(GraphicsPipeline::Behavior::AutoResizeViewport | GraphicsPipeline::Behavior::AutoResizeScissor);
-    g_objPipeline->EnableBlendMode(0, true);
-    g_objPipeline->SetBlendMode(0, BlendMode::Alpha);
 }
 
-Ref<ShaderResources> GetObjDynamicShaderResources(uint32_t frameIndex) {
-	if (g_objDynamicShaderResourcesUsed >= g_objDynamicShaderResourcesPerFrame[frameIndex].size()) {
-		ShaderResources::Descriptor shaderResourcesDesc;
-		shaderResourcesDesc.layout = g_objDynamicShaderResourcesLayout;
+void World_Cleanup() {
+    g_objects.clear();
+    g_finalizePipeline.reset();
+    g_finalizeShaderResourcesPool.reset();
+    g_objPipeline.reset();
+    g_objShaderResources.reset();
+    g_objShaderResourcesLayout.reset();
+    g_objDynamicShaderResourcesPool.reset();
+    g_objDynamicShaderResourcesLayout.reset();
+    g_objShaderResources.reset();
+    g_objShaderResourcesLayout.reset();
+    g_objInstanceSBPool.reset();
+    g_objMaterialCBPool.reset();
+    g_directionalLightSB.reset();
+    g_pointLightSB.reset();
+    g_spotLightSB.reset();
+    g_lightCB.reset();
+    g_cameraCB.reset();
+    g_texturedVertexInputLayout.reset();
+	g_sceneLoadRenderPass.reset();
+	g_sceneClearRenderPass.reset();
+	g_sceneRenderPassLayout.reset();
+	g_sceneFramebuffers.clear();
+    g_graphicsContext.reset();
+    g_context.reset();
 
-		auto shaderResources = g_graphicsContext->CreateShaderResources(shaderResourcesDesc);
-		g_objDynamicShaderResourcesPerFrame[frameIndex].push_back(shaderResources);
-	}
+    Log::Info("World resources cleaned up successfully.");
 
-	return g_objDynamicShaderResourcesPerFrame[frameIndex][g_objDynamicShaderResourcesUsed++];
-}
-
-Ref<ConstantBuffer> GetObjectMaterialCB(uint32_t frameIndex) {
-	if (g_objMaterialCBUsed >= g_objMaterialCBsPerFrame[frameIndex].size()) {
-		ConstantBuffer::Descriptor materialCBDesc;
-		materialCBDesc.memProperty = MemoryProperty::Dynamic;
-		materialCBDesc.bufferSize = sizeof(MaterialConstants);
-		materialCBDesc.initialData = nullptr;
-
-		auto materialCB = g_graphicsContext->CreateConstantBuffer(materialCBDesc);
-		g_objMaterialCBsPerFrame[frameIndex].push_back(materialCB);
-	}
-
-	return g_objMaterialCBsPerFrame[frameIndex][g_objMaterialCBUsed++];
-}
-
-Ref<StructuredBuffer> GetObjectInstanceSB(uint32_t frameIndex) {
-	if (g_objInstanceSBUsed >= g_objInstanceSBsPerFrame[frameIndex].size()) {
-		StructuredBuffer::Descriptor structuredBufferDesc;
-		structuredBufferDesc.memProperty = MemoryProperty::Dynamic;
-		structuredBufferDesc.elmSize = sizeof(InstanceData);
-		structuredBufferDesc.bufferSize = sizeof(InstanceData) * 1;
-		structuredBufferDesc.bufferUsages = BufferUsage::ShaderResource;
-
-		auto instanceBuffer = g_graphicsContext->CreateStructuredBuffer(structuredBufferDesc);
-		g_objInstanceSBsPerFrame[frameIndex].push_back(instanceBuffer);
-	}
-
-	return g_objInstanceSBsPerFrame[frameIndex][g_objInstanceSBUsed++];
+    Log::Cleanup();
 }
 
 void World_Update() {
-    g_objDynamicShaderResourcesUsed = 0;
-    g_objMaterialCBUsed = 0;
-    g_objInstanceSBUsed = 0;
+	g_objDynamicShaderResourcesPool->Reset();
+	g_objMaterialCBPool->Reset();
+    g_objInstanceSBPool->Reset();
 
     int32_t width, height;
     g_context->GetFrameBufferSize(width, height);
@@ -677,17 +477,6 @@ void World_Update() {
 void World_Render() {
     auto& commandQueue = g_graphicsContext->GetCommandQueue();
 
-    commandQueue.SetPipeline(g_skyboxPipeline);
-    commandQueue.ResetVertexBuffers();
-#if USE_VULKAN
-    commandQueue.SetShaderResources({ g_skyboxShaderResources, g_skyboxTexShaderResources });
-#elif USE_DX11
-    commandQueue.SetShaderResources({ g_skyboxShaderResources });
-#endif
-    commandQueue.Draw(6);
-
-    commandQueue.SetPipeline(g_objPipeline);
-
     struct RenderObject {
         Ref<VertexBuffer> vertexBuffer;
         Ref<IndexBuffer> indexBuffer;
@@ -726,22 +515,23 @@ void World_Render() {
         }
     }
 
+    commandQueue.SetPipeline(g_objPipeline);
+
 	for (const auto& obj : renderObjects) {
         commandQueue.SetVertexBuffers({ obj.vertexBuffer });
 
-		auto objInstanceBuffer = GetObjectInstanceSB(commandQueue.GetCurrentFrameIndex());
+        auto objDynamicResources = g_objDynamicShaderResourcesPool->Get();
+		auto objInstanceBuffer = g_objInstanceSBPool->Get();
+		auto objMaterialCB = g_objMaterialCBPool->Get();
+
+        objDynamicResources->BindStructuredBuffer(objInstanceBuffer, instanceDataSBBinding);
+        objDynamicResources->BindConstantBuffer(objMaterialCB, materialConstantsCBBinding);
 
         InstanceData instanceData;
 		instanceData.model_matrix = obj.modelMatrix;
 		instanceData.inv_model_matrix = obj.invModelMatrix;
 
         objInstanceBuffer->Update(&instanceData, sizeof(InstanceData));
-
-        auto objDynamicResources = GetObjDynamicShaderResources(commandQueue.GetCurrentFrameIndex());
-        auto objMaterialCB = GetObjectMaterialCB(commandQueue.GetCurrentFrameIndex());
-
-        objDynamicResources->BindStructuredBuffer(objInstanceBuffer, instanceDataSBBinding);
-        objDynamicResources->BindConstantBuffer(objMaterialCB, materialConstantsCBBinding);
 
         MaterialConstants materialConstants;
         materialConstants.texture_binding_flags = 0;
@@ -754,7 +544,7 @@ void World_Render() {
             objDynamicResources->BindTexture2D(obj.material->diffuseTexture, diffuseTextureBinding);
         }
         else {
-            objDynamicResources->BindTexture2D(g_textures["dummy"], diffuseTextureBinding);
+            objDynamicResources->BindTexture2D(GetTexture2D("dummy"), diffuseTextureBinding);
         }
 
         if (obj.material->specularTexture) {
@@ -762,7 +552,7 @@ void World_Render() {
             objDynamicResources->BindTexture2D(obj.material->specularTexture, specularTextureBinding);
         }
         else {
-            objDynamicResources->BindTexture2D(g_textures["dummy"], specularTextureBinding);
+            objDynamicResources->BindTexture2D(GetTexture2D("dummy"), specularTextureBinding);
         }
 
         objMaterialCB->Update(&materialConstants, sizeof(MaterialConstants));
@@ -772,43 +562,24 @@ void World_Render() {
 	}
 }
 
-void World_Cleanup() {
-    g_objects.clear();
-    g_objPipeline.reset();
-    g_skyboxPipeline.reset();
-    g_objShaderResources.reset();
-    g_objShaderResourcesLayout.reset();
-	g_objDynamicShaderResourcesPerFrame.clear();
-#if USE_VULKAN
-    g_skyboxShaderResources.reset();
-    g_skyboxShaderResourcesLayout.reset();
-    g_skyboxTexShaderResources.reset();
-    g_skyboxTexShaderResourcesLayout.reset();
-#elif USE_DX11
-	g_skyboxShaderResources.reset();
-	g_skyboxShaderResourcesLayout.reset();
-#endif
-    g_objDynamicShaderResourcesLayout.reset();
-	g_objShaderResources.reset();
-	g_objShaderResourcesLayout.reset();
-	g_objInstanceSBsPerFrame.clear();
-	g_objMaterialCBsPerFrame.clear();
-	g_directionalLightSB.reset();
-	g_pointLightSB.reset();
-	g_spotLightSB.reset();
-    g_lightCB.reset();
-    g_cameraCB.reset();
-    g_texturedVertexInputLayout.reset();
-    g_meshes.clear();
-    g_textureCubes.clear();
-    g_materials.clear();
-    g_textures.clear();
-    g_graphicsContext.reset();
-    g_context.reset();
+void World_FinalizeRender() {
+	g_finalizeShaderResourcesPool->Reset();
 
-    Log::Info("World resources cleaned up successfully.");
+	auto& commandQueue = g_graphicsContext->GetCommandQueue();
+	auto& framebuffer = g_sceneFramebuffers[commandQueue.GetCurrentFrameIndex()];
 
-    Log::Cleanup();
+	auto quad = GetMesh("quad");
+	auto attachment = std::static_pointer_cast<Texture2D>(framebuffer->GetColorAttachment(0));
+
+	auto finalizeResources = g_finalizeShaderResourcesPool->Get();
+	finalizeResources->BindTexture2D(attachment, 0);
+
+	commandQueue.SetPipeline(g_finalizePipeline);
+	commandQueue.SetVertexBuffers({ quad->vertexBuffer });
+	commandQueue.SetShaderResources({ finalizeResources });
+	commandQueue.DrawIndexed(quad->indexBuffer, quad->indexBuffer->IndexCount());
+
+	commandQueue.ResetShaderResources();
 }
 
 Object& AddObject() {

@@ -290,7 +290,7 @@ namespace flaw {
         for (uint32_t i = 0; i < renderPassDesc.colorAttachmentOps.size(); ++i) {
             auto& op = renderPassDesc.colorAttachmentOps[i];
             op.initialLayout = TextureLayout::Undefined;
-            op.finalLayout = TextureLayout::Color;
+            op.finalLayout = TextureLayout::ColorAttachment;
             op.loadOp = AttachmentLoadOp::Clear;
             op.storeOp = AttachmentStoreOp::Store;
         }
@@ -298,7 +298,7 @@ namespace flaw {
         if (vkRenderPassLayout->HasDepthStencilAttachment()) {
             renderPassDesc.depthStencilAttachmentOp = {
                 TextureLayout::Undefined,
-                TextureLayout::DepthStencil,
+                TextureLayout::DepthStencilAttachment,
                 AttachmentLoadOp::Clear,
                 AttachmentStoreOp::Store,
                 AttachmentLoadOp::DontCare,
@@ -309,7 +309,7 @@ namespace flaw {
         if (vkRenderPassLayout->HasResolveAttachment()) {
             renderPassDesc.resolveAttachmentOp = {
                 TextureLayout::Undefined,
-                TextureLayout::Color,
+                TextureLayout::ColorAttachment,
                 AttachmentLoadOp::Clear,
                 AttachmentStoreOp::Store
             };
@@ -318,10 +318,6 @@ namespace flaw {
         _renderPass = CreateRef<VkRenderPass>(_context, renderPassDesc);
 
 		_colorBlendAttachments.resize(vkRenderPassLayout->GetColorAttachmentCount());
-		for (uint32_t i = 0; i < _colorBlendAttachments.size(); ++i) {
-            auto& attachment = _colorBlendAttachments[i];
-			attachment.blendEnable = false;
-		}
         _colorBlendStateInfo.attachmentCount = _colorBlendAttachments.size();
         _colorBlendStateInfo.pAttachments = _colorBlendAttachments.data();
 

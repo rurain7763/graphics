@@ -48,7 +48,7 @@ namespace flaw {
             }
         }
 
-        if (!TransitionFinalImageLayout()) {
+        if (!TransitionFinalImageLayout(descriptor.initialLayout)) {
             return;
         }
 
@@ -61,10 +61,6 @@ namespace flaw {
         if (!CreateSampler()) {
             return;
         }
-
-        _imageInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-        _imageInfo.imageView = _imageView;
-        _imageInfo.sampler = _sampler;
     }
 
     VkTexture2DArray::~VkTexture2DArray() {
@@ -194,10 +190,10 @@ namespace flaw {
         return true;
     }
 
-    bool VkTexture2DArray::TransitionFinalImageLayout() {
+    bool VkTexture2DArray::TransitionFinalImageLayout(TextureLayout layout) {
         auto& vkCmdQueue = static_cast<VkCommandQueue&>(_context.GetCommandQueue());
 
-        vk::ImageLayout finalLayout = ConvertToVkImageLayout(_texUsages);
+        vk::ImageLayout finalLayout = ConvertToVkImageLayout(layout);
         vk::PipelineStageFlags finalPipelineStage = ConvertToVkPipelineStageFlags(_texUsages, _shaderStages);
 
         vk::AccessFlags finalAccessFlags;

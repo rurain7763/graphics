@@ -8,7 +8,7 @@
 #include <functional>
 
 namespace flaw {
-	class GraphicsFramebuffer {
+	class Framebuffer {
 	public:
         struct Descriptor {
             uint32_t width;
@@ -22,12 +22,13 @@ namespace flaw {
             Ref<RenderPassLayout> renderPassLayout;
         };
 
-		GraphicsFramebuffer() = default;
-		virtual ~GraphicsFramebuffer() = default;
+		Framebuffer() = default;
+		virtual ~Framebuffer() = default;
 
         virtual void Resize(uint32_t width, uint32_t height) = 0;
 
-        virtual Ref<Texture> GetAttachment(uint32_t index) const = 0;
+        virtual uint32_t GetColorAttachmentCount() const = 0;
+        virtual Ref<Texture> GetColorAttachment(uint32_t index) const = 0;
         virtual Ref<Texture> GetDepthStencilAttachment() const = 0;
         virtual Ref<Texture> GetResolveAttachment() const = 0;
         
