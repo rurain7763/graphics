@@ -148,7 +148,7 @@ namespace flaw {
 
     vk::SurfaceFormatKHR VkSwapchain::ChooseSurfaceFormat(const std::vector<vk::SurfaceFormatKHR>& formats) const {
         for (const auto& format : formats) {
-            if (format.format == vk::Format::eR8G8B8A8Unorm && format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear) {
+            if (format.format == vk::Format::eB8G8R8A8Unorm && format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear) {
                 return format; // Prefer sRGB format
             }
         }
@@ -203,7 +203,7 @@ namespace flaw {
             _renderTextures[i] = CreateRef<VkTexture2D>(
                 _context, 
                 image, 
-                _extent.width, _extent.height, PixelFormat::RGBA8, 
+                _extent.width, _extent.height, GetSurfaceFormat(), 
                 MemoryProperty::Static,
                 TextureUsage::ColorAttachment | TextureUsage::ShaderResource,
                 1,
@@ -242,7 +242,7 @@ namespace flaw {
             Texture2D::Descriptor desc;
             desc.width = _extent.width;
             desc.height = _extent.height;
-            desc.format = PixelFormat::RGBA8;
+            desc.format = GetSurfaceFormat();
             desc.memProperty = MemoryProperty::Static;
             desc.texUsages = TextureUsage::ColorAttachment;
 			desc.initialLayout = TextureLayout::ColorAttachment;
@@ -258,13 +258,13 @@ namespace flaw {
         RenderPassLayout::Descriptor renderPassLayoutDesc;
         if (!_context.GetMSAAState()) {
             renderPassLayoutDesc.sampleCount = 1;
-            renderPassLayoutDesc.colorAttachments = { { PixelFormat::RGBA8 } };
+            renderPassLayoutDesc.colorAttachments = { { _context.GetSurfaceFormat() } };
             renderPassLayoutDesc.depthStencilAttachment = { _depthStencilFormat };
         } else {
             renderPassLayoutDesc.sampleCount = _context.GetMSAASampleCount();
-            renderPassLayoutDesc.colorAttachments = { { PixelFormat::RGBA8 } };
+            renderPassLayoutDesc.colorAttachments = { { _context.GetSurfaceFormat() } };
             renderPassLayoutDesc.depthStencilAttachment = { _depthStencilFormat };
-            renderPassLayoutDesc.resolveAttachment = { PixelFormat::RGBA8 };
+            renderPassLayoutDesc.resolveAttachment = { _context.GetSurfaceFormat() };
         }
 
         _renderPassLayout = CreateRef<VkRenderPassLayout>(_context, renderPassLayoutDesc);

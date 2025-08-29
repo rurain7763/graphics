@@ -55,6 +55,9 @@ namespace flaw {
 		void SetMSAAState(bool enable) override;
 		bool GetMSAAState() const override;
 
+		PixelFormat GetSurfaceFormat() const override;
+		PixelFormat GetDepthStencilFormat() const override;
+
 		Ref<ComputeShader> CreateComputeShader(const ComputeShader::Descriptor& descriptor) override;
 		Ref<ComputePipeline> CreateComputePipeline() override;
 

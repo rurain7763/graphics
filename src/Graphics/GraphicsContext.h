@@ -53,6 +53,9 @@ namespace flaw {
 		virtual void SetMSAAState(bool enable) = 0;
 		virtual bool GetMSAAState() const = 0;
 
+		virtual PixelFormat GetSurfaceFormat() const = 0;
+		virtual PixelFormat GetDepthStencilFormat() const = 0;
+
 		virtual Ref<ComputeShader> CreateComputeShader(const ComputeShader::Descriptor& descriptor) = 0;
 		virtual Ref<ComputePipeline> CreateComputePipeline() = 0;
 	};

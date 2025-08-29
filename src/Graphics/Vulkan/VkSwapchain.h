@@ -32,6 +32,8 @@ namespace flaw {
         inline Ref<VkRenderPassLayout> GetRenderPassLayout() const { return _renderPassLayout; }
         inline Ref<VkRenderPass> GetLoadOpRenderPass() const { return _loadOpRenderPass; }
         inline Ref<VkRenderPass> GetClearOpRenderPass() const { return _clearOpRenderPass; }
+        inline PixelFormat GetSurfaceFormat() const { return ConvertToPixelFormat(_surfaceFormat.format); }
+        inline PixelFormat GetDepthStencilFormat() const { return _depthStencilFormat; }
 
     private:
         bool CreateSwapchain();

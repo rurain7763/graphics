@@ -125,9 +125,7 @@ int main() {
                 PipelineStage::ColorAttachmentOutput,
                 PipelineStage::PixelShader
             );
-
-			// TODO: apply post-processing effects here
-
+            
             commandQueue.BeginRenderPass();
             World_FinalizeRender();
             commandQueue.EndRenderPass();

@@ -119,8 +119,8 @@ void InitBaseResources() {
 
     // NOTE: Create render passes
     RenderPassLayout::Descriptor sceneRenderPassLayoutDesc;
-    sceneRenderPassLayoutDesc.colorAttachments = { { PixelFormat::RGBA8 } };
-    sceneRenderPassLayoutDesc.depthStencilAttachment = { PixelFormat::D24S8_UINT };
+    sceneRenderPassLayoutDesc.colorAttachments = { { g_graphicsContext->GetSurfaceFormat() } };
+    sceneRenderPassLayoutDesc.depthStencilAttachment = { g_graphicsContext->GetDepthStencilFormat() };
 
     g_sceneRenderPassLayout = g_graphicsContext->CreateRenderPassLayout(sceneRenderPassLayoutDesc);
 
@@ -152,7 +152,7 @@ void InitBaseResources() {
 	    Texture2D::Descriptor sceneColorAttachmentDesc;
 	    sceneColorAttachmentDesc.width = width;
 	    sceneColorAttachmentDesc.height = height;
-	    sceneColorAttachmentDesc.format = PixelFormat::RGBA8;
+	    sceneColorAttachmentDesc.format = g_graphicsContext->GetSurfaceFormat();
         sceneColorAttachmentDesc.memProperty = MemoryProperty::Static;
 	    sceneColorAttachmentDesc.texUsages = TextureUsage::ColorAttachment | TextureUsage::ShaderResource;
 		sceneColorAttachmentDesc.initialLayout = TextureLayout::ColorAttachment;
@@ -162,7 +162,7 @@ void InitBaseResources() {
 	    Texture2D::Descriptor sceneDepthStencilAttachmentDesc;
 	    sceneDepthStencilAttachmentDesc.width = width;
 	    sceneDepthStencilAttachmentDesc.height = height;
-	    sceneDepthStencilAttachmentDesc.format = PixelFormat::D24S8_UINT;
+	    sceneDepthStencilAttachmentDesc.format = g_graphicsContext->GetDepthStencilFormat();
 	    sceneDepthStencilAttachmentDesc.memProperty = MemoryProperty::Static;
 		sceneDepthStencilAttachmentDesc.initialLayout = TextureLayout::DepthStencilAttachment;
 	    sceneDepthStencilAttachmentDesc.texUsages = TextureUsage::DepthStencilAttachment;
@@ -178,7 +178,7 @@ void InitBaseResources() {
 			Texture2D::Descriptor desc;
 			desc.width = width;
 			desc.height = height;
-			desc.format = PixelFormat::RGBA8;
+			desc.format = g_graphicsContext->GetSurfaceFormat();
 			desc.memProperty = MemoryProperty::Static;
 			desc.texUsages = TextureUsage::ColorAttachment | TextureUsage::ShaderResource;
 			desc.initialLayout = TextureLayout::ColorAttachment;
@@ -191,7 +191,7 @@ void InitBaseResources() {
             Texture2D::Descriptor desc;
             desc.width = width;
             desc.height = height;
-            desc.format = PixelFormat::D24S8_UINT;
+            desc.format = g_graphicsContext->GetDepthStencilFormat();
             desc.memProperty = MemoryProperty::Static;
             desc.texUsages = TextureUsage::DepthStencilAttachment;
 			desc.initialLayout = TextureLayout::DepthStencilAttachment;

@@ -485,6 +485,14 @@ namespace flaw {
         return _msaaEnabled;
     }
 
+    PixelFormat VkContext::GetSurfaceFormat() const {
+        return _swapchain->GetSurfaceFormat();
+    }
+
+    PixelFormat VkContext::GetDepthStencilFormat() const {
+        return _swapchain->GetDepthStencilFormat();
+    }
+
 	Ref<ComputeShader> VkContext::CreateComputeShader(const ComputeShader::Descriptor& descriptor) {
         return CreateRef<VkComputeShader>(*this, descriptor);
 	}
