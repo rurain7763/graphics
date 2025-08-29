@@ -21,6 +21,8 @@ namespace flaw {
 
         bool Prepare();
 
+		void SetPipelineBarrier(Ref<Texture> texture, TextureLayout oldLayout, TextureLayout newLayout, AccessTypes srcAccess, AccessTypes dstAccess, PipelineStages srcStage, PipelineStages dstStage) override;
+
         void SetPipeline(const Ref<GraphicsPipeline>& pipeline) override;
         void SetPipelinePushConstant(uint32_t rangeIndex, const void* data);
 
@@ -49,29 +51,8 @@ namespace flaw {
         void SetComputeStructuredBuffer(const Ref<StructuredBuffer>& buffer, BufferUsages bufUsages, uint32_t slot) override;
         void Dispatch(uint32_t x, uint32_t y, uint32_t z) override;
 
-        void BeginOneTimeCommands();
-        void EndOneTimeCommands();
-
-        void CopyBuffer(const vk::Buffer& srcBuffer, const vk::Buffer& dstBuffer, uint32_t size, uint32_t srcOffset, uint32_t dstOffset);
-        void CopyBuffer(const vk::Buffer& srcBuffer, const vk::Image& dstImage, uint32_t width, uint32_t height, uint32_t srcOffset, uint32_t dstOffset, uint32_t arrayLayer = 1);
-        void CopyBuffer(const Ref<VertexBuffer>& srcBuffer, const Ref<VertexBuffer>& dstBuffer, uint32_t size, uint32_t srcOffset, uint32_t dstOffset);
-
-        void TransitionImageLayout( const vk::Image& image, 
-                                    vk::ImageAspectFlags aspectMask,
-                                    vk::ImageLayout oldLayout, vk::ImageLayout newLayout,
-                                    vk::AccessFlags srcAccessMask,
-                                    vk::AccessFlags dstAccessMask,
-                                    vk::PipelineStageFlags srcStageMask,
-                                    vk::PipelineStageFlags dstStageMask );
-
-        void GenerateMipmaps( const vk::Image& image, 
-                              vk::ImageAspectFlags aspectMask, 
-                              vk::Format format, uint32_t width, uint32_t height, 
-                              uint32_t arrayLayer, 
-                              uint32_t mipLevels,
-                              vk::ImageLayout& oldLayout,
-			                  vk::AccessFlags& srcAccessMask,
-                              vk::PipelineStageFlags& srcStageMask);
+		void BeginOneTimeCommands(vk::CommandBuffer& commandBuffer);
+        void EndOneTimeCommands(vk::CommandBuffer& commandBuffer);
 
     private:
         bool CreateCommandBuffers();
@@ -98,9 +79,6 @@ namespace flaw {
         uint32_t _currentFrameIndex;
         std::vector<BeginInfo> _currentBeginInfoStack;
 		Ref<VkGraphicsPipeline> _currentPipeline;
-
-        vk::Queue _oneTimeCommandQueue;
-        vk::CommandBuffer _oneTimeCommandBuffer;
     };
 }
 

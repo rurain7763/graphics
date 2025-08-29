@@ -19,7 +19,6 @@ void Asset_Init() {
     textureDesc.texUsages = TextureUsage::ShaderResource;
     textureDesc.format = PixelFormat::RGBA8;
     textureDesc.mipLevels = 1;
-    textureDesc.shaderStages = ShaderStage::Pixel;
     textureDesc.initialLayout = TextureLayout::ShaderReadOnly;
 
     g_textures["dummy"] = g_graphicsContext->CreateTexture2D(textureDesc);
@@ -95,7 +94,6 @@ void Asset_Init() {
     skyboxDesc.memProperty = MemoryProperty::Static;
     skyboxDesc.texUsages = TextureUsage::ShaderResource;
     skyboxDesc.mipLevels = GetMaxMipLevels(skyboxDesc.width, skyboxDesc.height);
-    skyboxDesc.shaderStages = ShaderStage::Pixel;
 	skyboxDesc.initialLayout = TextureLayout::ShaderReadOnly;
 
     g_textureCubes["skybox"] = g_graphicsContext->CreateTextureCube(skyboxDesc);
@@ -124,7 +122,6 @@ void LoadTexture(const char* filePath, const char* key) {
     textureDesc.texUsages = TextureUsage::ShaderResource;
     textureDesc.format = PixelFormat::RGBA8;
     textureDesc.mipLevels = GetMaxMipLevels(textureDesc.width, textureDesc.height);
-    textureDesc.shaderStages = ShaderStage::Pixel;
 	textureDesc.initialLayout = TextureLayout::ShaderReadOnly;
 
     g_textures[key] = g_graphicsContext->CreateTexture2D(textureDesc);
@@ -205,7 +202,6 @@ void LoadModel(const char* filePath, float scale, const char* key) {
         textureDesc.texUsages = TextureUsage::ShaderResource;
         textureDesc.format = PixelFormat::RGBA8;
         textureDesc.mipLevels = 1;
-        textureDesc.shaderStages = ShaderStage::Pixel;
 		textureDesc.initialLayout = TextureLayout::ShaderReadOnly;
 
         Ref<Texture2D> texture = g_graphicsContext->CreateTexture2D(textureDesc);

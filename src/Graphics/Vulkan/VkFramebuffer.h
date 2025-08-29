@@ -34,7 +34,9 @@ namespace flaw {
 
     private:
         bool CreateRenderPass();
+
         bool CreateFramebuffer();
+		vk::ImageView GetViewFromAttachment(Ref<Texture> attachment);
 
     private:
         VkContext &_context;

@@ -50,14 +50,9 @@ namespace flaw {
 			return;
 		}
 
-		auto& resBinding = resBindingIt->second;
+		const auto& dxNativeTex = static_cast<const DXNativeTexture&>(texture->GetNativeTexture());
 
-		if ((texture->GetShaderStages() & resBinding.shaderStages) != resBinding.shaderStages) {
-			LOG_ERROR("Texture2D binding %d does not match shader stages", binding);
-			return;
-		}
-
-		_tRegistryResources[binding] = dxTexture->GetNativeSRV();
+		_tRegistryResources[binding] = dxNativeTex.srv;
 	}
 
 	void DXShaderResources::BindTexture2DUA(const Ref<Texture2D>& texture, uint32_t binding) {
@@ -72,13 +67,9 @@ namespace flaw {
 			return;
 		}
 
-		auto& resBinding = resBindingIt->second;
-		if ((texture->GetShaderStages() & resBinding.shaderStages) != resBinding.shaderStages) {
-			LOG_ERROR("Texture2D UA binding %d does not match shader stages", binding);
-			return;
-		}
+		const auto& dxNativeTex = static_cast<const DXNativeTexture&>(texture->GetNativeTexture());
 
-		_uRegistryResources[binding] = dxTexture->GetNativeUAV();
+		_uRegistryResources[binding] = dxNativeTex.uav;
 	}
 
 	void DXShaderResources::BindTextureCube(const Ref<TextureCube>& texture, uint32_t binding) {
@@ -93,13 +84,9 @@ namespace flaw {
 			return;
 		}
 
-		auto& resBinding = resBindingIt->second;
-		if ((texture->GetShaderStages() & resBinding.shaderStages) != resBinding.shaderStages) {
-			LOG_ERROR("TextureCube binding %d does not match shader stages", binding);
-			return;
-		}
+		const auto& dxNativeTex = static_cast<const DXNativeTexture&>(texture->GetNativeTexture());
 
-		_tRegistryResources[binding] = dxTexture->GetNativeSRV();
+		_tRegistryResources[binding] = dxNativeTex.srv;
 	}
 
 	void DXShaderResources::BindConstantBuffer(const Ref<ConstantBuffer>& constantBuffer, uint32_t binding) {
@@ -113,7 +100,9 @@ namespace flaw {
 			return;
 		}
 
-		_cRegistryResources[binding] = dxBuffer->GetNativeBuffer();
+		const auto& dxNativeBuff = static_cast<const DXNativeBuffer&>(dxBuffer->GetNativeBuffer());
+
+		_cRegistryResources[binding] = dxNativeBuff.buffer;
 	}
 
 	void DXShaderResources::BindStructuredBuffer(const Ref<StructuredBuffer>& structuredBuffer, uint32_t binding) {
@@ -127,7 +116,9 @@ namespace flaw {
 			return;
 		}
 
-		_tRegistryResources[binding] = dxBuffer->GetNativeSRV();
+		const auto& dxNativeBuff = static_cast<const DXNativeBuffer&>(dxBuffer->GetNativeBuffer());
+
+		_tRegistryResources[binding] = dxNativeBuff.srv;
 	}
 
 	void DXShaderResources::BindStructuredBufferUA(const Ref<StructuredBuffer>& structuredBuffer, uint32_t binding) {
@@ -141,7 +132,9 @@ namespace flaw {
 			return;
 		}
 
-		_uRegistryResources[binding] = dxBuffer->GetNativeUAV();
+		const auto& dxNativeBuff = static_cast<const DXNativeBuffer&>(dxBuffer->GetNativeBuffer());
+
+		_uRegistryResources[binding] = dxNativeBuff.uav;
 	}
 }
 

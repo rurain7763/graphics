@@ -108,18 +108,28 @@ int main() {
 			uint32_t frameIndex = commandQueue.GetCurrentFrameIndex();
 			auto sceneFramebuffer = g_sceneFramebuffers[frameIndex];
 
-            commandQueue.BeginRenderPass();
-
             commandQueue.BeginRenderPass(g_sceneClearRenderPass, g_sceneLoadRenderPass, sceneFramebuffer);
 			Outliner_Render();
             World_Render();
             Sprite_Render();
             commandQueue.EndRenderPass();
 
+            auto attachment = std::static_pointer_cast<Texture2D>(sceneFramebuffer->GetColorAttachment(0));
+
+            commandQueue.SetPipelineBarrier(
+                attachment,
+                TextureLayout::ColorAttachment,
+                TextureLayout::ShaderReadOnly,
+                AccessType::ColorAttachmentWrite,
+                AccessType::ShaderRead,
+                PipelineStage::ColorAttachmentOutput,
+                PipelineStage::PixelShader
+            );
+
 			// TODO: apply post-processing effects here
 
+            commandQueue.BeginRenderPass();
             World_FinalizeRender();
-
             commandQueue.EndRenderPass();
 
             commandQueue.Submit();

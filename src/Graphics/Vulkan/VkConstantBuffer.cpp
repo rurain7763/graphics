@@ -4,6 +4,7 @@
 #ifdef SUPPORT_VULKAN
 
 #include "VkContext.h"
+#include "VkCommandQueue.h"
 #include "Log/Log.h"
 
 namespace flaw {
@@ -12,36 +13,63 @@ namespace flaw {
 		, _memProperty(descriptor.memProperty)
 		, _size(descriptor.bufferSize)
     {
-        if (!CreateBuffer()) {
-            return;
-        }
+        vk::BufferUsageFlags usage = vk::BufferUsageFlagBits::eUniformBuffer;
+        GetRequiredVkBufferUsageFlags(_memProperty, usage);
 
-        if (!AllocateMemory()) {
-            return;
-        }
+        vk::MemoryPropertyFlags memoryFlags;
+        GetRequiredVkMemoryPropertyFlags(_memProperty, memoryFlags);
 
-        auto mappedDataWrapper = _context.GetVkDevice().mapMemory(_memory, 0, _size, vk::MemoryMapFlags());
-        if (mappedDataWrapper.result != vk::Result::eSuccess) {
-            Log::Error("Failed to map constant buffer memory.");
-            return;
-        }
+        _nativeBuffer = VkNativeBuffer::Create(_context, _size, usage, memoryFlags);
 
-        _mappedData = mappedDataWrapper.value;
-
-		if (descriptor.initialData) {
-			Update(descriptor.initialData, _size);
+		if (_memProperty != MemoryProperty::Static) {
+			auto mappedDataWrapper = _context.GetVkDevice().mapMemory(_nativeBuffer.memory, 0, _size, vk::MemoryMapFlags());
+			if (mappedDataWrapper.result != vk::Result::eSuccess) {
+				Log::Error("Failed to map constant buffer memory.");
+				return;
+			}
+			_mappedData = mappedDataWrapper.value;
 		}
+
+        if (!descriptor.initialData) {
+            return;
+        }
+
+        if (_memProperty == MemoryProperty::Static) {
+            auto& vkCommandQueue = static_cast<VkCommandQueue&>(context.GetCommandQueue());
+
+            Descriptor stagingDesc;
+            stagingDesc.memProperty = MemoryProperty::Staging;
+            stagingDesc.bufferSize = descriptor.bufferSize;
+            stagingDesc.initialData = descriptor.initialData;
+
+            auto stagingBuffer = CreateRef<VkConstantBuffer>(context, stagingDesc);
+
+            vk::CommandBuffer commandBuffer;
+            vkCommandQueue.BeginOneTimeCommands(commandBuffer);
+
+            vk::BufferCopy copyRegion;
+            copyRegion.size = _size;
+            copyRegion.srcOffset = 0;
+            copyRegion.dstOffset = 0;
+
+            commandBuffer.copyBuffer(stagingBuffer->_nativeBuffer.buffer, _nativeBuffer.buffer, 1, &copyRegion);
+
+            vkCommandQueue.EndOneTimeCommands(commandBuffer);
+        }
+        else {
+            Update(descriptor.initialData, _size);
+        }
 	}
 
 	VkConstantBuffer::~VkConstantBuffer() {
         if (_mappedData) {
-            _context.GetVkDevice().unmapMemory(_memory);
+            _context.GetVkDevice().unmapMemory(_nativeBuffer.memory);
             _mappedData = nullptr;
         }
 
-        _context.AddDelayedDeletionTasks([&context = _context, buffer = _buffer, memory = _memory]() {
-            context.GetVkDevice().destroyBuffer(buffer, nullptr);
-            context.GetVkDevice().freeMemory(memory, nullptr);
+        _context.AddDelayedDeletionTasks([&context = _context, nativeBuffer = _nativeBuffer]() {
+            context.GetVkDevice().destroyBuffer(nativeBuffer.buffer);
+            context.GetVkDevice().freeMemory(nativeBuffer.memory);
         });
 	}
 
@@ -57,44 +85,6 @@ namespace flaw {
             Log::Error("Constant buffer memory is not mapped.");
         }
 	}
-
-    bool VkConstantBuffer::CreateBuffer() {
-        vk::BufferCreateInfo bufferInfo;
-        bufferInfo.size = _size;
-        bufferInfo.usage = vk::BufferUsageFlagBits::eUniformBuffer;
-		GetRequiredVkBufferUsageFlags(_memProperty, bufferInfo.usage);
-        bufferInfo.sharingMode = vk::SharingMode::eExclusive;
-
-        auto bufferWrapper = _context.GetVkDevice().createBuffer(bufferInfo, nullptr);
-        if (bufferWrapper.result != vk::Result::eSuccess) {
-            Log::Error("Failed to create vertex buffer: %s", vk::to_string(bufferWrapper.result).c_str());
-            return false;
-        }
-
-        _buffer = bufferWrapper.value;
-
-        return true;
-    }
-
-    bool VkConstantBuffer::AllocateMemory() {
-        vk::MemoryRequirements memRequirements = _context.GetVkDevice().getBufferMemoryRequirements(_buffer);
-
-        vk::MemoryAllocateInfo allocInfo;
-        allocInfo.allocationSize = memRequirements.size;
-        allocInfo.memoryTypeIndex = GetMemoryTypeIndex(_context.GetVkPhysicalDevice(), memRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
-
-        auto memoryWrapper = _context.GetVkDevice().allocateMemory(allocInfo, nullptr);
-        if (memoryWrapper.result != vk::Result::eSuccess) {
-            Log::Error("Failed to allocate vertex buffer memory: %s", vk::to_string(memoryWrapper.result).c_str());
-            return false;
-        }
-
-        _memory = memoryWrapper.value;
-
-        _context.GetVkDevice().bindBufferMemory(_buffer, _memory, 0);
-
-        return true;
-    }
 } // namespace flaw
 
 #endif

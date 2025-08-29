@@ -7,6 +7,7 @@
 #include "Log/Log.h"
 #include "Graphics/GraphicsFunc.h"
 #include "VkCommandQueue.h"
+#include "VkBuffers.h"
 
 namespace flaw {
     VkTexture2D::VkTexture2D(VkContext& context, const Descriptor& descriptor)
@@ -17,42 +18,27 @@ namespace flaw {
         , _texUsages(descriptor.texUsages)
         , _mipLevels(descriptor.mipLevels)
         , _sampleCount(descriptor.sampleCount)
-		, _shaderStages(descriptor.shaderStages)
         , _width(descriptor.width)
         , _height(descriptor.height)
-		, _currentLayout(vk::ImageLayout::eUndefined)
-		, _currentAccessFlags(vk::AccessFlagBits::eNone)
-		, _currentPipelineStage(vk::PipelineStageFlagBits::eTopOfPipe)
     {
-        if (!CreateImage(descriptor.data)) {
-            return;
-        }
+        vk::ImageCreateInfo imageInfo;
+        imageInfo.imageType = vk::ImageType::e2D;
+        imageInfo.format = ConvertToVkFormat(_format);
+        imageInfo.extent.width = _width;
+        imageInfo.extent.height = _height;
+        imageInfo.extent.depth = 1;
+        imageInfo.mipLevels = _mipLevels;
+        imageInfo.arrayLayers = 1;
+        imageInfo.samples = ConvertToVkSampleCount(_sampleCount);
+        imageInfo.tiling = vk::ImageTiling::eOptimal;
+        imageInfo.usage = GetVkImageUsageFlags(_texUsages) | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eTransferSrc;
+        imageInfo.sharingMode = vk::SharingMode::eExclusive;
+        imageInfo.initialLayout = vk::ImageLayout::eUndefined;
 
-        if (!AllocateMemory()) {
-            return;
-        }
+		vk::MemoryPropertyFlags memProperties;
+		GetRequiredVkMemoryPropertyFlags(_memProperty, memProperties);
 
-        auto& vkCmdQueue = static_cast<VkCommandQueue&>(_context.GetCommandQueue());
-
-        vkCmdQueue.BeginOneTimeCommands();
-
-        if (descriptor.data) {
-            if (!PullMemory(descriptor.data)) {
-                return;
-            }
-        }
-
-        if (descriptor.mipLevels > 1) {
-            if (!GenerateMipmaps()) {
-                return;
-            }
-        }
-
-        if (!TransitionFinalImageLayout(descriptor.initialLayout)) {
-            return;
-        }
-
-        vkCmdQueue.EndOneTimeCommands();
+		_nativeTexture = VkNativeTexture::Create(_context, imageInfo, memProperties);
 
         if (!CreateImageView()) {
             return;
@@ -61,12 +47,34 @@ namespace flaw {
         if (!CreateSampler()) {
             return;
         }
+
+        auto& vkCmdQueue = static_cast<VkCommandQueue&>(_context.GetCommandQueue());
+
+        vk::CommandBuffer commandBuffer;
+        vkCmdQueue.BeginOneTimeCommands(commandBuffer);
+
+        if (descriptor.data) {
+            if (!PullMemory(commandBuffer, descriptor.data)) {
+                return;
+            }
+
+            if (descriptor.mipLevels > 1) {
+                if (!GenerateMipmaps(commandBuffer)) {
+                    return;
+                }
+            }
+        }
+
+        if (!TransitionFinalImageLayout(commandBuffer, descriptor.initialLayout)) {
+            return;
+        }
+
+        vkCmdQueue.EndOneTimeCommands(commandBuffer);
     }
 
-    VkTexture2D::VkTexture2D(VkContext& context, vk::Image image, uint32_t width, uint32_t height, PixelFormat format, MemoryProperty usage, uint32_t bindFlags, uint32_t sampleCount, uint32_t mipLevels, uint32_t shaderStages)
+    VkTexture2D::VkTexture2D(VkContext& context, vk::Image image, uint32_t width, uint32_t height, PixelFormat format, MemoryProperty usage, uint32_t bindFlags, uint32_t sampleCount, uint32_t mipLevels)
         : _context(context)
         , _isExternalImage(true)
-        , _image(image)
         , _width(width)
         , _height(height)
         , _format(format)
@@ -74,11 +82,9 @@ namespace flaw {
         , _texUsages(bindFlags)
         , _sampleCount(sampleCount)
         , _mipLevels(mipLevels)
-		, _shaderStages(shaderStages)
-		, _currentLayout(vk::ImageLayout::eUndefined)
-		, _currentAccessFlags(vk::AccessFlagBits::eNone)
-		, _currentPipelineStage(vk::PipelineStageFlagBits::eTopOfPipe)
     {
+		_nativeTexture.image = image;
+
         if (!CreateImageView()) {
             Log::Fatal("Failed to create image view for texture");
             return;
@@ -91,101 +97,49 @@ namespace flaw {
     }
 
     VkTexture2D::~VkTexture2D() {
-        _context.AddDelayedDeletionTasks([&context = _context, image = _image, imageView = _imageView, isExternalImage = _isExternalImage, imageMemory = _imageMemory, sampler = _sampler]() {
+        _context.AddDelayedDeletionTasks([&context = _context, nativeTex = _nativeTexture, view = _view, sampler = _sampler, isExternalImage = _isExternalImage]() {
             if (!isExternalImage) {
-                context.GetVkDevice().destroyImage(image);
-                context.GetVkDevice().freeMemory(imageMemory);
+                context.GetVkDevice().destroyImage(nativeTex.image);
+                context.GetVkDevice().freeMemory(nativeTex.memory);
             }
-            context.GetVkDevice().destroyImageView(imageView);
+            context.GetVkDevice().destroyImageView(view);
             context.GetVkDevice().destroySampler(sampler);
         });
     }
 
-    bool VkTexture2D::CreateImage(bool hasData) {
-        vk::ImageCreateInfo imageInfo;
-        imageInfo.imageType = vk::ImageType::e2D;
-        imageInfo.format = ConvertToVkFormat(_format);
-        imageInfo.extent.width = _width;
-        imageInfo.extent.height = _height;
-        imageInfo.extent.depth = 1;
-        imageInfo.mipLevels = _mipLevels;
-        imageInfo.arrayLayers = 1;
-        imageInfo.samples = ConvertToVkSampleCount(_sampleCount);
-        imageInfo.tiling = vk::ImageTiling::eOptimal;
-        imageInfo.usage = ConvertToVkImageUsageFlags(_texUsages) | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eTransferSrc;
-        imageInfo.sharingMode = vk::SharingMode::eExclusive;
-        imageInfo.initialLayout = vk::ImageLayout::eUndefined;
-
-        auto imageWrapper = _context.GetVkDevice().createImage(imageInfo);
-        if (imageWrapper.result != vk::Result::eSuccess) {
-            Log::Fatal("Failed to create Vulkan image: %s", vk::to_string(imageWrapper.result).c_str());
-            return false;
-        }
-
-        _image = imageWrapper.value;
-
-        return true;
-    }
-
-    bool VkTexture2D::AllocateMemory() {
-        vk::MemoryRequirements memRequirements = _context.GetVkDevice().getImageMemoryRequirements(_image);
-
-        vk::MemoryPropertyFlags properties;
-        GetRequiredVkMemoryPropertyFlags(_memProperty, properties);
-
-        vk::MemoryAllocateInfo allocInfo;
-        allocInfo.allocationSize = memRequirements.size;
-        allocInfo.memoryTypeIndex = GetMemoryTypeIndex(_context.GetVkPhysicalDevice(), memRequirements.memoryTypeBits, properties);
-
-        auto memoryWrapper = _context.GetVkDevice().allocateMemory(allocInfo, nullptr);
-        if (memoryWrapper.result != vk::Result::eSuccess) {
-            Log::Fatal("Failed to allocate memory for Vulkan image: %s", vk::to_string(memoryWrapper.result).c_str());
-            return false;
-        }
-
-        _imageMemory = memoryWrapper.value;
-
-        _context.GetVkDevice().bindImageMemory(_image, _imageMemory, 0);
-
-        return true;
-    }
-    
-    bool VkTexture2D::PullMemory(const uint8_t* data) {
-        auto& vkCmdQueue = static_cast<VkCommandQueue&>(_context.GetCommandQueue());
+    bool VkTexture2D::PullMemory(vk::CommandBuffer& commandBuffer, const uint8_t* data) {
         int32_t bufferSize = _width * _height * GetSizePerPixel(_format);
 
-        auto stagingBuffer = CreateVkBuffer(
-            _context.GetVkPhysicalDevice(),
-            _context.GetVkDevice(),
-            bufferSize,
-            vk::BufferUsageFlagBits::eTransferSrc,
-            vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent
-        );
+		VkNativeBuffer stagingBuffer = VkNativeBuffer::CreateAsStaging(_context, bufferSize, data);
 
-        auto stagingBuffMapedDataWrapper = _context.GetVkDevice().mapMemory(stagingBuffer.memory, 0, bufferSize, vk::MemoryMapFlags());
-        if (stagingBuffMapedDataWrapper.result != vk::Result::eSuccess) {
-            Log::Fatal("Failed to map memory for staging buffer: %s", vk::to_string(stagingBuffMapedDataWrapper.result).c_str());
-            return false;
-        }
+        vk::ImageMemoryBarrier barrier;
+		barrier.image = _nativeTexture.image;
+		barrier.oldLayout = vk::ImageLayout::eUndefined;
+        barrier.newLayout = vk::ImageLayout::eTransferDstOptimal;
+		barrier.srcAccessMask = vk::AccessFlagBits::eNone;
+		barrier.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.subresourceRange.aspectMask = GetVkImageAspectFlags(_format);
+        barrier.subresourceRange.baseMipLevel = 0;
+        barrier.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
+        barrier.subresourceRange.baseArrayLayer = 0;
+        barrier.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
 
-        memcpy(stagingBuffMapedDataWrapper.value, data, bufferSize);
-        _context.GetVkDevice().unmapMemory(stagingBuffer.memory);
+        commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlags(), nullptr, nullptr, barrier);
 
-        vkCmdQueue.TransitionImageLayout(
-            _image,
-            ConvertToVkImageAspectFlags(_format),
-            vk::ImageLayout::eUndefined,
-            vk::ImageLayout::eTransferDstOptimal,
-            vk::AccessFlagBits::eNone,
-            vk::AccessFlagBits::eTransferWrite,
-            vk::PipelineStageFlagBits::eTopOfPipe,
-            vk::PipelineStageFlagBits::eTransfer
-        );
-        vkCmdQueue.CopyBuffer(stagingBuffer.buffer, _image, _width, _height, 0, 0);
+		vk::BufferImageCopy copyRegion;
+		copyRegion.bufferOffset = 0;
+		copyRegion.bufferRowLength = 0;
+		copyRegion.bufferImageHeight = 0;
+		copyRegion.imageSubresource.aspectMask = GetVkImageAspectFlags(_format);
+        copyRegion.imageSubresource.mipLevel = 0;
+		copyRegion.imageSubresource.baseArrayLayer = 0;
+        copyRegion.imageSubresource.layerCount = 1;
+		copyRegion.imageOffset = vk::Offset3D{ 0, 0, 0 };
+		copyRegion.imageExtent = vk::Extent3D{ _width, _height, 1 };
 
-		_currentLayout = vk::ImageLayout::eTransferDstOptimal;
-		_currentAccessFlags = vk::AccessFlagBits::eTransferWrite;
-		_currentPipelineStage = vk::PipelineStageFlagBits::eTransfer;
+		commandBuffer.copyBufferToImage(stagingBuffer.buffer, _nativeTexture.image, vk::ImageLayout::eTransferDstOptimal, 1, &copyRegion);
 
         _context.AddDelayedDeletionTasks([&context = _context, stagingBuffer]() {
             context.GetVkDevice().destroyBuffer(stagingBuffer.buffer);
@@ -195,75 +149,101 @@ namespace flaw {
         return true;
     }
 
-    bool VkTexture2D::GenerateMipmaps() {
-        auto& vkCmdQueue = static_cast<VkCommandQueue&>(_context.GetCommandQueue());
+    bool VkTexture2D::GenerateMipmaps(vk::CommandBuffer& commandBuffer) {
+        vk::FormatProperties formatProperties;
+        _context.GetVkPhysicalDevice().getFormatProperties(ConvertToVkFormat(_format), &formatProperties);
+        if (!(formatProperties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eSampledImageFilterLinear)) {
+            std::runtime_error("Texture format does not support linear blitting for mipmap generation.");
+        }
 
-        vkCmdQueue.GenerateMipmaps(
-            _image, 
-            ConvertToVkImageAspectFlags(_format), 
-            ConvertToVkFormat(_format), 
-            _width, _height, 
-            1, 
-            _mipLevels,
-			_currentLayout,
-			_currentAccessFlags,
-			_currentPipelineStage
-        );
+        vk::ImageMemoryBarrier barrier;
+        barrier.image = _nativeTexture.image;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.subresourceRange.aspectMask = GetVkImageAspectFlags(_format);
+        barrier.subresourceRange.baseArrayLayer = 0;
+        barrier.subresourceRange.layerCount = 1;
+        barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+        barrier.dstAccessMask = vk::AccessFlagBits::eTransferRead;
+
+        // 초기 상태: 밉 레벨 0을 TRANSFER_DST_OPTIMAL에서 TRANSFER_SRC_OPTIMAL로 전환
+        // 이 상태는 밉 레벨 0이 첫 번째 블리팅의 소스가 되기 위함입니다.
+        barrier.subresourceRange.baseMipLevel = 0;
+        barrier.subresourceRange.levelCount = 1;
+        barrier.oldLayout = vk::ImageLayout::eTransferDstOptimal;
+        barrier.newLayout = vk::ImageLayout::eTransferSrcOptimal;
+        commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, {}, nullptr, nullptr, barrier);
+
+        int32_t mipWidth = _width;
+        int32_t mipHeight = _height;
+
+        for (uint32_t i = 1; i < _mipLevels; ++i) {
+            vk::ImageBlit blitRegion;
+            blitRegion.srcOffsets[0] = vk::Offset3D{ 0, 0, 0 };
+            blitRegion.srcOffsets[1] = vk::Offset3D{ mipWidth, mipHeight, 1 };
+			blitRegion.srcSubresource.aspectMask = GetVkImageAspectFlags(_format);
+            blitRegion.srcSubresource.mipLevel = i - 1;
+            blitRegion.srcSubresource.baseArrayLayer = 0;
+            blitRegion.srcSubresource.layerCount = 1;
+
+            // 다음 밉 레벨의 크기를 계산합니다.
+            mipWidth = (mipWidth > 1) ? mipWidth / 2 : 1;
+            mipHeight = (mipHeight > 1) ? mipHeight / 2 : 1;
+
+            blitRegion.dstOffsets[0] = vk::Offset3D{ 0, 0, 0 };
+            blitRegion.dstOffsets[1] = vk::Offset3D{ mipWidth, mipHeight, 1 };
+            blitRegion.dstSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+            blitRegion.dstSubresource.mipLevel = i;
+            blitRegion.dstSubresource.baseArrayLayer = 0;
+            blitRegion.dstSubresource.layerCount = 1;
+
+            commandBuffer.blitImage(_nativeTexture.image, vk::ImageLayout::eTransferSrcOptimal, _nativeTexture.image, vk::ImageLayout::eTransferDstOptimal, 1, &blitRegion, vk::Filter::eLinear);
+
+            // 현재 밉 레벨(i)을 다음 반복의 소스로 사용하기 위해 TRANSFER_SRC_OPTIMAL로 전환합니다.
+            barrier.subresourceRange.baseMipLevel = i;
+            barrier.subresourceRange.levelCount = 1;
+            barrier.oldLayout = vk::ImageLayout::eTransferDstOptimal;
+            barrier.newLayout = vk::ImageLayout::eTransferSrcOptimal;
+            commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, {}, nullptr, nullptr, barrier);
+        }
 
         return true;
     }
 
-    bool VkTexture2D::TransitionFinalImageLayout(TextureLayout layout) {
+    bool VkTexture2D::TransitionFinalImageLayout(vk::CommandBuffer& commandBuffer, TextureLayout layout) {
         auto& vkCmdQueue = static_cast<VkCommandQueue&>(_context.GetCommandQueue());
 
         vk::ImageLayout finalLayout = ConvertToVkImageLayout(layout);
-		vk::PipelineStageFlags finalPipelineStage = ConvertToVkPipelineStageFlags(_texUsages, _shaderStages);
 
-        vk::AccessFlags finalAccessFlags;
-        if (_texUsages & TextureUsage::ShaderResource) {
-            finalAccessFlags |= vk::AccessFlagBits::eShaderRead;
-        } 
-        
-        if (_texUsages & TextureUsage::RenderTarget) {
-            finalAccessFlags |= vk::AccessFlagBits::eColorAttachmentWrite;
-        }
-        
-        if (_texUsages & TextureUsage::DepthStencil) {
-            finalAccessFlags |= vk::AccessFlagBits::eDepthStencilAttachmentWrite;
-        }
+        vk::ImageMemoryBarrier barrier;
+        barrier.image = _nativeTexture.image;
+        barrier.oldLayout = vk::ImageLayout::eUndefined;
+        barrier.newLayout = finalLayout;
+        barrier.srcAccessMask = vk::AccessFlagBits::eTransferRead;
+        barrier.dstAccessMask = vk::AccessFlagBits::eNone;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.subresourceRange.aspectMask = GetVkImageAspectFlags(_format);
+        barrier.subresourceRange.baseMipLevel = 0;
+        barrier.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
+        barrier.subresourceRange.baseArrayLayer = 0;
+        barrier.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
 
-        if (_texUsages & TextureUsage::UnorderedAccess) {
-            finalAccessFlags |= vk::AccessFlagBits::eShaderWrite | vk::AccessFlagBits::eShaderRead;
-        }
-
-        vkCmdQueue.TransitionImageLayout(
-            _image,
-            ConvertToVkImageAspectFlags(_format),
-            _currentLayout,
-            finalLayout,
-            _currentAccessFlags,
-            finalAccessFlags,
-            _currentPipelineStage,
-            finalPipelineStage
-        );
-
-		_currentLayout = finalLayout;
-		_currentAccessFlags = finalAccessFlags;
-		_currentPipelineStage = finalPipelineStage;
+        commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eAllCommands, vk::DependencyFlags(), nullptr, nullptr, barrier);
 
         return true;
     }
 
     bool VkTexture2D::CreateImageView() {
         vk::ImageViewCreateInfo createInfo;
-        createInfo.image = _image;
+        createInfo.image = _nativeTexture.image;
         createInfo.viewType = vk::ImageViewType::e2D;
         createInfo.format = ConvertToVkFormat(_format);
         createInfo.components.r = vk::ComponentSwizzle::eIdentity;
         createInfo.components.g = vk::ComponentSwizzle::eIdentity;
         createInfo.components.b = vk::ComponentSwizzle::eIdentity;
         createInfo.components.a = vk::ComponentSwizzle::eIdentity;
-        createInfo.subresourceRange.aspectMask = ConvertToVkImageAspectFlags(_format);
+        createInfo.subresourceRange.aspectMask = GetVkImageAspectFlags(_format);
         createInfo.subresourceRange.baseMipLevel = 0;
         createInfo.subresourceRange.levelCount = _mipLevels;
         createInfo.subresourceRange.baseArrayLayer = 0;
@@ -275,7 +255,7 @@ namespace flaw {
             return false;
         }
 
-        _imageView = imageViewWrapper.value;
+        _view = imageViewWrapper.value;
 
         return true;
     }

@@ -113,8 +113,10 @@ namespace flaw {
         auto vkConstantBuffer = std::dynamic_pointer_cast<VkConstantBuffer>(constantBuffer);
         FASSERT(vkConstantBuffer, "Invalid constant buffer type for Vulkan shader resources");
 
+		const auto& vkNativeBuff = static_cast<const VkNativeBuffer&>(vkConstantBuffer->GetNativeBuffer());
+
         vk::DescriptorBufferInfo bufferInfo;
-		bufferInfo.buffer = vkConstantBuffer->GetVkBuffer();
+		bufferInfo.buffer = vkNativeBuff.buffer;
 		bufferInfo.offset = 0;
 		bufferInfo.range = vkConstantBuffer->Size();
 
@@ -133,8 +135,10 @@ namespace flaw {
         auto vkStructuredBuffer = std::dynamic_pointer_cast<VkStructuredBuffer>(structuredBuffer);
         FASSERT(vkStructuredBuffer, "Invalid structured buffer type for Vulkan shader resources");
 
+		const auto& vkNativeBuff = static_cast<const VkNativeBuffer&>(vkStructuredBuffer->GetNativeBuffer());
+
 		vk::DescriptorBufferInfo bufferInfo;
-		bufferInfo.buffer = vkStructuredBuffer->GetVkBuffer();
+		bufferInfo.buffer = vkNativeBuff.buffer;
 		bufferInfo.offset = 0;
 		bufferInfo.range = vkStructuredBuffer->Size();
 

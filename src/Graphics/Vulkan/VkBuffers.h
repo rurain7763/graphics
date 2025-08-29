@@ -10,6 +10,14 @@
 namespace flaw {
 	class VkContext;
 
+	struct VkNativeBuffer : public GraphicsNativeBuffer {
+		vk::Buffer buffer;
+		vk::DeviceMemory memory;
+
+		static VkNativeBuffer Create(VkContext& context, uint64_t size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties);
+		static VkNativeBuffer CreateAsStaging(VkContext& context, uint64_t size, const void* initialData = nullptr);
+	};
+
 	class VkVertexInputLayout : public VertexInputLayout {
     public:
         VkVertexInputLayout(VkContext& context, const Descriptor& descriptor);
@@ -36,22 +44,16 @@ namespace flaw {
 
 		virtual uint32_t Size() const override { return _size; }
 
-		inline vk::Buffer GetVkBuffer() const { return _buffer; }
-
-	private:
-		bool CreateBuffer();
-		
-		bool AllocateMemory();
+		const GraphicsNativeBuffer& GetNativeBuffer() const override { return _nativeBuffer; }
 
 	private:
 		VkContext& _context;
 
+		VkNativeBuffer _nativeBuffer;
+
 		MemoryProperty _memProperty;
 		uint32_t _elmSize;
 		uint32_t _size;
-
-		vk::Buffer _buffer;
-		vk::DeviceMemory _memory;
 
 		void* _mappedData = nullptr;
 	};
@@ -65,22 +67,18 @@ namespace flaw {
 
 		uint32_t IndexCount() const override { return _indexCount; }
 
-		inline vk::Buffer GetVkBuffer() const { return _buffer; }
-
-	private:
-		bool CreateBuffer();
+		const GraphicsNativeBuffer& GetNativeBuffer() const override { return _nativeBuffer; }
 
 	private:
 		VkContext& _context;
 
-		vk::Buffer _buffer;
-		vk::DeviceMemory _memory;
-
-		void* _mappedData = nullptr;
+		VkNativeBuffer _nativeBuffer;
 
 		MemoryProperty _memProperty;
 		uint32_t _size;
 		uint32_t _indexCount;
+
+		void* _mappedData = nullptr;
 	};
 
 	class VkConstantBuffer : public ConstantBuffer {
@@ -93,22 +91,17 @@ namespace flaw {
 
 		uint32_t Size() const override { return _size; }
 
-		inline const vk::Buffer& GetVkBuffer() const { return _buffer; }
-
-	private:
-		bool CreateBuffer();
-		bool AllocateMemory();
+		const GraphicsNativeBuffer& GetNativeBuffer() const override { return _nativeBuffer; }
 
 	private:
 		VkContext& _context;
 
-		vk::Buffer _buffer;
-		vk::DeviceMemory _memory;
-
-		void* _mappedData = nullptr;
+		VkNativeBuffer _nativeBuffer;
 
 		MemoryProperty _memProperty;
 		uint32_t _size;
+
+		void* _mappedData = nullptr;
 	};
 
 	class VkStructuredBuffer : public StructuredBuffer {
@@ -124,17 +117,12 @@ namespace flaw {
 
 		uint32_t Size() const override { return _size; }
 
-		inline const vk::Buffer& GetVkBuffer() const { return _buffer; }
-
-	private:
-		bool CreateBuffer();
-		bool AllocateMemory();
+		const GraphicsNativeBuffer& GetNativeBuffer() const override { return _nativeBuffer; }
 
 	private:
 		VkContext& _context;
 
-		vk::Buffer _buffer;
-		vk::DeviceMemory _memory;
+		VkNativeBuffer _nativeBuffer;
 
 		void* _mappedData = nullptr;
 

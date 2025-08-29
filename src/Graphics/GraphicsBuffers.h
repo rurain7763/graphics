@@ -4,6 +4,15 @@
 #include "GraphicsType.h"
 
 namespace flaw {	
+	struct GraphicsNativeBuffer { };
+
+	class GraphicsBuffer {
+	public:
+		virtual ~GraphicsBuffer() = default;
+
+		virtual const GraphicsNativeBuffer& GetNativeBuffer() const = 0;
+	};
+
  	class VertexInputLayout {
     public:
         struct InputElement {
@@ -21,7 +30,7 @@ namespace flaw {
         virtual ~VertexInputLayout() = default;        
     };
 
-	class VertexBuffer {
+	class VertexBuffer : public GraphicsBuffer {
 	public:
 		struct Descriptor {
 			MemoryProperty memProperty = MemoryProperty::Static;
@@ -40,7 +49,7 @@ namespace flaw {
 		virtual uint32_t Size() const = 0;
 	};
 
-	class IndexBuffer {
+	class IndexBuffer : public GraphicsBuffer {
 	public:
 		struct Descriptor {
 			MemoryProperty memProperty = MemoryProperty::Static;
@@ -59,7 +68,7 @@ namespace flaw {
 	// what is constant buffer?
 	// limit size
 	// allighn size with 16
-	class ConstantBuffer {
+	class ConstantBuffer : public GraphicsBuffer {
 	public:
 		struct Descriptor {
 			MemoryProperty memProperty = MemoryProperty::Dynamic;
@@ -78,7 +87,7 @@ namespace flaw {
 	// what is structured buffer?
 	// no limit size
 	// no allighn size
-	class StructuredBuffer {
+	class StructuredBuffer : public GraphicsBuffer {
 	public:
 		struct Descriptor {
 			MemoryProperty memProperty = MemoryProperty::Dynamic;

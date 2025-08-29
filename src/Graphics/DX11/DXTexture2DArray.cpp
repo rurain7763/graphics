@@ -14,7 +14,6 @@ namespace flaw {
 		, _usages(descriptor.texUsages)
 		, _mipLevels(descriptor.mipLevels)
 		, _sampleCount(descriptor.sampleCount)
-		, _shaderStages(descriptor.shaderStages)
 		, _width(descriptor.width)
 		, _height(descriptor.height)
 		, _arraySize(descriptor.arraySize)
@@ -23,13 +22,13 @@ namespace flaw {
 			return;
 		}
 
-		if (_usages & TextureUsage::RenderTarget) {
+		if (_usages & TextureUsage::ColorAttachment) {
 			if (!CreateRenderTargetView()) {
 				return;
 			}
 		}
 
-		if (_usages & TextureUsage::DepthStencil) {
+		if (_usages & TextureUsage::DepthStencilAttachment) {
 			if (!CreateDepthStencilView()) {
 				return;
 			}
@@ -73,12 +72,12 @@ namespace flaw {
 				initDataArray[i].SysMemSlicePitch = slicePitch;
 			}
 
-			if (FAILED(_context.Device()->CreateTexture2D(&desc, initDataArray.data(), _texture.GetAddressOf()))) {
+			if (FAILED(_context.Device()->CreateTexture2D(&desc, initDataArray.data(), _nativeTexture.texture.GetAddressOf()))) {
 				return false;
 			}
 		}
 		else {
-			if (FAILED(_context.Device()->CreateTexture2D(&desc, nullptr, _texture.GetAddressOf()))) {
+			if (FAILED(_context.Device()->CreateTexture2D(&desc, nullptr, _nativeTexture.texture.GetAddressOf()))) {
 				return false;
 			}
 		}
@@ -94,7 +93,7 @@ namespace flaw {
 		rtvDesc.Texture2DArray.FirstArraySlice = 0;
 		rtvDesc.Texture2DArray.MipSlice = 0;
 
-		if (FAILED(_context.Device()->CreateRenderTargetView(_texture.Get(), &rtvDesc, _rtv.GetAddressOf()))) {
+		if (FAILED(_context.Device()->CreateRenderTargetView(_nativeTexture.texture.Get(), &rtvDesc, _nativeTexture.rtv.GetAddressOf()))) {
 			return false;
 		}
 
@@ -109,7 +108,7 @@ namespace flaw {
 		dsvDesc.Texture2DArray.FirstArraySlice = 0;
 		dsvDesc.Texture2DArray.MipSlice = 0;
 
-		if (FAILED(_context.Device()->CreateDepthStencilView(_texture.Get(), &dsvDesc, _dsv.GetAddressOf()))) {
+		if (FAILED(_context.Device()->CreateDepthStencilView(_nativeTexture.texture.Get(), &dsvDesc, _nativeTexture.dsv.GetAddressOf()))) {
 			return false;
 		}
 
@@ -125,7 +124,7 @@ namespace flaw {
 		srvDesc.Texture2DArray.MostDetailedMip = 0;
 		srvDesc.Texture2DArray.MipLevels = 1;
 
-		if (FAILED(_context.Device()->CreateShaderResourceView(_texture.Get(), &srvDesc, _srv.GetAddressOf()))) {
+		if (FAILED(_context.Device()->CreateShaderResourceView(_nativeTexture.texture.Get(), &srvDesc, _nativeTexture.srv.GetAddressOf()))) {
 			return false;
 		}
 
@@ -140,7 +139,7 @@ namespace flaw {
 		uavDesc.Texture2DArray.FirstArraySlice = 0;
 		uavDesc.Texture2DArray.MipSlice = 0;
 
-		if (FAILED(_context.Device()->CreateUnorderedAccessView(_texture.Get(), &uavDesc, _uav.GetAddressOf()))) {
+		if (FAILED(_context.Device()->CreateUnorderedAccessView(_nativeTexture.texture.Get(), &uavDesc, _nativeTexture.uav.GetAddressOf()))) {
 			return false;
 		}
 
@@ -167,7 +166,7 @@ namespace flaw {
 			UINT subresource = D3D11CalcSubresource(0, slice, _mipLevels);
 
 			D3D11_MAPPED_SUBRESOURCE mapped = {};
-			if (SUCCEEDED(_context.DeviceContext()->Map(_texture.Get(), subresource, D3D11_MAP_READ, 0, &mapped))) {
+			if (SUCCEEDED(_context.DeviceContext()->Map(_nativeTexture.texture.Get(), subresource, D3D11_MAP_READ, 0, &mapped))) {
 				uint8_t* dstSliceStart = dstPtr + slice * sliceSize;
 				uint8_t* src = reinterpret_cast<uint8_t*>(mapped.pData);
 
@@ -175,7 +174,7 @@ namespace flaw {
 					memcpy(dstSliceStart + y * rowSize, src + y * mapped.RowPitch, rowSize);
 				}
 
-				_context.DeviceContext()->Unmap(_texture.Get(), subresource);
+				_context.DeviceContext()->Unmap(_nativeTexture.texture.Get(), subresource);
 			}
 			else {
 				LOG_ERROR("Failed to map slice %d", slice);
@@ -190,10 +189,10 @@ namespace flaw {
 			UINT offset = D3D11CalcSubresource(0, i, 1);
 
 			_context.DeviceContext()->CopySubresourceRegion(
-				dxTexture->GetNativeTexture().Get(),
+				dxTexture->_nativeTexture.texture.Get(),
 				offset,
 				0, 0, 0,
-				_texture.Get(),
+				_nativeTexture.texture.Get(),
 				offset,
 				nullptr // copy entire slice
 			);

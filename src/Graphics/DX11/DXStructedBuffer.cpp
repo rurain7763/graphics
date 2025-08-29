@@ -14,9 +14,15 @@ namespace flaw {
 		, _elmSize(desc.elmSize)
 		, _bufferByteSize(desc.bufferSize)
 	{
-		if (!CreateBuffer(desc.initialData)) {
-			return;
-		}
+		D3D11_BUFFER_DESC bufferDesc = {};
+		bufferDesc.BindFlags = ConvertToDXBufferBindFlags(_usages);
+		bufferDesc.ByteWidth = _bufferByteSize;
+		bufferDesc.Usage = ConvertToDXUsage(_memProperty);
+		bufferDesc.CPUAccessFlags = ConvertToDXCPUAccessFlags(_memProperty);
+		bufferDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+		bufferDesc.StructureByteStride = _elmSize;
+
+		_nativeBuffer = DXNativeBuffer::Create(context, bufferDesc, desc.initialData);
 
 		if (desc.bufferUsages & BufferUsage::ShaderResource) {
 			CreateShaderResourceView();
@@ -27,34 +33,6 @@ namespace flaw {
 		}
 	}
 
-	bool DXStructuredBuffer::CreateBuffer(const void* data) {
-		D3D11_BUFFER_DESC bufferDesc = {};
-		bufferDesc.BindFlags = ConvertToDXBufferBindFlags(_usages);
-		bufferDesc.ByteWidth = _bufferByteSize;
-		bufferDesc.Usage = ConvertToDXUsage(_memProperty);
-		bufferDesc.CPUAccessFlags = ConvertToDXCPUAccessFlags(_memProperty);
-		bufferDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-		bufferDesc.StructureByteStride = _elmSize;
-
-		if (data) {
-			D3D11_SUBRESOURCE_DATA subResourceData = {};
-			subResourceData.pSysMem = data;
-
-			if (FAILED(_context.Device()->CreateBuffer(&bufferDesc, &subResourceData, _buffer.GetAddressOf()))) {
-				LOG_ERROR("CreateBuffer failed with initial data");
-				return false;
-			}
-		}
-		else {
-			if (FAILED(_context.Device()->CreateBuffer(&bufferDesc, nullptr, _buffer.GetAddressOf()))) {
-				LOG_ERROR("CreateBuffer failed");
-				return false;
-			}
-		}
-
-		return true;
-	}
-
 	void DXStructuredBuffer::CreateShaderResourceView() {
 		D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 		srvDesc.Format = DXGI_FORMAT_UNKNOWN;
@@ -62,7 +40,7 @@ namespace flaw {
 		srvDesc.Buffer.FirstElement = 0;
 		srvDesc.Buffer.NumElements = _bufferByteSize / _elmSize;
 
-		if (FAILED(_context.Device()->CreateShaderResourceView(_buffer.Get(), &srvDesc, _srv.GetAddressOf()))) {
+		if (FAILED(_context.Device()->CreateShaderResourceView(_nativeBuffer.buffer.Get(), &srvDesc, _nativeBuffer.srv.GetAddressOf()))) {
 			LOG_ERROR("CreateShaderResourceView failed");
 		}
 	}
@@ -75,7 +53,7 @@ namespace flaw {
 		uavDesc.Buffer.NumElements = _bufferByteSize / _elmSize;
 		uavDesc.Buffer.Flags = 0;
 
-		if (FAILED(_context.Device()->CreateUnorderedAccessView(_buffer.Get(), &uavDesc, _uav.GetAddressOf()))) {
+		if (FAILED(_context.Device()->CreateUnorderedAccessView(_nativeBuffer.buffer.Get(), &uavDesc, _nativeBuffer.uav.GetAddressOf()))) {
 			LOG_ERROR("CreateUnorderedAccessView failed");
 		}
 	}
@@ -96,12 +74,12 @@ namespace flaw {
 		}
 
 		D3D11_MAPPED_SUBRESOURCE mappedResource = {};
-		if (FAILED(_context.DeviceContext()->Map(_buffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource))) {
+		if (FAILED(_context.DeviceContext()->Map(_nativeBuffer.buffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource))) {
 			LOG_ERROR("Failed to map buffer for update");
 			return;
 		}
 		memcpy(mappedResource.pData, data, size);
-		_context.DeviceContext()->Unmap(_buffer.Get(), 0);
+		_context.DeviceContext()->Unmap(_nativeBuffer.buffer.Get(), 0);
 	}
 
 	void DXStructuredBuffer::Fetch(void* data, uint32_t size) {
@@ -113,13 +91,13 @@ namespace flaw {
 		FASSERT(size <= _bufferByteSize);
 
 		D3D11_MAPPED_SUBRESOURCE mappedResource = {};
-		if (FAILED(_context.DeviceContext()->Map(_buffer.Get(), 0, D3D11_MAP_READ, 0, &mappedResource))) {
+		if (FAILED(_context.DeviceContext()->Map(_nativeBuffer.buffer.Get(), 0, D3D11_MAP_READ, 0, &mappedResource))) {
 			LOG_ERROR("Failed to map buffer for reading");
 			return;
 		}
 
 		memcpy(data, mappedResource.pData, size);
-		_context.DeviceContext()->Unmap(_buffer.Get(), 0);
+		_context.DeviceContext()->Unmap(_nativeBuffer.buffer.Get(), 0);
 	}
 
 	void DXStructuredBuffer::CopyTo(Ref<StructuredBuffer> dstBuffer, uint32_t srcOffset, uint32_t dstOffset) {
@@ -135,12 +113,12 @@ namespace flaw {
 		srcBox.back = 1;
 
 		_context.DeviceContext()->CopySubresourceRegion(
-			dxDstBuffer->_buffer.Get(),
+			dxDstBuffer->_nativeBuffer.buffer.Get(),
 			0,
 			dstOffset,
 			0,
 			0,
-			_buffer.Get(),
+			_nativeBuffer.buffer.Get(),
 			0,
 			&srcBox
 		);
@@ -159,12 +137,12 @@ namespace flaw {
 		srcBox.back = 1;
 
 		_context.DeviceContext()->CopySubresourceRegion(
-			_buffer.Get(),
+			_nativeBuffer.buffer.Get(),
 			0,
 			dstOffset,
 			0,
 			0,
-			dxSrcBuffer->_buffer.Get(),
+			dxSrcBuffer->_nativeBuffer.buffer.Get(),
 			0,
 			&srcBox
 		);

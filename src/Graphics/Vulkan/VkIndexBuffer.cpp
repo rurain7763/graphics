@@ -14,47 +14,62 @@ namespace flaw {
         , _size(descriptor.bufferSize)
         , _indexCount(descriptor.bufferSize / sizeof(uint32_t))
     {
-        if (!CreateBuffer()) {
+        vk::BufferUsageFlags usage = vk::BufferUsageFlagBits::eIndexBuffer;
+        GetRequiredVkBufferUsageFlags(_memProperty, usage);
+
+        vk::MemoryPropertyFlags memoryFlags;
+        GetRequiredVkMemoryPropertyFlags(_memProperty, memoryFlags);
+
+        _nativeBuffer = VkNativeBuffer::Create(_context, _size, usage, memoryFlags);
+
+		if (_memProperty != MemoryProperty::Static) {
+			auto mappedDataWrapper = _context.GetVkDevice().mapMemory(_nativeBuffer.memory, 0, _size, vk::MemoryMapFlags());
+			if (mappedDataWrapper.result != vk::Result::eSuccess) {
+				Log::Error("Failed to map index buffer memory.");
+				return;
+			}
+			_mappedData = mappedDataWrapper.value;
+		}
+
+        if (!descriptor.initialData) {
             return;
         }
 
-        if (descriptor.initialData) {
-            if (_memProperty == MemoryProperty::Static) {
-                auto& vkCommandQueue = static_cast<VkCommandQueue&>(context.GetCommandQueue());
+        if (_memProperty == MemoryProperty::Static) {
+            auto& vkCommandQueue = static_cast<VkCommandQueue&>(context.GetCommandQueue());
 
-                Descriptor stagingDesc;
-                stagingDesc.memProperty = MemoryProperty::Staging;
-                stagingDesc.bufferSize = descriptor.bufferSize;
-                stagingDesc.initialData = descriptor.initialData;
+            Descriptor stagingDesc;
+            stagingDesc.memProperty = MemoryProperty::Staging;
+            stagingDesc.bufferSize = descriptor.bufferSize;
+            stagingDesc.initialData = descriptor.initialData;
 
-                auto stagingBuffer = CreateRef<VkIndexBuffer>(context, stagingDesc);
+            auto stagingBuffer = CreateRef<VkIndexBuffer>(context, stagingDesc);
 
-                vkCommandQueue.BeginOneTimeCommands();
-                vkCommandQueue.CopyBuffer(stagingBuffer->GetVkBuffer(), _buffer, _size, 0, 0);
-                vkCommandQueue.EndOneTimeCommands();
-            } else {
-                auto mappedDataWrapper = _context.GetVkDevice().mapMemory(_memory, 0, descriptor.bufferSize, vk::MemoryMapFlags());
-                if (mappedDataWrapper.result != vk::Result::eSuccess) {
-                    Log::Error("Failed to map index buffer memory.");
-                    return;
-                }
+            vk::CommandBuffer commandBuffer;
+            vkCommandQueue.BeginOneTimeCommands(commandBuffer);
 
-                _mappedData = mappedDataWrapper.value;
+			vk::BufferCopy copyRegion;
+			copyRegion.size = _size;
+			copyRegion.srcOffset = 0;
+			copyRegion.dstOffset = 0;
 
-                Update(descriptor.initialData, _indexCount);
-            }
+			commandBuffer.copyBuffer(stagingBuffer->_nativeBuffer.buffer, _nativeBuffer.buffer, 1, &copyRegion);
+
+            vkCommandQueue.EndOneTimeCommands(commandBuffer);
+        } else {
+            Update(descriptor.initialData, _indexCount);
         }
     }
 
     VkIndexBuffer::~VkIndexBuffer() {
         if (_mappedData) {
-            _context.GetVkDevice().unmapMemory(_memory);
+            _context.GetVkDevice().unmapMemory(_nativeBuffer.memory);
             _mappedData = nullptr;
         }
 
-        _context.AddDelayedDeletionTasks([&context = _context, buffer = _buffer, memory = _memory]() {
-            context.GetVkDevice().destroyBuffer(buffer, nullptr);
-            context.GetVkDevice().freeMemory(memory, nullptr);
+        _context.AddDelayedDeletionTasks([&context = _context, nativeBuffer = _nativeBuffer]() {
+            context.GetVkDevice().destroyBuffer(nativeBuffer.buffer);
+            context.GetVkDevice().freeMemory(nativeBuffer.memory);
         });
     }
 
@@ -70,32 +85,6 @@ namespace flaw {
         } else {
             Log::Error("Index buffer is not mapped for updating.");
         }
-    }
-
-    bool VkIndexBuffer::CreateBuffer() {
-        vk::BufferUsageFlags usageFlags = vk::BufferUsageFlagBits::eIndexBuffer;
-        GetRequiredVkBufferUsageFlags(_memProperty, usageFlags);
-
-        vk::MemoryPropertyFlags memoryFlags;
-        GetRequiredVkMemoryPropertyFlags(_memProperty, memoryFlags);
-
-        VkBufferWrapper buffer = CreateVkBuffer(
-            _context.GetVkPhysicalDevice(),
-            _context.GetVkDevice(),
-            _size,
-            usageFlags,
-            memoryFlags
-        );
-
-        if (buffer.result != vk::Result::eSuccess) {
-            Log::Error("Failed to create Vulkan index buffer: %s", vk::to_string(buffer.result).c_str());
-            return false;
-        }
-
-        _buffer = buffer.buffer;
-        _memory = buffer.memory;
-
-        return true;
     }
 }
 

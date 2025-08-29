@@ -13,7 +13,15 @@ namespace flaw {
 		, _elmSize(descriptor.elmSize)
 		, _bufferByteSize(descriptor.bufferSize)
 	{
-		CreateBuffer(descriptor.initialData);
+		D3D11_BUFFER_DESC bufferDesc = {};
+		bufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+		bufferDesc.ByteWidth = _bufferByteSize;
+		bufferDesc.Usage = ConvertToDXUsage(_memProperty);
+		bufferDesc.CPUAccessFlags = ConvertToDXCPUAccessFlags(_memProperty);
+		bufferDesc.MiscFlags = 0;
+		bufferDesc.StructureByteStride = 0;
+
+		_nativeBuffer = DXNativeBuffer::Create(context, bufferDesc, descriptor.initialData);
 	}
 
 	void DXVertexBuffer::Update(const void* data, uint32_t size) {
@@ -28,12 +36,12 @@ namespace flaw {
 		}
 
 		D3D11_MAPPED_SUBRESOURCE mappedResource;
-		if (FAILED(_context.DeviceContext()->Map(_buffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource))) {
+		if (FAILED(_context.DeviceContext()->Map(_nativeBuffer.buffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource))) {
 			Log::Error("Failed to map buffer");
 		}
 		else {
 			memcpy(mappedResource.pData, data, size);
-			_context.DeviceContext()->Unmap(_buffer.Get(), 0);
+			_context.DeviceContext()->Unmap(_nativeBuffer.buffer.Get(), 0);
 		}
 	}
 
@@ -55,38 +63,15 @@ namespace flaw {
 		srcBox.back = 1;
 
 		_context.DeviceContext()->CopySubresourceRegion(
-			dxDstBuffer->_buffer.Get(),
+			dxDstBuffer->_nativeBuffer.buffer.Get(),
 			0,
 			dstOffset,
 			0,
 			0,
-			_buffer.Get(),
+			_nativeBuffer.buffer.Get(),
 			0,
 			&srcBox
 		);
-	}
-
-	void DXVertexBuffer::CreateBuffer(const void* data) {
-		D3D11_BUFFER_DESC bufferDesc = {};
-		bufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-		bufferDesc.ByteWidth = _bufferByteSize;
-		bufferDesc.Usage = ConvertToDXUsage(_memProperty);
-		bufferDesc.CPUAccessFlags = ConvertToDXCPUAccessFlags(_memProperty);
-
-		bufferDesc.MiscFlags = 0;
-
-		if (!data) {
-			if (FAILED(_context.Device()->CreateBuffer(&bufferDesc, nullptr, _buffer.GetAddressOf()))) {
-				Log::Error("Buffer Creation failed");
-			}
-		}
-		else {
-			D3D11_SUBRESOURCE_DATA initData = {};
-			initData.pSysMem = data;
-			if (FAILED(_context.Device()->CreateBuffer(&bufferDesc, &initData, _buffer.GetAddressOf()))) {
-				Log::Error("Buffer Update failed");
-			}
-		}
 	}
 }
 

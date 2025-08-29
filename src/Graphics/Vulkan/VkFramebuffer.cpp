@@ -131,24 +131,42 @@ namespace flaw {
             auto& colorAttachment = _colorAttachments[i];
 
             if (colorAttachment->GetSampleCount() != _renderPassLayout->GetSampleCount()) {
-                Log::Fatal("Color attachment sample count does not match render pass layout sample count.");
+                LOG_ERROR("Color attachment sample count does not match render pass layout sample count.");
                 return false;
             }
 
-            attachmentViews[i] = *static_cast<vk::ImageView*>(colorAttachment->GetRenderTargetView());
+			vk::ImageView view = GetViewFromAttachment(colorAttachment);
+			if (!view) {
+                LOG_ERROR("Failed to get image view from color attachment.");
+				return false;
+			}
+
+			attachmentViews[i] = view;
         }
 
         if (_depthStencilAttachment) {
             if (_depthStencilAttachment->GetSampleCount() != _renderPassLayout->GetSampleCount()) {
-                Log::Fatal("Depth stencil attachment sample count does not match render pass layout sample count.");
+                LOG_ERROR("Depth stencil attachment sample count does not match render pass layout sample count.");
                 return false;
             }
 
-            attachmentViews.push_back(*static_cast<vk::ImageView*>(_depthStencilAttachment->GetDepthStencilView()));
+			vk::ImageView view = GetViewFromAttachment(_depthStencilAttachment);
+            if (!view) {
+                LOG_ERROR("Failed to get image view from depth stencil attachment.");
+                return false;
+            }
+
+			attachmentViews.push_back(view);
         }
 
         if (_resolveAttachment) {
-            attachmentViews.push_back(*static_cast<vk::ImageView*>(_resolveAttachment->GetShaderResourceView()));
+			vk::ImageView view = GetViewFromAttachment(_resolveAttachment);
+			if (!view) {
+				LOG_ERROR("Failed to get image view from resolve attachment.");
+				return false;
+			}
+
+            attachmentViews.push_back(view);
         }
 
         vk::FramebufferCreateInfo createInfo;
@@ -169,6 +187,27 @@ namespace flaw {
 
         return true;
     }
+
+	vk::ImageView VkFramebuffer::GetViewFromAttachment(Ref<Texture> attachment) {
+		if (attachment == nullptr) {
+			return nullptr;
+		}
+
+		auto vkTexture2D = std::dynamic_pointer_cast<VkTexture2D>(attachment);
+		if (vkTexture2D) {
+			return vkTexture2D->GetVkImageView();
+		}
+		auto vkTextureCube = std::dynamic_pointer_cast<VkTextureCube>(attachment);
+		if (vkTextureCube) {
+			return vkTextureCube->GetVkImageView();
+		}
+		auto vkTexture2DArray = std::dynamic_pointer_cast<VkTexture2DArray>(attachment);
+		if (vkTexture2DArray) {
+			return vkTexture2DArray->GetVkImageView();
+		}
+
+		return nullptr;
+	}
 }
 
 #endif

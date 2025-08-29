@@ -9,7 +9,14 @@
 
 namespace flaw {
 	class DXContext;
-	class GraphicsShader;
+
+	struct DXNativeBuffer : public GraphicsNativeBuffer {
+		ComPtr<ID3D11Buffer> buffer;
+		ComPtr<ID3D11ShaderResourceView> srv;
+		ComPtr<ID3D11UnorderedAccessView> uav;
+
+		static DXNativeBuffer Create(DXContext& context, const D3D11_BUFFER_DESC& descriptor, const void* initialData = nullptr);
+	};
 
 	class DXVertexInputLayout : public VertexInputLayout {
 	public:
@@ -35,16 +42,14 @@ namespace flaw {
 
 		virtual uint32_t Size() const override { return _bufferByteSize; }
 
-		inline ComPtr<ID3D11Buffer> GetNativeDXBuffer() const { return _buffer; }
-		inline uint32_t ElementSize() const { return _elmSize; }
+		const GraphicsNativeBuffer& GetNativeBuffer() const override { return _nativeBuffer; }
 
-	private:
-		void CreateBuffer(const void* data);
+		inline uint32_t ElementSize() const { return _elmSize; }
 
 	private:
 		DXContext& _context;
 
-		ComPtr<ID3D11Buffer> _buffer;
+		DXNativeBuffer _nativeBuffer;
 
 		MemoryProperty _memProperty;
 		uint32_t _elmSize;
@@ -60,14 +65,12 @@ namespace flaw {
 
 		uint32_t IndexCount() const override { return _indexCount; }
 
-		inline ComPtr<ID3D11Buffer> GetNativeDXBuffer() const { return _buffer; }
-
-	private:
-		void CreateBuffer(const uint* data);
+		const GraphicsNativeBuffer& GetNativeBuffer() const override { return _nativeBuffer; }
 
 	private:
 		DXContext& _context;
-		ComPtr<ID3D11Buffer> _buffer;
+	
+		DXNativeBuffer _nativeBuffer;
 
 		MemoryProperty _memProperty;
 		uint32_t _bufferByteSize;
@@ -83,15 +86,12 @@ namespace flaw {
 
 		uint32_t Size() const override { return _bufferByteSize; }
 
-		inline ComPtr<ID3D11Buffer> GetNativeBuffer() const { return _buffer; }
-
-	private:
-		bool CreateBuffer(const void* data);
+		const GraphicsNativeBuffer& GetNativeBuffer() const override { return _nativeBuffer; }
 
 	private:
 		DXContext& _context;
 
-		ComPtr<ID3D11Buffer> _buffer;
+		DXNativeBuffer _nativeBuffer;
 
 		MemoryProperty _memProperty;
 		uint32_t _bufferByteSize;
@@ -108,24 +108,18 @@ namespace flaw {
 		void CopyTo(Ref<StructuredBuffer> dstBuffer, uint32_t srcOffset = 0, uint32_t dstOffset = 0) override;
 		void CopyFrom(Ref<StructuredBuffer> srcBuffer, uint32_t srcOffset = 0, uint32_t dstOffset = 0) override;
 
-		inline ComPtr<ID3D11Buffer> GetNativeBuffer() const { return _buffer; }
-		inline ComPtr<ID3D11ShaderResourceView> GetNativeSRV() const { return _srv; }
-		inline ComPtr<ID3D11UnorderedAccessView> GetNativeUAV() const { return _uav; }
 		inline uint32_t Size() const override { return _bufferByteSize; }
 
-	private:
-		bool CreateBuffer(const void* data);
+		const GraphicsNativeBuffer& GetNativeBuffer() const override { return _nativeBuffer; }
 
+	private:
 		void CreateShaderResourceView();
 		void CreateUnorderedAccessView();
 
 	private:
 		DXContext& _context;
 
-		ComPtr<ID3D11Buffer> _buffer;
-
-		ComPtr<ID3D11ShaderResourceView> _srv;
-		ComPtr<ID3D11UnorderedAccessView> _uav;
+		DXNativeBuffer _nativeBuffer;
 
 		MemoryProperty _memProperty;
 		BufferUsages _usages;

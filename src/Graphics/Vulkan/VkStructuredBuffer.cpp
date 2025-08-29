@@ -4,6 +4,7 @@
 #ifdef SUPPORT_VULKAN
 
 #include "VkContext.h"
+#include "VkCommandQueue.h"
 #include "Log/Log.h"
 
 namespace flaw {
@@ -13,38 +14,63 @@ namespace flaw {
         , _elmSize(desc.elmSize)
         , _size(desc.bufferSize)
     {
-        if (!CreateBuffer()) {
-            Log::Fatal("Failed to create structured buffer.");
-            return;
+        vk::BufferUsageFlags usage = vk::BufferUsageFlagBits::eStorageBuffer;
+        GetRequiredVkBufferUsageFlags(_memProperty, usage);
+
+        vk::MemoryPropertyFlags memoryFlags;
+        GetRequiredVkMemoryPropertyFlags(_memProperty, memoryFlags);
+
+        _nativeBuffer = VkNativeBuffer::Create(_context, _size, usage, memoryFlags);
+
+        if (_memProperty != MemoryProperty::Static) {
+            auto mappedDataWrapper = _context.GetVkDevice().mapMemory(_nativeBuffer.memory, 0, _size, vk::MemoryMapFlags());
+            if (mappedDataWrapper.result != vk::Result::eSuccess) {
+                Log::Error("Failed to map index buffer memory.");
+                return;
+            }
+            _mappedData = mappedDataWrapper.value;
         }
 
-        if (!AllocateMemory()) {
-            Log::Fatal("Failed to allocate structured buffer memory.");
-            return;
+		if (!desc.initialData) {
+			return;
+		}
+
+        if (_memProperty == MemoryProperty::Static) {
+            auto& vkCommandQueue = static_cast<VkCommandQueue&>(context.GetCommandQueue());
+
+            Descriptor stagingDesc;
+            stagingDesc.memProperty = MemoryProperty::Staging;
+            stagingDesc.bufferSize = desc.bufferSize;
+            stagingDesc.initialData = desc.initialData;
+
+            auto stagingBuffer = CreateRef<VkStructuredBuffer>(context, stagingDesc);
+
+            vk::CommandBuffer commandBuffer;
+            vkCommandQueue.BeginOneTimeCommands(commandBuffer);
+
+            vk::BufferCopy copyRegion;
+            copyRegion.size = _size;
+            copyRegion.srcOffset = 0;
+            copyRegion.dstOffset = 0;
+
+            commandBuffer.copyBuffer(stagingBuffer->_nativeBuffer.buffer, _nativeBuffer.buffer, 1, &copyRegion);
+
+            vkCommandQueue.EndOneTimeCommands(commandBuffer);
         }
-
-        auto mappedDataWrapper = _context.GetVkDevice().mapMemory(_memory, 0, _size, vk::MemoryMapFlags());
-        if (mappedDataWrapper.result != vk::Result::eSuccess) {
-            Log::Fatal("Failed to map structured buffer memory.");
-            return;
-        }
-
-        _mappedData = mappedDataWrapper.value;
-
-        if (desc.initialData) {
+        else {
             Update(desc.initialData, _size);
         }
     }
 
     VkStructuredBuffer::~VkStructuredBuffer() {
         if (_mappedData) {
-            _context.GetVkDevice().unmapMemory(_memory);
+            _context.GetVkDevice().unmapMemory(_nativeBuffer.memory);
             _mappedData = nullptr;
         }
 
-        _context.AddDelayedDeletionTasks([&context = _context, buffer = _buffer, memory = _memory]() {
-            context.GetVkDevice().destroyBuffer(buffer, nullptr);
-            context.GetVkDevice().freeMemory(memory, nullptr);
+        _context.AddDelayedDeletionTasks([&context = _context, nativeBuffer = _nativeBuffer]() {
+            context.GetVkDevice().destroyBuffer(nativeBuffer.buffer);
+            context.GetVkDevice().freeMemory(nativeBuffer.memory);
         });
     }
 
@@ -64,49 +90,6 @@ namespace flaw {
 
     void VkStructuredBuffer::Fetch(void* data, uint32_t size) {
         // TODO: Implement Fetch method if needed
-    }
-
-    bool VkStructuredBuffer::CreateBuffer() {
-        vk::BufferCreateInfo bufferInfo;
-        bufferInfo.size = _size;
-        bufferInfo.usage = vk::BufferUsageFlagBits::eStorageBuffer;
-        GetRequiredVkBufferUsageFlags(_memProperty, bufferInfo.usage);
-        bufferInfo.sharingMode = vk::SharingMode::eExclusive;
-
-        auto bufferWrapper = _context.GetVkDevice().createBuffer(bufferInfo, nullptr);
-        if (bufferWrapper.result != vk::Result::eSuccess) {
-            Log::Error("Failed to create structured buffer: %s", vk::to_string(bufferWrapper.result).c_str());
-            return false;
-        }
-
-        _buffer = bufferWrapper.value;
-
-        return true;
-    }
-
-    bool VkStructuredBuffer::AllocateMemory() {
-        vk::MemoryRequirements memRequirements = _context.GetVkDevice().getBufferMemoryRequirements(_buffer);
-
-        vk::MemoryAllocateInfo allocInfo;
-        allocInfo.allocationSize = memRequirements.size;
-        allocInfo.memoryTypeIndex = GetMemoryTypeIndex(_context.GetVkPhysicalDevice(), memRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
-
-        if (allocInfo.memoryTypeIndex == UINT32_MAX) {
-            Log::Error("Failed to find suitable memory type for structured buffer.");
-            return false;
-        }
-
-        auto memoryWrapper = _context.GetVkDevice().allocateMemory(allocInfo, nullptr);
-        if (memoryWrapper.result != vk::Result::eSuccess) {
-            Log::Error("Failed to allocate structured buffer memory: %s", vk::to_string(memoryWrapper.result).c_str());
-            return false;
-        }
-
-        _memory = memoryWrapper.value;
-
-        _context.GetVkDevice().bindBufferMemory(_buffer, _memory, 0);
-
-        return true;
     }
 }
 

@@ -21,6 +21,8 @@ namespace flaw {
 		DXCommandQueue(DXContext& context);
 		virtual ~DXCommandQueue() = default;
 
+		void SetPipelineBarrier(Ref<Texture> texture, TextureLayout oldLayout, TextureLayout newLayout, AccessTypes srcAccess, AccessTypes dstAccess, PipelineStages srcStage, PipelineStages dstStage) override;
+
 		void SetPipeline(const Ref<GraphicsPipeline>& pipeline) override;
 
 		void SetVertexBuffers(const std::vector<Ref<VertexBuffer>>& vertexBuffers) override;

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Core.h"
+
 #include <cstdint>
 
 namespace flaw {
@@ -10,51 +12,18 @@ namespace flaw {
 
 	enum class MemoryProperty {
 		Static,  // GPU only, no CPU access 
-		Dynamic, // GPU and CPU access, data can change frequently
-		Staging, // CPU only, used for transferring data to GPU
+		Dynamic, // CPU write access, data can change frequently
+		Staging, // CPU read write access, used for transferring data to GPU
 	};
 
 	enum class TextureUsage {
 		ShaderResource = 0x1,
 		UnorderedAccess = 0x2,
-		RenderTarget = 0x4,
-		DepthStencil = 0x8,
+		ColorAttachment = 0x4,
+		DepthStencilAttachment = 0x8,
 	};
 
-	struct TextureUsages {
-		uint32_t value;
-
-		TextureUsages() : value(0) {}
-		TextureUsages(TextureUsage usage) : value(static_cast<uint32_t>(usage)) {}
-		TextureUsages(uint32_t v) : value(v) {}
-
-		TextureUsages operator|(TextureUsage usage) const {
-			return TextureUsages(value | static_cast<uint32_t>(usage));
-		}
-
-		TextureUsages operator&(TextureUsage usage) const {
-			return TextureUsages(value & static_cast<uint32_t>(usage));
-		}
-
-		TextureUsages& operator|=(TextureUsage usage) {
-			value |= static_cast<uint32_t>(usage);
-			return *this;
-		}
-
-		TextureUsages& operator&=(TextureUsage usage) {
-			value &= static_cast<uint32_t>(usage);
-			return *this;
-		}
-
-		TextureUsages& operator=(TextureUsage usage) {
-			value = static_cast<uint32_t>(usage);
-			return *this;
-		}
-
-		operator uint32_t() const {
-			return value;
-		}
-	};
+	using TextureUsages = Flags<TextureUsage>;
 
 	inline TextureUsages operator|(TextureUsage a, TextureUsage b) {
 		return TextureUsages(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
@@ -65,40 +34,7 @@ namespace flaw {
 		UnorderedAccess = 0x2,
 	};
 
-	struct BufferUsages {
-		uint32_t value;
-
-		BufferUsages() : value(0) {}
-		BufferUsages(BufferUsage usage) : value(static_cast<uint32_t>(usage)) {}
-		BufferUsages(uint32_t v) : value(v) {}
-
-		BufferUsages operator|(BufferUsage usage) const {
-			return BufferUsages(value | static_cast<uint32_t>(usage));
-		}
-
-		BufferUsages operator&(BufferUsage usage) const {
-			return BufferUsages(value & static_cast<uint32_t>(usage));
-		}
-
-		BufferUsages& operator|=(BufferUsage usage) {
-			value |= static_cast<uint32_t>(usage);
-			return *this;
-		}
-
-		BufferUsages& operator&=(BufferUsage usage) {
-			value &= static_cast<uint32_t>(usage);
-			return *this;
-		}
-
-		BufferUsages& operator=(BufferUsage usage) {
-			value = static_cast<uint32_t>(usage);
-			return *this;
-		}
-
-		operator uint32_t() const {
-			return value;
-		}
-	};
+	using BufferUsages = Flags<BufferUsage>;
 
 	inline BufferUsages operator|(BufferUsage a, BufferUsage b) {
 		return BufferUsages(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
@@ -210,40 +146,7 @@ namespace flaw {
 		Compute = 0x20,
 	};
 
-	struct ShaderStages {
-		uint32_t value;
-
-		ShaderStages() : value(0) {}
-		ShaderStages(ShaderStage stage) : value(static_cast<uint32_t>(stage)) {}
-		ShaderStages(uint32_t v) : value(v) {}
-
-		ShaderStages operator|(ShaderStage stage) const {
-			return ShaderStages(value | static_cast<uint32_t>(stage));
-		}
-
-		ShaderStages operator&(ShaderStage stage) const {
-			return ShaderStages(value & static_cast<uint32_t>(stage));
-		}
-
-		ShaderStages& operator|=(ShaderStage stage) {
-			value |= static_cast<uint32_t>(stage);
-			return *this;
-		}
-
-		ShaderStages& operator&=(ShaderStage stage) {
-			value &= static_cast<uint32_t>(stage);
-			return *this;
-		}
-
-		ShaderStages& operator=(ShaderStage stage) {
-			value = static_cast<uint32_t>(stage);
-			return *this;
-		}
-
-		operator uint32_t() const {
-			return value;
-		}
-	};
+	using ShaderStages = Flags<ShaderStage>;
 
 	inline ShaderStages operator|(ShaderStage a, ShaderStage b) {
 		return ShaderStages(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
@@ -253,6 +156,23 @@ namespace flaw {
 		Graphics,
 		Compute
 	};
+
+	enum class PipelineStage {
+		TopOfPipe = 0x1,
+		VertexShader = 0x2,
+		HullShader = 0x4,
+		DomainShader = 0x8,
+		GeometryShader = 0x10,
+		PixelShader = 0x20,
+		ColorAttachmentOutput = 0x40,
+		BottomOfPipe = 0x80,
+	};
+
+	using PipelineStages = Flags<PipelineStage>;
+
+	inline PipelineStages operator|(PipelineStage a, PipelineStage b) {
+		return PipelineStages(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+	}
 
 	enum class VertexInputRate {
 		Vertex,  // Vertex input is per vertex
@@ -285,6 +205,22 @@ namespace flaw {
 		Store,
 		DontCare
 	};
+
+	enum class AccessType {
+		ShaderRead = 0x1,
+		ShaderWrite = 0x2,
+		ColorAttachmentRead = 0x4,
+		ColorAttachmentWrite = 0x8,
+		DepthStencilAttachmentRead = 0x10,
+		DepthStencilAttachmentWrite = 0x20,
+		None = 0x40,
+	};
+
+	using AccessTypes = Flags<AccessType>;
+
+	inline AccessTypes operator|(AccessType a, AccessType b) {
+		return AccessTypes(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+	}
 }
 
 

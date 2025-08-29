@@ -19,6 +19,13 @@ namespace flaw {
 	{
 	}
 
+	void DXCommandQueue::SetPipelineBarrier(Ref<Texture> texture, TextureLayout oldLayout, TextureLayout newLayout, AccessTypes srcAccess, AccessTypes dstAccess, PipelineStages srcStage, PipelineStages dstStage) {
+		// DirectX 11 does not have explicit pipeline barriers like Vulkan or DirectX 12.
+		// Resource state transitions are handled automatically by the driver.
+		// However, we can use resource barriers for certain scenarios if needed.
+		// For now, this function will be a no-op.
+	}
+
 	void DXCommandQueue::SetPipeline(const Ref<GraphicsPipeline>& pipeline) {
 		auto dxPipeline = std::static_pointer_cast<DXGraphicsPipeline>(pipeline);
 		FASSERT(dxPipeline, "Pipeline is not a DXGraphicsPipeline");
@@ -117,8 +124,10 @@ namespace flaw {
 			auto dxVertexBuffer = std::static_pointer_cast<DXVertexBuffer>(vertexBuffers[i]);
 			FASSERT(dxVertexBuffer, "VertexBuffer is not a DXVertexBuffer");
 
+			const auto& dxNativeBuff = static_cast<const DXNativeBuffer&>(dxVertexBuffer->GetNativeBuffer());
+
 			_currentVertexBuffers.push_back(dxVertexBuffer);
-			_currentDXVertexBuffers.push_back(dxVertexBuffer->GetNativeDXBuffer().Get());
+			_currentDXVertexBuffers.push_back(dxNativeBuff.buffer.Get());
 			_currentDXVertexBufferStrides.push_back(dxVertexBuffer->ElementSize());
 			_currentDXVertexBufferOffsets.push_back(0); // Offset is always 0 for now
 		}
@@ -255,16 +264,20 @@ namespace flaw {
 	void DXCommandQueue::DrawIndexed(const Ref<IndexBuffer>& indexBuffer, uint32_t indexCount, uint32_t indexOffset, uint32_t vertexOffset) {
 		auto dxIndexBuffer = std::static_pointer_cast<DXIndexBuffer>(indexBuffer);
 		FASSERT(dxIndexBuffer, "IndexBuffer is not a DXIndexBuffer");
+
+		const auto& dxNativeBuff = static_cast<const DXNativeBuffer&>(dxIndexBuffer->GetNativeBuffer());
 				
-		_context.DeviceContext()->IASetIndexBuffer(dxIndexBuffer->GetNativeDXBuffer().Get(), DXGI_FORMAT_R32_UINT, 0);
+		_context.DeviceContext()->IASetIndexBuffer(dxNativeBuff.buffer.Get(), DXGI_FORMAT_R32_UINT, 0);
 		_context.DeviceContext()->DrawIndexed(indexCount, indexOffset, vertexOffset);
 	}
 
 	void DXCommandQueue::DrawIndexedInstanced(const Ref<IndexBuffer>& indexBuffer, uint32_t indexCount, uint32_t instanceCount, uint32_t indexOffset, uint32_t vertexOffset) {
 		auto dxIndexBuffer = std::static_pointer_cast<DXIndexBuffer>(indexBuffer);
 		FASSERT(dxIndexBuffer, "IndexBuffer is not a DXIndexBuffer");
+
+		const auto& dxNativeBuff = static_cast<const DXNativeBuffer&>(dxIndexBuffer->GetNativeBuffer());
 				
-		_context.DeviceContext()->IASetIndexBuffer(dxIndexBuffer->GetNativeDXBuffer().Get(), DXGI_FORMAT_R32_UINT, 0);
+		_context.DeviceContext()->IASetIndexBuffer(dxNativeBuff.buffer.Get(), DXGI_FORMAT_R32_UINT, 0);
 		_context.DeviceContext()->DrawIndexedInstanced(indexCount, instanceCount, indexOffset, vertexOffset, 0);
 	}
 
@@ -273,8 +286,9 @@ namespace flaw {
 		for (uint32_t i = 0; i < beginRenderPass->GetColorAttachmentOpCount(); i++) {
 			auto& op = beginRenderPass->GetColorAttachmentOp(i);
 			auto& renderTargetTex = std::static_pointer_cast<DXTexture2D>(framebuffer->GetColorAttachment(i));
+			const auto& dxNativeTex = static_cast<const DXNativeTexture&>(renderTargetTex->GetNativeTexture());
 
-			rtvs[i] = renderTargetTex->GetNativeRTV().Get();
+			rtvs[i] = dxNativeTex.rtv.Get();
 			if (op.loadOp == AttachmentLoadOp::Clear) {
 				std::array<float, 4> clearColor = { 0.0f, 0.0f, 0.0f, 1.0f };
 				_context.DeviceContext()->ClearRenderTargetView(rtvs[i], clearColor.data());
@@ -285,8 +299,9 @@ namespace flaw {
 		if (beginRenderPass->HasDepthStencilAttachmentOp()) {
 			auto& depthStencilOp = beginRenderPass->GetDepthStencilAttachmentOp();
 			auto& depthStencilTex = std::static_pointer_cast<DXTexture2D>(framebuffer->GetDepthStencilAttachment());
+			const auto& dxNativeTex = static_cast<const DXNativeTexture&>(depthStencilTex->GetNativeTexture());
 
-			dsv = depthStencilTex->GetNativeDSV().Get();
+			dsv = dxNativeTex.dsv.Get();
 
 			uint32_t clearFlags = 0;
 			if (depthStencilOp.loadOp == AttachmentLoadOp::Clear) {
@@ -393,6 +408,7 @@ namespace flaw {
 #endif
 
 	void DXCommandQueue::SetComputeTexture(const Ref<Texture>& texture, TextureUsages texUsages, uint32_t slot) {
+#if false
 		auto dxTexture = std::static_pointer_cast<DXTexture2D>(texture);
 
 		if (texUsages & TextureUsage::ShaderResource) {
@@ -402,7 +418,7 @@ namespace flaw {
 				return;
 			}
 
-			//BindToComputeTRegistry(slot, static_cast<ID3D11ShaderResourceView*>(srv));
+			BindToComputeTRegistry(slot, static_cast<ID3D11ShaderResourceView*>(srv));
 		}
 		else if (texUsages & TextureUsage::UnorderedAccess) {
 			auto uav = dxTexture->GetUnorderedAccessView();
@@ -411,11 +427,13 @@ namespace flaw {
 				return;
 			}
 
-			//BindToComputeURegistry(slot, static_cast<ID3D11UnorderedAccessView*>(uav));
+			BindToComputeURegistry(slot, static_cast<ID3D11UnorderedAccessView*>(uav));
 		}
+#endif
 	}
 
 	void DXCommandQueue::SetComputeStructuredBuffer(const Ref<StructuredBuffer>& buffer, BufferUsages buffUsages, uint32_t slot) {
+#if false
 		auto dxSBuffer = std::static_pointer_cast<DXStructuredBuffer>(buffer);
 		if (buffUsages & BufferUsage::ShaderResource) {
 			auto srv = dxSBuffer->GetNativeSRV();
@@ -424,7 +442,7 @@ namespace flaw {
 				return;
 			}
 
-			//BindToComputeTRegistry(slot, srv.Get());
+			BindToComputeTRegistry(slot, srv.Get());
 		}
 		else if (buffUsages & BufferUsage::UnorderedAccess) {
 			auto uav = dxSBuffer->GetNativeUAV();
@@ -433,8 +451,9 @@ namespace flaw {
 				return;
 			}
 
-			//BindToComputeURegistry(slot, uav.Get());
+			BindToComputeURegistry(slot, uav.Get());
 		}
+#endif
 	}
 
 	void DXCommandQueue::BindComputeResources() {

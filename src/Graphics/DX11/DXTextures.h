@@ -10,6 +10,14 @@
 namespace flaw {
 	class DXContext;
 
+	struct DXNativeTexture : public NativeTexture {
+		ComPtr<ID3D11Texture2D> texture;
+		ComPtr<ID3D11ShaderResourceView> srv;
+		ComPtr<ID3D11UnorderedAccessView> uav;
+		ComPtr<ID3D11RenderTargetView> rtv;
+		ComPtr<ID3D11DepthStencilView> dsv;
+	};
+
 	class DXTexture2D : public Texture2D {
 	public:
 		DXTexture2D(DXContext& context, const Descriptor& descriptor);
@@ -20,23 +28,13 @@ namespace flaw {
 		void CopyTo(Ref<Texture2D>& target) const override;
 		void CopyToSub(Ref<Texture2D>& target, const uint32_t x, const uint32_t y, const uint32_t width, const uint32_t height) const override;
 
-		ShaderResourceView GetShaderResourceView() const override { return _srv.Get(); }
-		UnorderedAccessView GetUnorderedAccessView() const override { return _uav.Get(); }
-		RenderTargetView GetRenderTargetView(uint32_t mipLevel = 0) const override { return _rtv.Get(); }
-		DepthStencilView GetDepthStencilView(uint32_t mipLevel = 0) const override { return _dsv.Get(); }
-
 		uint32_t GetWidth() const override { return _width; }
 		uint32_t GetHeight() const override { return _height; }
 		PixelFormat GetPixelFormat() const override { return _format; }
 		TextureUsages GetUsages() const override { return _usages; }
 		uint32_t GetSampleCount() const override { return _sampleCount; }
-		ShaderStages GetShaderStages() const override { return _shaderStages; }
 
-		inline ComPtr<ID3D11Texture2D> GetNativeTexture() const { return _texture; }
-		inline ComPtr<ID3D11RenderTargetView> GetNativeRTV() const { return _rtv; }
-		inline ComPtr<ID3D11DepthStencilView> GetNativeDSV() const { return _dsv; }
-		inline ComPtr<ID3D11ShaderResourceView> GetNativeSRV() const { return _srv; }
-		inline ComPtr<ID3D11UnorderedAccessView> GetNativeUAV() const { return _uav; }
+		const NativeTexture& GetNativeTexture() const override { return _nativeTexture; }
 
 	private:
 		bool CreateTexture(const uint8_t* data);
@@ -49,19 +47,13 @@ namespace flaw {
 	private:
 		DXContext& _context;
 
-		ComPtr<ID3D11Texture2D> _texture;
-
-		ComPtr<ID3D11RenderTargetView> _rtv;
-		ComPtr<ID3D11DepthStencilView> _dsv;
-		ComPtr<ID3D11ShaderResourceView> _srv;
-		ComPtr<ID3D11UnorderedAccessView> _uav;
+		DXNativeTexture _nativeTexture;
 
 		PixelFormat _format;
 		MemoryProperty _memProperty;
 		TextureUsages _usages;
 		uint32_t _mipLevels;
 		uint32_t _sampleCount;
-		ShaderStages _shaderStages;
 
 		uint32_t _width;
 		uint32_t _height;
@@ -75,20 +67,14 @@ namespace flaw {
 
 		void CopyTo(Ref<Texture2DArray>& target) const override;
 
-		ShaderResourceView GetShaderResourceView() const override { return _srv.Get(); }
-		UnorderedAccessView GetUnorderedAccessView() const override { return _uav.Get(); }
-		RenderTargetView GetRenderTargetView(uint32_t mipLevel = 0) const override { return _rtv.Get(); } // TODO: support multiple mip levels
-		DepthStencilView GetDepthStencilView(uint32_t mipLevel = 0) const override { return _dsv.Get(); } // TODO: support multiple mip levels
-
 		uint32_t GetWidth() const override { return _width; }
 		uint32_t GetHeight() const override { return _height; }
 		PixelFormat GetPixelFormat() const override { return _format; }
 		TextureUsages GetUsages() const override { return _usages; }
 		uint32_t GetSampleCount() const override { return _sampleCount; }
-		ShaderStages GetShaderStages() const override { return _shaderStages; }
 		uint32_t GetArraySize() const override { return _arraySize; }
 
-		ComPtr<ID3D11Texture2D> GetNativeTexture() const { return _texture; }
+		const NativeTexture& GetNativeTexture() const override { return _nativeTexture; }
 
 	private:
 		bool CreateTexture(const uint8_t* data);
@@ -101,19 +87,13 @@ namespace flaw {
 	private:
 		DXContext& _context;
 
-		ComPtr<ID3D11Texture2D> _texture;
-
-		ComPtr<ID3D11ShaderResourceView> _srv;
-		ComPtr<ID3D11UnorderedAccessView> _uav;
-		ComPtr<ID3D11RenderTargetView> _rtv;
-		ComPtr<ID3D11DepthStencilView> _dsv;
+		DXNativeTexture _nativeTexture;
 
 		PixelFormat _format;
 		MemoryProperty _memProperty;
 		TextureUsages _usages;
 		uint32_t _mipLevels;
 		uint32_t _sampleCount;
-		ShaderStages _shaderStages;
 		uint32_t _arraySize;
 
 		uint32_t _width;
@@ -125,20 +105,13 @@ namespace flaw {
 		DXTextureCube(DXContext& context, const Descriptor& descriptor);
 		~DXTextureCube() = default;
 
-		ShaderResourceView GetShaderResourceView() const override { return _srv.Get(); }
-		UnorderedAccessView GetUnorderedAccessView() const override { return nullptr; } // UnorderedAccessView is not supported for cube textures now
-		RenderTargetView GetRenderTargetView(uint32_t mipLevel = 0) const override { return mipLevel < _rtvs.size() ? _rtvs[mipLevel].Get() : nullptr; } // TODO: support multiple mip levels
-		DepthStencilView GetDepthStencilView(uint32_t mipLevel = 0) const override { return mipLevel < _dsvs.size() ? _dsvs[mipLevel].Get() : nullptr; } // TODO: support multiple mip levels
-
 		uint32_t GetWidth() const override { return _width; }
 		uint32_t GetHeight() const override { return _height; }
 		PixelFormat GetPixelFormat() const override { return _format; }
 		TextureUsages GetUsages() const override { return _usages; }
 		uint32_t GetSampleCount() const override { return _sampleCount; }
-		ShaderStages GetShaderStages() const override { return _shaderStages; }
 
-		inline ComPtr<ID3D11Texture2D> GetNativeTexture() const { return _texture; }
-		inline ComPtr<ID3D11ShaderResourceView> GetNativeSRV() const { return _srv; }
+		const NativeTexture& GetNativeTexture() const override { return _nativeTexture; }
 
 	private:
 		bool CreateTexture(const uint8_t* initRawData);
@@ -150,18 +123,13 @@ namespace flaw {
 	private:
 		DXContext& _context;
 
-		ComPtr<ID3D11Texture2D> _texture;
-
-		std::vector<ComPtr<ID3D11RenderTargetView>> _rtvs; // rtvs per mip level
-		std::vector<ComPtr<ID3D11DepthStencilView>> _dsvs; // dsvs per mip level
-		ComPtr<ID3D11ShaderResourceView> _srv;
+		DXNativeTexture _nativeTexture;
 
 		PixelFormat _format;
 		MemoryProperty _memProperty;
 		TextureUsages _usages;
 		uint32_t _mipLevels;
 		uint32_t _sampleCount;
-		ShaderStages _shaderStages;
 
 		uint32_t _width;
 		uint32_t _height;

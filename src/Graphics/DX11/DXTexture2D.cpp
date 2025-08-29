@@ -14,7 +14,6 @@ namespace flaw {
 		, _usages(descriptor.texUsages)
 		, _mipLevels(descriptor.mipLevels)
 		, _sampleCount(descriptor.sampleCount)
-		, _shaderStages(descriptor.shaderStages)
 		, _width(descriptor.width)
 		, _height(descriptor.height)
 	{
@@ -22,14 +21,14 @@ namespace flaw {
 			return;
 		}
 
-		if (_usages & TextureUsage::RenderTarget) {
+		if (_usages & TextureUsage::ColorAttachment) {
 			if (!CreateRenderTargetView()) {
 				Log::Error("CreateRenderTargetView failed");
 				return;
 			}
 		}
 
-		if (_usages & TextureUsage::DepthStencil) {
+		if (_usages & TextureUsage::DepthStencilAttachment) {
 			if (!CreateDepthStencilView()) {
 				Log::Error("CreateDepthStencilView failed");
 				return;
@@ -43,7 +42,7 @@ namespace flaw {
 			}
 
 			if (_mipLevels > 1) {
-				_context.DeviceContext()->GenerateMips(_srv.Get());
+				_context.DeviceContext()->GenerateMips(_nativeTexture.srv.Get());
 			}
 		}
 
@@ -58,10 +57,10 @@ namespace flaw {
 	DXTexture2D::DXTexture2D(DXContext& context, const ComPtr<ID3D11Texture2D>& texture, const PixelFormat format, uint32_t shaderStages)
 		: _context(context)
 	{
-		_texture = texture;
+		_nativeTexture.texture = texture;
 
 		D3D11_TEXTURE2D_DESC desc;
-		_texture->GetDesc(&desc);
+		texture->GetDesc(&desc);
 
 		_format = ConvertToPixelFormat(desc.Format);
 		_memProperty = ConvertToMemoryProperty(desc.Usage);
@@ -69,18 +68,16 @@ namespace flaw {
 
 		_mipLevels = desc.MipLevels;
 
-		_shaderStages = shaderStages;
-
 		_width = desc.Width;
 		_height = desc.Height;
 
-		if (_usages & TextureUsage::RenderTarget) {
+		if (_usages & TextureUsage::ColorAttachment) {
 			if (!CreateRenderTargetView()) {
 				return;
 			}
 		}
 
-		if (_usages & TextureUsage::DepthStencil) {
+		if (_usages & TextureUsage::DepthStencilAttachment) {
 			if (!CreateDepthStencilView()) {
 				return;
 			}
@@ -92,7 +89,7 @@ namespace flaw {
 			}
 
 			if (_mipLevels > 1) {
-				_context.DeviceContext()->GenerateMips(_srv.Get());
+				_context.DeviceContext()->GenerateMips(_nativeTexture.srv.Get());
 			}
 		}
 
@@ -110,19 +107,21 @@ namespace flaw {
 		}
 
 		D3D11_MAPPED_SUBRESOURCE mappedResource;
-		if (FAILED(_context.DeviceContext()->Map(_texture.Get(), 0, D3D11_MAP_READ, 0, &mappedResource))) {
+		if (FAILED(_context.DeviceContext()->Map(_nativeTexture.texture.Get(), 0, D3D11_MAP_READ, 0, &mappedResource))) {
 			Log::Error("Map failed");
 			return;
 		}
 
 		memcpy(outData, mappedResource.pData, size);
 
-		_context.DeviceContext()->Unmap(_texture.Get(), 0);
+		_context.DeviceContext()->Unmap(_nativeTexture.texture.Get(), 0);
 	}
 
 	void DXTexture2D::CopyTo(Ref<Texture2D>& target) const {
 		auto dxTexture = std::static_pointer_cast<DXTexture2D>(target);
-		_context.DeviceContext()->CopyResource(dxTexture->GetNativeTexture().Get(), _texture.Get());
+		FASSERT(dxTexture, "Target texture is not a DXTexture2D");
+
+		_context.DeviceContext()->CopyResource(dxTexture->_nativeTexture.texture.Get(), _nativeTexture.texture.Get());
 	}
 
 	void DXTexture2D::CopyToSub(Ref<Texture2D>& target, const uint32_t x, const uint32_t y, const uint32_t width, const uint32_t height) const {
@@ -137,10 +136,10 @@ namespace flaw {
 		box.back = 1;
 
 		_context.DeviceContext()->CopySubresourceRegion(
-			dxTexture->GetNativeTexture().Get(), 
+			dxTexture->_nativeTexture.texture.Get(), 
 			0,
 			0, 0, 0, // dst x, y, z
-			_texture.Get(), 
+			_nativeTexture.texture.Get(),
 			0,
 			&box
 		);
@@ -165,14 +164,14 @@ namespace flaw {
 			desc.MiscFlags |= D3D11_RESOURCE_MISC_GENERATE_MIPS;
 		}
 
-		if (FAILED(_context.Device()->CreateTexture2D(&desc, nullptr, _texture.GetAddressOf()))) {
+		if (FAILED(_context.Device()->CreateTexture2D(&desc, nullptr, _nativeTexture.texture.GetAddressOf()))) {
 			LOG_ERROR("Failed to create texture2D without initial data");
 			return false;
 		}
 
 		if (data) {
 			_context.DeviceContext()->UpdateSubresource(
-				_texture.Get(),
+				_nativeTexture.texture.Get(),
 				0, // Mip level
 				nullptr, // D3D11_BOX
 				data,
@@ -190,7 +189,7 @@ namespace flaw {
 		rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
 		rtvDesc.Texture2D.MipSlice = 0;
 
-		if (FAILED(_context.Device()->CreateRenderTargetView(_texture.Get(), &rtvDesc, _rtv.GetAddressOf()))) {
+		if (FAILED(_context.Device()->CreateRenderTargetView(_nativeTexture.texture.Get(), &rtvDesc, _nativeTexture.rtv.GetAddressOf()))) {
 			LOG_ERROR("CreateRenderTargetView failed");
 			return false;
 		}
@@ -204,7 +203,7 @@ namespace flaw {
 		dsvDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
 		dsvDesc.Texture2D.MipSlice = 0;
 
-		if (FAILED(_context.Device()->CreateDepthStencilView(_texture.Get(), &dsvDesc, _dsv.GetAddressOf()))) {
+		if (FAILED(_context.Device()->CreateDepthStencilView(_nativeTexture.texture.Get(), &dsvDesc, _nativeTexture.dsv.GetAddressOf()))) {
 			LOG_ERROR("CreateDepthStencilView failed");
 			return false;
 		}
@@ -213,15 +212,13 @@ namespace flaw {
 	}
 
 	bool DXTexture2D::CreateShaderResourceView() {
-		_srv.Reset();
-
 		D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 		srvDesc.Format = ConvertToDXFormat(_format);
 		srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
 		srvDesc.Texture2D.MostDetailedMip = 0;
 		srvDesc.Texture2D.MipLevels = _mipLevels;
 
-		if (FAILED(_context.Device()->CreateShaderResourceView(_texture.Get(), &srvDesc, _srv.GetAddressOf()))) {
+		if (FAILED(_context.Device()->CreateShaderResourceView(_nativeTexture.texture.Get(), &srvDesc, _nativeTexture.srv.GetAddressOf()))) {
 			LOG_ERROR("CreateShaderResourceView failed");
 			return false;
 		}
@@ -234,7 +231,7 @@ namespace flaw {
 		uavDesc.Format = ConvertToDXFormat(_format);
 		uavDesc.ViewDimension = D3D11_UAV_DIMENSION_TEXTURE2D;
 
-		if (FAILED(_context.Device()->CreateUnorderedAccessView(_texture.Get(), &uavDesc, _uav.GetAddressOf()))) {
+		if (FAILED(_context.Device()->CreateUnorderedAccessView(_nativeTexture.texture.Get(), &uavDesc, _nativeTexture.uav.GetAddressOf()))) {
 			LOG_ERROR("CreateUnorderedAccessView failed");
 			return false;
 		}

@@ -164,7 +164,7 @@ namespace flaw {
 		descDepth.width = _renderWidth;
 		descDepth.height = _renderHeight;
 		descDepth.memProperty = MemoryProperty::Static;
-		descDepth.texUsages = TextureUsage::DepthStencil;
+		descDepth.texUsages = TextureUsage::DepthStencilAttachment;
 		descDepth.initialLayout = TextureLayout::DepthStencilAttachment;
 
 		auto depthStencilTex = CreateRef<DXTexture2D>(*this, descDepth);
@@ -200,7 +200,7 @@ namespace flaw {
 			desc.width = width;
 			desc.height = height;
 			desc.memProperty = MemoryProperty::Static;
-			desc.texUsages = TextureUsage::DepthStencil;
+			desc.texUsages = TextureUsage::DepthStencilAttachment;
 			desc.initialLayout = TextureLayout::DepthStencilAttachment;
 
 			tex = CreateRef<DXTexture2D>(*this, desc);

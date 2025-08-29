@@ -45,8 +45,6 @@ namespace flaw {
     vk::ShaderStageFlagBits ConvertToVkShaderStage(ShaderStage flag);
     vk::VertexInputRate ConvertToVkVertexInputRate(VertexInputRate rate);
     vk::ImageLayout ConvertToVkImageLayout(TextureLayout layout);
-    vk::ImageAspectFlags ConvertToVkImageAspectFlags(PixelFormat pixelForamt);
-    vk::ImageUsageFlags ConvertToVkImageUsageFlags(TextureUsages texUsages);
     vk::Format ConvertToVkFormat(ElementType type, uint32_t count);
     vk::DescriptorType ConvertToVkDescriptorType(ResourceType resourceType);
     vk::ShaderStageFlags ConvertToVkShaderStages(ShaderStages shaderStages);
@@ -54,7 +52,11 @@ namespace flaw {
     vk::AttachmentLoadOp ConvertToVkAttachmentLoadOp(AttachmentLoadOp loadOp);
     vk::AttachmentStoreOp ConvertToVkAttachmentStoreOp(AttachmentStoreOp storeOp);
     vk::SampleCountFlagBits ConvertToVkSampleCount(uint32_t sampleCount);
-    vk::PipelineStageFlags ConvertToVkPipelineStageFlags(TextureUsages texUsages, ShaderStages shaderStages);
+	vk::AccessFlags ConvertToVkAccessFlags(AccessTypes access);
+	vk::PipelineStageFlags ConvertToVkPipelineStageFlags(PipelineStages stages);
+	vk::ImageAspectFlags GetVkImageAspectFlags(PixelFormat format);
+	vk::ImageAspectFlags GetVkImageAspectFlags(vk::Format format);
+    vk::ImageUsageFlags GetVkImageUsageFlags(TextureUsages texUsages);
     void GetRequiredVkBufferUsageFlags(MemoryProperty usage, vk::BufferUsageFlags& usageFlags);
     void GetRequiredVkMemoryPropertyFlags(MemoryProperty flags, vk::MemoryPropertyFlags& memoryFlags);
     bool CheckSupportedInstanceExtensions(const std::vector<const char*>& requiredExtensions);
@@ -64,7 +66,6 @@ namespace flaw {
     VkQueueFamilyIndices GetVkQueueFamilyIndices(const vk::PhysicalDevice& physicalDevice, const vk::SurfaceKHR& surface);
     uint32_t GetMaxUsableSampleCount(const vk::PhysicalDevice& physicalDevice);
     uint32_t GetMemoryTypeIndex(const vk::PhysicalDevice& physicalDevice, uint32_t typeBits, vk::MemoryPropertyFlags properties);
-    VkBufferWrapper CreateVkBuffer(const vk::PhysicalDevice& physicalDevice, const vk::Device& device, uint64_t size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties);
 }
 
 #endif

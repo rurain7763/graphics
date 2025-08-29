@@ -7,6 +7,7 @@
 #include "Log/Log.h"
 #include "VkCommandQueue.h"
 #include "Graphics/GraphicsFunc.h"
+#include "VkBuffers.h"
 
 namespace flaw {
     VkTextureCube::VkTextureCube(VkContext& context, const Descriptor& descriptor)
@@ -16,62 +17,9 @@ namespace flaw {
         , _texUsages(descriptor.texUsages)
         , _mipLevels(descriptor.mipLevels)
         , _sampleCount(descriptor.sampleCount)
-		, _shaderStages(descriptor.shaderStages)
         , _width(descriptor.width)
         , _height(descriptor.height)
-		, _currentLayout(vk::ImageLayout::eUndefined)
-		, _currentAccessFlags(vk::AccessFlagBits::eNone)
-		, _currentPipelineStage(vk::PipelineStageFlagBits::eTopOfPipe)
     {
-        if (!CreateImage(descriptor.data)) {
-            return;
-        }
-
-        if (!AllocateMemory()) {
-            return;
-        }
-
-        auto& vkCmdQueue = static_cast<VkCommandQueue&>(_context.GetCommandQueue());
-
-        vkCmdQueue.BeginOneTimeCommands();
-
-        if (descriptor.data) {
-            if (!PullMemory(descriptor.data)) {
-                return;
-            }
-        }
-
-        if (descriptor.mipLevels > 1) {
-            if (!GenerateMipmaps()) {
-                return;
-            }
-        }
-
-        if (!TransitionFinalImageLayout(descriptor.initialLayout)) {
-            return;
-        }
-
-        vkCmdQueue.EndOneTimeCommands();
-
-        if (!CreateImageView()) {
-            return;
-        }
-
-        if (!CreateSampler()) {
-            return;
-        }
-    }
-
-    VkTextureCube::~VkTextureCube() {
-        _context.AddDelayedDeletionTasks([&context = _context, image = _image, imageMemory = _imageMemory, imageView = _imageView, sampler = _sampler]() {
-            context.GetVkDevice().destroyImage(image);
-            context.GetVkDevice().freeMemory(imageMemory);
-            context.GetVkDevice().destroyImageView(imageView);
-            context.GetVkDevice().destroySampler(sampler);
-        });
-    }
-
-    bool VkTextureCube::CreateImage(bool hasData) {
         vk::ImageCreateInfo imageInfo;
         imageInfo.flags = vk::ImageCreateFlagBits::eCubeCompatible;
         imageInfo.imageType = vk::ImageType::e2D;
@@ -83,86 +31,90 @@ namespace flaw {
         imageInfo.arrayLayers = 6;
         imageInfo.samples = ConvertToVkSampleCount(_sampleCount);
         imageInfo.tiling = vk::ImageTiling::eOptimal;
-        imageInfo.usage = ConvertToVkImageUsageFlags(_texUsages);
-        if (hasData) {
-            imageInfo.usage |= vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eTransferSrc;
-        }
+        imageInfo.usage = GetVkImageUsageFlags(_texUsages) | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eTransferSrc;
         imageInfo.sharingMode = vk::SharingMode::eExclusive;
         imageInfo.initialLayout = vk::ImageLayout::eUndefined;
 
-        auto imageWrapper = _context.GetVkDevice().createImage(imageInfo);
-        if (imageWrapper.result != vk::Result::eSuccess) {
-            Log::Fatal("Failed to create Vulkan image: %s", vk::to_string(imageWrapper.result).c_str());
-            return false;
+		vk::MemoryPropertyFlags memProperties;
+		GetRequiredVkMemoryPropertyFlags(_memProperty, memProperties);
+
+		_nativeTexture = VkNativeTexture::Create(_context, imageInfo, memProperties);
+
+        if (!CreateImageView()) {
+            return;
         }
 
-        _image = imageWrapper.value;
-
-        return true; 
-    }
-
-    bool VkTextureCube::AllocateMemory() {
-        vk::MemoryRequirements memRequirements = _context.GetVkDevice().getImageMemoryRequirements(_image);
-
-        vk::MemoryPropertyFlags properties;
-        GetRequiredVkMemoryPropertyFlags(_memProperty, properties);
-
-        vk::MemoryAllocateInfo allocInfo;
-        allocInfo.allocationSize = memRequirements.size;
-        allocInfo.memoryTypeIndex = GetMemoryTypeIndex(_context.GetVkPhysicalDevice(), memRequirements.memoryTypeBits, properties);
-
-        auto memoryWrapper = _context.GetVkDevice().allocateMemory(allocInfo, nullptr);
-        if (memoryWrapper.result != vk::Result::eSuccess) {
-            Log::Fatal("Failed to allocate memory for Vulkan image: %s", vk::to_string(memoryWrapper.result).c_str());
-            return false;
+        if (!CreateSampler()) {
+            return;
         }
 
-        _imageMemory = memoryWrapper.value;
-
-        _context.GetVkDevice().bindImageMemory(_image, _imageMemory, 0);
-
-        return true;
-    }
-
-    bool VkTextureCube::PullMemory(const uint8_t* data) {
         auto& vkCmdQueue = static_cast<VkCommandQueue&>(_context.GetCommandQueue());
+
+		vk::CommandBuffer commandBuffer;
+        vkCmdQueue.BeginOneTimeCommands(commandBuffer);
+
+        if (descriptor.data) {
+            if (!PullMemory(commandBuffer, descriptor.data)) {
+                return;
+            }
+        }
+
+        if (descriptor.mipLevels > 1) {
+            if (!GenerateMipmaps(commandBuffer)) {
+                return;
+            }
+        }
+
+        if (!TransitionFinalImageLayout(commandBuffer, descriptor.initialLayout)) {
+            return;
+        }
+
+        vkCmdQueue.EndOneTimeCommands(commandBuffer);
+    }
+
+    VkTextureCube::~VkTextureCube() {
+        _context.AddDelayedDeletionTasks([&context = _context, nativeTexture = _nativeTexture, view = _view, sampler = _sampler]() {
+            context.GetVkDevice().destroyImage(nativeTexture.image);
+            context.GetVkDevice().freeMemory(nativeTexture.memory);
+            context.GetVkDevice().destroyImageView(view);
+            context.GetVkDevice().destroySampler(sampler);
+        });
+    }
+
+    bool VkTextureCube::PullMemory(vk::CommandBuffer& commandBuffer, const uint8_t* data) {
         uint32_t bufferSizePerImage = _width * _height * GetSizePerPixel(_format);
         uint32_t bufferSize = bufferSizePerImage * 6;
 
-        auto stagingBuffer = CreateVkBuffer(
-            _context.GetVkPhysicalDevice(),
-            _context.GetVkDevice(),
-            bufferSize,
-            vk::BufferUsageFlagBits::eTransferSrc,
-            vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent
-        );
+		auto stagingBuffer = VkNativeBuffer::CreateAsStaging(_context, bufferSize, data);
 
-        auto stagingBuffMapedDataWrapper = _context.GetVkDevice().mapMemory(stagingBuffer.memory, 0, bufferSize, vk::MemoryMapFlags());
-        if (stagingBuffMapedDataWrapper.result != vk::Result::eSuccess) {
-            Log::Fatal("Failed to map memory for staging buffer: %s", vk::to_string(stagingBuffMapedDataWrapper.result).c_str());
-            _context.GetVkDevice().destroyBuffer(stagingBuffer.buffer);
-            _context.GetVkDevice().freeMemory(stagingBuffer.memory);
-            return false;
-        }
+        vk::ImageMemoryBarrier barrier;
+        barrier.oldLayout = vk::ImageLayout::eUndefined;
+        barrier.newLayout = vk::ImageLayout::eTransferDstOptimal;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.image = _nativeTexture.image;
+        barrier.subresourceRange.aspectMask = GetVkImageAspectFlags(_format);
+        barrier.subresourceRange.baseMipLevel = 0;
+        barrier.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
+        barrier.subresourceRange.baseArrayLayer = 0;
+        barrier.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+        barrier.srcAccessMask = vk::AccessFlagBits::eNone;
+        barrier.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
 
-        memcpy(stagingBuffMapedDataWrapper.value, data, bufferSize);
-        _context.GetVkDevice().unmapMemory(stagingBuffer.memory);
+        commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlags(), nullptr, nullptr, barrier);
 
-        vkCmdQueue.TransitionImageLayout(
-            _image,
-            ConvertToVkImageAspectFlags(_format),
-            vk::ImageLayout::eUndefined,
-            vk::ImageLayout::eTransferDstOptimal,
-            vk::AccessFlagBits::eNone,
-            vk::AccessFlagBits::eTransferWrite,
-            vk::PipelineStageFlagBits::eTopOfPipe,
-            vk::PipelineStageFlagBits::eTransfer
-        );
-        vkCmdQueue.CopyBuffer(stagingBuffer.buffer, _image, _width, _height, 0, 0, 6);
+        vk::BufferImageCopy copyRegion;
+        copyRegion.bufferOffset = 0;
+        copyRegion.bufferRowLength = 0;
+        copyRegion.bufferImageHeight = 0;
+        copyRegion.imageSubresource.aspectMask = GetVkImageAspectFlags(_format);
+        copyRegion.imageSubresource.mipLevel = 0;
+        copyRegion.imageSubresource.baseArrayLayer = 0;
+        copyRegion.imageSubresource.layerCount = 6;
+        copyRegion.imageOffset = vk::Offset3D{ 0, 0, 0 };
+        copyRegion.imageExtent = vk::Extent3D{ _width, _height, 1 };
 
-		_currentLayout = vk::ImageLayout::eTransferDstOptimal;
-		_currentAccessFlags = vk::AccessFlagBits::eTransferWrite;
-		_currentPipelineStage = vk::PipelineStageFlagBits::eTransfer;
+        commandBuffer.copyBufferToImage(stagingBuffer.buffer, _nativeTexture.image, vk::ImageLayout::eTransferDstOptimal, 1, &copyRegion);
 
         _context.AddDelayedDeletionTasks([&context = _context, stagingBuffer]() {
             context.GetVkDevice().destroyBuffer(stagingBuffer.buffer);
@@ -172,70 +124,42 @@ namespace flaw {
         return true;
     }
 
-    bool VkTextureCube::GenerateMipmaps() {
-        auto& vkCmdQueue = static_cast<VkCommandQueue&>(_context.GetCommandQueue());
-
-        vkCmdQueue.GenerateMipmaps(
-            _image, 
-            ConvertToVkImageAspectFlags(_format), 
-            ConvertToVkFormat(_format), _width, _height, 
-            6, 
-            _mipLevels,
-			_currentLayout,
-			_currentAccessFlags,
-			_currentPipelineStage
-          );
+    bool VkTextureCube::GenerateMipmaps(vk::CommandBuffer& commandBuffer) {
+		// TODO: Implement mipmap generation for cube textures
 
         return true;
     }
 
-    bool VkTextureCube::TransitionFinalImageLayout(TextureLayout layout) {
+    bool VkTextureCube::TransitionFinalImageLayout(vk::CommandBuffer& commandBuffer, TextureLayout layout) {
         auto& vkCmdQueue = static_cast<VkCommandQueue&>(_context.GetCommandQueue());
 
         vk::ImageLayout finalLayout = ConvertToVkImageLayout(layout);
-		vk::PipelineStageFlags finalPipelineStage = ConvertToVkPipelineStageFlags(_texUsages, _shaderStages);
 
-        vk::AccessFlags finalAccessFlags;
-        if (_texUsages & TextureUsage::ShaderResource) {
-            finalAccessFlags |= vk::AccessFlagBits::eShaderRead;
-        } 
-        
-        if (_texUsages & TextureUsage::RenderTarget) {
-            finalAccessFlags |= vk::AccessFlagBits::eColorAttachmentWrite;
-        }
-        
-        if (_texUsages & TextureUsage::DepthStencil) {
-            finalAccessFlags |= vk::AccessFlagBits::eDepthStencilAttachmentWrite;
-        }
+        vk::ImageMemoryBarrier barrier;
+        barrier.image = _nativeTexture.image;
+		barrier.oldLayout = vk::ImageLayout::eUndefined;
+        barrier.newLayout = finalLayout;
+		barrier.srcAccessMask = vk::AccessFlagBits::eTransferRead;
+		barrier.dstAccessMask = vk::AccessFlagBits::eNone;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.subresourceRange.aspectMask = GetVkImageAspectFlags(_format);
+        barrier.subresourceRange.baseMipLevel = 0;
+        barrier.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
+        barrier.subresourceRange.baseArrayLayer = 0;
+        barrier.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
 
-        if (_texUsages & TextureUsage::UnorderedAccess) {
-            finalAccessFlags |= vk::AccessFlagBits::eShaderWrite | vk::AccessFlagBits::eShaderRead;
-        }
-
-        vkCmdQueue.TransitionImageLayout(
-            _image,
-            ConvertToVkImageAspectFlags(_format),
-            _currentLayout,
-            finalLayout,
-            _currentAccessFlags,
-            finalAccessFlags,
-            _currentPipelineStage,
-			finalPipelineStage
-        );
-
-		_currentLayout = finalLayout;
-		_currentAccessFlags = finalAccessFlags;
-		_currentPipelineStage = finalPipelineStage;
+        commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eAllCommands, vk::DependencyFlags(), nullptr, nullptr, barrier);
 
         return true;
     }
 
     bool VkTextureCube::CreateImageView() {
         vk::ImageViewCreateInfo viewInfo;
-        viewInfo.image = _image;
+        viewInfo.image = _nativeTexture.image;
         viewInfo.viewType = vk::ImageViewType::eCube;
         viewInfo.format = ConvertToVkFormat(_format);
-        viewInfo.subresourceRange.aspectMask = ConvertToVkImageAspectFlags(_format);
+        viewInfo.subresourceRange.aspectMask = GetVkImageAspectFlags(_format);
         viewInfo.subresourceRange.baseMipLevel = 0;
         viewInfo.subresourceRange.levelCount = _mipLevels;
         viewInfo.subresourceRange.baseArrayLayer = 0;
@@ -247,7 +171,7 @@ namespace flaw {
             return false;
         }
 
-        _imageView = imageViewWrapper.value;
+        _view = imageViewWrapper.value;
 
         return true;
     }

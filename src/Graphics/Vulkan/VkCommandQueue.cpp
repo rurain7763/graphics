@@ -138,6 +138,31 @@ namespace flaw {
         return true;
     }
 
+    void VkCommandQueue::SetPipelineBarrier(Ref<Texture> texture, TextureLayout oldLayout, TextureLayout newLayout, AccessTypes srcAccess, AccessTypes dstAccess, PipelineStages srcStage, PipelineStages dstStage) {
+		const auto& vkNativeTex = static_cast<const VkNativeTexture&>(texture->GetNativeTexture());
+	
+		auto& commandBuffer = _graphicsFrameCommandBuffers[_currentCommandBufferIndex];
+
+		vk::ImageMemoryBarrier barrier;
+		barrier.image = vkNativeTex.image;
+		barrier.oldLayout = ConvertToVkImageLayout(oldLayout);
+		barrier.newLayout = ConvertToVkImageLayout(newLayout);
+		barrier.srcAccessMask = ConvertToVkAccessFlags(srcAccess);
+		barrier.dstAccessMask = ConvertToVkAccessFlags(dstAccess);
+		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.subresourceRange.aspectMask = GetVkImageAspectFlags(texture->GetPixelFormat());
+		barrier.subresourceRange.baseMipLevel = 0;
+		barrier.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
+		barrier.subresourceRange.baseArrayLayer = 0;
+		barrier.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+
+		vk::PipelineStageFlags srcStageFlags = ConvertToVkPipelineStageFlags(srcStage);
+		vk::PipelineStageFlags dstStageFlags = ConvertToVkPipelineStageFlags(dstStage);
+
+		commandBuffer.pipelineBarrier(srcStageFlags, dstStageFlags, vk::DependencyFlags(), nullptr, nullptr, barrier);
+    }
+
     void VkCommandQueue::SetPipeline(const Ref<GraphicsPipeline>& pipeline) {
         auto vkPipeline = std::static_pointer_cast<VkGraphicsPipeline>(pipeline);
         FASSERT(vkPipeline, "Invalid pipeline type for Vulkan command queue");
@@ -212,7 +237,9 @@ namespace flaw {
             auto vkVertexBuffer = std::static_pointer_cast<VkVertexBuffer>(vertexBuffers[i]);
             FASSERT(vkVertexBuffer, "Invalid vertex buffer type for Vulkan command queue");
 
-            vkVertexBuffers[i] = vkVertexBuffer->GetVkBuffer();
+			const auto& vkNativeBuff = static_cast<const VkNativeBuffer&>(vkVertexBuffer->GetNativeBuffer());
+
+            vkVertexBuffers[i] = vkNativeBuff.buffer;
             vkVertexBufferOffsets[i] = 0; // Assuming no offset for simplicity
         }
 
@@ -264,9 +291,11 @@ namespace flaw {
         auto vkIndexBuffer = std::dynamic_pointer_cast<VkIndexBuffer>(indexBuffer);
         FASSERT(vkIndexBuffer, "Invalid index buffer type for Vulkan command queue");
 
+		const auto& vkNativeBuff = static_cast<const VkNativeBuffer&>(vkIndexBuffer->GetNativeBuffer());
+
         auto& commandBuffer = _graphicsFrameCommandBuffers[_currentCommandBufferIndex];
 
-        commandBuffer.bindIndexBuffer(vkIndexBuffer->GetVkBuffer(), 0, vk::IndexType::eUint32);
+        commandBuffer.bindIndexBuffer(vkNativeBuff.buffer, 0, vk::IndexType::eUint32);
         commandBuffer.drawIndexed(indexCount, instanceCount, indexOffset, vertexOffset, 0);
     }
 
@@ -421,9 +450,8 @@ namespace flaw {
         // Issue a compute dispatch call with the specified dimensions
     }
 
-    void VkCommandQueue::BeginOneTimeCommands() {
+    void VkCommandQueue::BeginOneTimeCommands(vk::CommandBuffer& commandBuffer) {
         auto device = _context.GetVkDevice();
-        auto graphicsQueue = _context.GetVkGraphicsQueue();
         auto graphicsCommandPool = _context.GetVkGraphicsCommandPool();
 
         vk::CommandBufferAllocateInfo buffAllocInfo;
@@ -437,189 +465,37 @@ namespace flaw {
             return;
         }
 
-        _oneTimeCommandBuffer = buffWrapper.value[0];
+        commandBuffer = buffWrapper.value[0];
 
         vk::CommandBufferBeginInfo beginInfo;
         beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
 
-        auto result = _oneTimeCommandBuffer.begin(beginInfo);
+        auto result = commandBuffer.begin(beginInfo);
         if (result != vk::Result::eSuccess) {
             Log::Fatal("Failed to begin one-time command buffer: %s", vk::to_string(result).c_str());
             return;
         }
-
-        _oneTimeCommandQueue = graphicsQueue;
     }
 
-    void VkCommandQueue::EndOneTimeCommands() {
-        if (!_oneTimeCommandBuffer) {
-            Log::Error("No one-time command buffer is currently active.");
-            return;
-        }
+    void VkCommandQueue::EndOneTimeCommands(vk::CommandBuffer& commandBuffer) {
+        auto graphicsQueue = _context.GetVkGraphicsQueue();
 
-        _oneTimeCommandBuffer.end();
+        commandBuffer.end();
 
         vk::SubmitInfo submitInfo;
         submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &_oneTimeCommandBuffer;
+        submitInfo.pCommandBuffers = &commandBuffer;
 
-        auto result = _oneTimeCommandQueue.submit(1, &submitInfo, nullptr);
+        auto result = graphicsQueue.submit(1, &submitInfo, nullptr);
         if (result != vk::Result::eSuccess) {
             Log::Fatal("Failed to submit one-time command buffer: %s", vk::to_string(result).c_str());
             return;
         }
 
-        _oneTimeCommandQueue.waitIdle();
+        graphicsQueue.waitIdle();
 
-        _context.GetVkDevice().freeCommandBuffers(_context.GetVkGraphicsCommandPool(), 1, &_oneTimeCommandBuffer);
-        _oneTimeCommandBuffer = nullptr;
-        _oneTimeCommandQueue = nullptr;
-    }
-
-    void VkCommandQueue::CopyBuffer(const vk::Buffer& srcBuffer, const vk::Buffer& dstBuffer, uint32_t size, uint32_t srcOffset, uint32_t dstOffset) {
-        if (!_oneTimeCommandBuffer) {
-            Log::Error("No one-time command buffer is currently active.");
-            return;
-        }
-
-        vk::BufferCopy copyRegion;
-        copyRegion.size = size;
-        copyRegion.srcOffset = srcOffset;
-        copyRegion.dstOffset = dstOffset;
-
-        _oneTimeCommandBuffer.copyBuffer(srcBuffer, dstBuffer, 1, &copyRegion);
-    }
-
-    void VkCommandQueue::CopyBuffer(const vk::Buffer& srcBuffer, const vk::Image& dstImage, uint32_t width, uint32_t height, uint32_t srcOffset, uint32_t dstOffset, uint32_t arrayLayer) {
-        if (!_oneTimeCommandBuffer) {
-            Log::Error("No one-time command buffer is currently active.");
-            return;
-        }
-
-        vk::BufferImageCopy copyRegion;
-        copyRegion.bufferOffset = srcOffset;
-        copyRegion.bufferRowLength = 0;
-        copyRegion.bufferImageHeight = 0;
-        copyRegion.imageSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
-        copyRegion.imageSubresource.mipLevel = 0;
-        copyRegion.imageSubresource.baseArrayLayer = 0;
-        copyRegion.imageSubresource.layerCount = arrayLayer;
-        copyRegion.imageOffset = vk::Offset3D{ 0, 0, 0 };
-        copyRegion.imageExtent = vk::Extent3D{ width, height, 1 };
-
-        _oneTimeCommandBuffer.copyBufferToImage(srcBuffer, dstImage, vk::ImageLayout::eTransferDstOptimal, 1, &copyRegion);
-    }
-
-    void VkCommandQueue::CopyBuffer(const Ref<VertexBuffer>& srcBuffer, const Ref<VertexBuffer>& dstBuffer, uint32_t size, uint32_t srcOffset, uint32_t dstOffset) {
-        auto vkSrcBuffer = std::dynamic_pointer_cast<VkVertexBuffer>(srcBuffer);
-        auto vkDstBuffer = std::dynamic_pointer_cast<VkVertexBuffer>(dstBuffer);
-        FASSERT(vkSrcBuffer && vkDstBuffer, "Invalid vertex buffer type for Vulkan command queue");
-
-        CopyBuffer(vkSrcBuffer->GetVkBuffer(), vkDstBuffer->GetVkBuffer(), size, srcOffset, dstOffset);
-    }
-
-    void VkCommandQueue::TransitionImageLayout( const vk::Image& image, 
-                                                vk::ImageAspectFlags aspectMask, 
-                                                vk::ImageLayout oldLayout, vk::ImageLayout newLayout,
-                                                vk::AccessFlags srcAccessMask, vk::AccessFlags dstAccessMask,
-                                                vk::PipelineStageFlags srcStageMask, vk::PipelineStageFlags dstStageMask )
-    {
-        if (!_oneTimeCommandBuffer) {
-            Log::Error("No one-time command buffer is currently active.");
-            return;
-        }
-        
-        vk::ImageMemoryBarrier barrier;
-        barrier.oldLayout = oldLayout;
-        barrier.newLayout = newLayout;
-        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.image = image;
-        barrier.subresourceRange.aspectMask = aspectMask;
-        barrier.subresourceRange.baseMipLevel = 0;
-        barrier.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
-        barrier.subresourceRange.baseArrayLayer = 0;
-        barrier.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
-        barrier.srcAccessMask = srcAccessMask;
-        barrier.dstAccessMask = dstAccessMask;
-
-        _oneTimeCommandBuffer.pipelineBarrier(srcStageMask, dstStageMask, vk::DependencyFlags(), nullptr, nullptr, barrier);
-    }
-
-	void VkCommandQueue::GenerateMipmaps(const vk::Image& image,
-		                                vk::ImageAspectFlags aspectMask,
-		                                vk::Format format, uint32_t width, uint32_t height,
-		                                uint32_t arrayLayer,
-		                                uint32_t mipLevels,
-		                                vk::ImageLayout& oldLayout,
-		                                vk::AccessFlags& srcAccessMask,
-		                                vk::PipelineStageFlags& srcStageMask)
-    {
-        vk::FormatProperties formatProperties;
-        _context.GetVkPhysicalDevice().getFormatProperties(format, &formatProperties);
-        if (!(formatProperties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eSampledImageFilterLinear)) {
-            std::runtime_error("Texture format does not support linear blitting for mipmap generation.");
-        }
-
-        if (!_oneTimeCommandBuffer) {
-            Log::Error("No one-time command buffer is currently active.");
-            return;
-        }
-
-        vk::ImageMemoryBarrier barrier;
-        barrier.image = image;
-        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.subresourceRange.aspectMask = aspectMask;
-        barrier.subresourceRange.baseArrayLayer = 0;
-        barrier.subresourceRange.layerCount = arrayLayer;
-		barrier.srcAccessMask = srcAccessMask;
-        barrier.dstAccessMask = vk::AccessFlagBits::eTransferRead;
-
-        // 초기 상태: 밉 레벨 0을 TRANSFER_DST_OPTIMAL에서 TRANSFER_SRC_OPTIMAL로 전환
-        // 이 상태는 밉 레벨 0이 첫 번째 블리팅의 소스가 되기 위함입니다.
-        barrier.subresourceRange.baseMipLevel = 0;
-        barrier.subresourceRange.levelCount = 1;
-		barrier.oldLayout = oldLayout;
-        barrier.newLayout = vk::ImageLayout::eTransferSrcOptimal;
-        _oneTimeCommandBuffer.pipelineBarrier(srcStageMask, vk::PipelineStageFlagBits::eTransfer, {}, nullptr, nullptr, barrier);
-
-        int32_t mipWidth = static_cast<int32_t>(width);
-        int32_t mipHeight = static_cast<int32_t>(height);
-
-        for (uint32_t i = 1; i < mipLevels; ++i) {
-            vk::ImageBlit blitRegion;
-            blitRegion.srcOffsets[0] = vk::Offset3D{ 0, 0, 0 };
-            blitRegion.srcOffsets[1] = vk::Offset3D{ mipWidth, mipHeight, 1 };
-            blitRegion.srcSubresource.aspectMask = aspectMask;
-            blitRegion.srcSubresource.mipLevel = i - 1;
-            blitRegion.srcSubresource.baseArrayLayer = 0;
-            blitRegion.srcSubresource.layerCount = arrayLayer;
-
-            // 다음 밉 레벨의 크기를 계산합니다.
-            mipWidth = (mipWidth > 1) ? mipWidth / 2 : 1;
-            mipHeight = (mipHeight > 1) ? mipHeight / 2 : 1;
-
-            blitRegion.dstOffsets[0] = vk::Offset3D{ 0, 0, 0 };
-            blitRegion.dstOffsets[1] = vk::Offset3D{ mipWidth, mipHeight, 1 };
-            blitRegion.dstSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
-            blitRegion.dstSubresource.mipLevel = i;
-            blitRegion.dstSubresource.baseArrayLayer = 0;
-            blitRegion.dstSubresource.layerCount = arrayLayer;
-
-            _oneTimeCommandBuffer.blitImage(image, vk::ImageLayout::eTransferSrcOptimal, image, oldLayout, 1, &blitRegion, vk::Filter::eLinear);
-
-            // 현재 밉 레벨(i)을 다음 반복의 소스로 사용하기 위해 TRANSFER_SRC_OPTIMAL로 전환합니다.
-            barrier.subresourceRange.baseMipLevel = i;
-            barrier.subresourceRange.levelCount = 1;
-            barrier.oldLayout = oldLayout;
-            barrier.newLayout = vk::ImageLayout::eTransferSrcOptimal;
-            _oneTimeCommandBuffer.pipelineBarrier(srcStageMask, vk::PipelineStageFlagBits::eTransfer, {}, nullptr, nullptr, barrier);
-        }
-
-		oldLayout = vk::ImageLayout::eTransferSrcOptimal;
-		srcAccessMask = vk::AccessFlagBits::eTransferRead;
-        srcStageMask = vk::PipelineStageFlagBits::eTransfer;
+        _context.GetVkDevice().freeCommandBuffers(_context.GetVkGraphicsCommandPool(), 1, &commandBuffer);
+        commandBuffer = nullptr;
     }
 }
 

@@ -14,7 +14,6 @@ namespace flaw {
 		, _usages(descriptor.texUsages)
 		, _mipLevels(descriptor.mipLevels)
 		, _sampleCount(descriptor.sampleCount)
-		, _shaderStages(descriptor.shaderStages)
 		, _width(descriptor.width)
 		, _height(descriptor.height)
 	{
@@ -22,11 +21,11 @@ namespace flaw {
 			return;
 		}
 
-		if (_usages & TextureUsage::RenderTarget && !CreateRenderTargetViews()) {
+		if (_usages & TextureUsage::ColorAttachment && !CreateRenderTargetViews()) {
 			return;
 		}
 
-		if (_usages & TextureUsage::DepthStencil && !CreateDepthStencilViews()) {
+		if (_usages & TextureUsage::DepthStencilAttachment && !CreateDepthStencilViews()) {
 			return;
 		}
 
@@ -34,8 +33,8 @@ namespace flaw {
 			return;
 		}
 
-		if (_mipLevels > 1 && _srv) {
-			_context.DeviceContext()->GenerateMips(_srv.Get());
+		if (_mipLevels > 1 && _nativeTexture.srv) {
+			_context.DeviceContext()->GenerateMips(_nativeTexture.srv.Get());
 		}
 	}
 
@@ -57,7 +56,7 @@ namespace flaw {
 			desc.MiscFlags |= D3D11_RESOURCE_MISC_GENERATE_MIPS;
 		}
 
-		if (FAILED(_context.Device()->CreateTexture2D(&desc, nullptr, _texture.GetAddressOf()))) {
+		if (FAILED(_context.Device()->CreateTexture2D(&desc, nullptr, _nativeTexture.texture.GetAddressOf()))) {
 			LOG_ERROR("CreateTexture2D failed");
 			return false;
 		}
@@ -125,7 +124,7 @@ namespace flaw {
 
 				uint32_t subresourceIndex = D3D11CalcSubresource(0, i, _mipLevels);
 				_context.DeviceContext()->UpdateSubresource(
-					_texture.Get(),
+					_nativeTexture.texture.Get(),
 					subresourceIndex,
 					nullptr,
 					src,
@@ -140,6 +139,7 @@ namespace flaw {
 	}
 
 	bool DXTextureCube::CreateRenderTargetViews() {
+#if false
 		_rtvs.resize(_mipLevels);
 		for (int32_t i = 0; i < _mipLevels; i++) {
 			ComPtr<ID3D11RenderTargetView>& rtv = _rtvs[i];
@@ -156,11 +156,25 @@ namespace flaw {
 				return false;
 			}
 		}
+#else
+		D3D11_RENDER_TARGET_VIEW_DESC rtvDesc = {};
+		rtvDesc.Format = ConvertToDXFormat(_format);
+		rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2DARRAY;
+		rtvDesc.Texture2DArray.MipSlice = 0;
+		rtvDesc.Texture2DArray.FirstArraySlice = 0;
+		rtvDesc.Texture2DArray.ArraySize = 6;
+
+		if (FAILED(_context.Device()->CreateRenderTargetView(_nativeTexture.texture.Get(), &rtvDesc, _nativeTexture.rtv.GetAddressOf()))) {
+			LOG_ERROR("CreateRenderTargetView failed");
+			return false;
+		}
+#endif
 
 		return true;
 	}
 
 	bool DXTextureCube::CreateDepthStencilViews() {
+#if false
 		_dsvs.resize(_mipLevels);
 		for (int32_t i = 0; i < _mipLevels; i++) {
 			ComPtr<ID3D11DepthStencilView>& dsv = _dsvs[i];
@@ -177,6 +191,19 @@ namespace flaw {
 				return false;
 			}
 		}
+#else
+		D3D11_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
+		dsvDesc.Format = ConvertToDXFormat(_format);
+		dsvDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2DARRAY;
+		dsvDesc.Texture2DArray.MipSlice = 0;
+		dsvDesc.Texture2DArray.FirstArraySlice = 0;
+		dsvDesc.Texture2DArray.ArraySize = 6;
+
+		if (FAILED(_context.Device()->CreateDepthStencilView(_nativeTexture.texture.Get(), &dsvDesc, _nativeTexture.dsv.GetAddressOf()))) {
+			LOG_ERROR("CreateDepthStencilView failed");
+			return false;
+		}
+#endif
 
 		return true;
 	}
@@ -188,7 +215,7 @@ namespace flaw {
 		srvDesc.TextureCube.MipLevels = _mipLevels;
 		srvDesc.TextureCube.MostDetailedMip = 0;
 
-		if (FAILED(_context.Device()->CreateShaderResourceView(_texture.Get(), &srvDesc, _srv.GetAddressOf()))) {
+		if (FAILED(_context.Device()->CreateShaderResourceView(_nativeTexture.texture.Get(), &srvDesc, _nativeTexture.srv.GetAddressOf()))) {
 			LOG_ERROR("CreateShaderResourceView failed");
 			return false;
 		}

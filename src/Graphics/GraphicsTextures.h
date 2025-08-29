@@ -4,21 +4,19 @@
 #include "GraphicsType.h"
 
 namespace flaw {
+	struct NativeTexture { };
+
 	class Texture {
 	public:
 		virtual ~Texture() = default;
 
-		virtual ShaderResourceView GetShaderResourceView() const = 0;
-		virtual UnorderedAccessView GetUnorderedAccessView() const = 0;
-		virtual RenderTargetView GetRenderTargetView(uint32_t mipLevel = 0) const = 0;
-		virtual DepthStencilView GetDepthStencilView(uint32_t mipLevel = 0) const = 0;
+		virtual const NativeTexture& GetNativeTexture() const = 0;
 
 		virtual uint32_t GetWidth() const = 0;
 		virtual uint32_t GetHeight() const = 0;
 		virtual PixelFormat GetPixelFormat() const = 0;
 		virtual TextureUsages GetUsages() const = 0;
 		virtual uint32_t GetSampleCount() const = 0;
-		virtual ShaderStages GetShaderStages() const = 0;
 	};
 
 	class Texture2D : public Texture {
@@ -32,7 +30,6 @@ namespace flaw {
 			uint32_t mipLevels = 1;
 			uint32_t sampleCount = 1;
 			TextureLayout initialLayout = TextureLayout::Undefined;
-			ShaderStages shaderStages = 0;
 		};
 
 		Texture2D() = default;
@@ -56,7 +53,6 @@ namespace flaw {
 			uint32_t mipLevels = 1;
 			uint32_t sampleCount = 1;
 			TextureLayout initialLayout = TextureLayout::Undefined;
-			ShaderStages shaderStages = 0;
 		};
 
 		Texture2DArray() = default;
@@ -80,7 +76,6 @@ namespace flaw {
 			uint32_t mipLevels = 1;
 			uint32_t sampleCount = 1;
 			TextureLayout initialLayout = TextureLayout::Undefined;
-			ShaderStages shaderStages = 0;
 		};
 
 		TextureCube() = default;

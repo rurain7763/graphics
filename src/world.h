@@ -10,7 +10,7 @@
 
 using namespace flaw;
 
-#define USE_VULKAN 1 
+#define USE_VULKAN 1
 #define USE_DX11 0
 
 #define MAX_DIRECTIONAL_LIGHTS 1

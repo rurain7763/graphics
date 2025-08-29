@@ -49,6 +49,25 @@
 #endif
 
 namespace flaw {
+	template<typename T>
+	struct Flags {
+		using type = std::underlying_type_t<T>;
+
+		uint32_t value;
+
+		constexpr Flags() noexcept : value(0) {}
+		constexpr Flags(T flag) noexcept : value(static_cast<type>(flag)) {}
+		constexpr Flags(type flags) noexcept : value(flags) {}
+		constexpr operator type() const noexcept { return static_cast<type>(value); }
+		constexpr Flags operator|(T flag) const noexcept { return Flags(value | static_cast<type>(flag)); }
+		constexpr Flags operator&(T flag) const noexcept { return Flags(value & static_cast<type>(flag)); }
+		constexpr Flags& operator|=(T flag) noexcept { value |= static_cast<type>(flag); return *this; }
+		constexpr Flags& operator&=(T flag) noexcept { value &= static_cast<type>(flag); return *this; }
+		constexpr Flags operator~() const noexcept { return Flags(~value); }
+		constexpr bool operator==(T flag) const noexcept { return (value & static_cast<type>(flag)) == static_cast<type>(flag); }
+		constexpr bool operator!=(T flag) const noexcept { return (value & static_cast<type>(flag)) != static_cast<type>(flag); }
+	};
+
 	inline uint64_t PID(void* ptr) noexcept {
 		return reinterpret_cast<uint64_t>(ptr);
 	}

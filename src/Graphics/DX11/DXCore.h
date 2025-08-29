@@ -283,11 +283,11 @@ namespace flaw {
 			bindFlags |= D3D11_BIND_UNORDERED_ACCESS;
 		}
 
-		if (texUsages & TextureUsage::RenderTarget) {
+		if (texUsages & TextureUsage::ColorAttachment) {
 			bindFlags |= D3D11_BIND_RENDER_TARGET;
 		}
 
-		if (texUsages & TextureUsage::DepthStencil) {
+		if (texUsages & TextureUsage::DepthStencilAttachment) {
 			bindFlags |= D3D11_BIND_DEPTH_STENCIL;
 		}
 
@@ -305,11 +305,11 @@ namespace flaw {
 		}
 
 		if (texUsages & D3D11_BIND_RENDER_TARGET) {
-			usages |= TextureUsage::RenderTarget;
+			usages |= TextureUsage::ColorAttachment;
 		}
 
 		if (texUsages & D3D11_BIND_DEPTH_STENCIL) {
-			usages |= TextureUsage::DepthStencil;
+			usages |= TextureUsage::DepthStencilAttachment;
 		}
 
 		return usages;

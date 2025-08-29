@@ -7,15 +7,20 @@
 #include "VkCore.h"
 #include "Graphics/GraphicsTextures.h"
 
-#include <array>
-
 namespace flaw {
 	class VkContext;
+
+	struct VkNativeTexture : public NativeTexture {
+		vk::Image image;
+		vk::DeviceMemory memory;
+
+		static VkNativeTexture Create(VkContext& context, const vk::ImageCreateInfo& imageCreateInfo, vk::MemoryPropertyFlags memoryProperties);
+	};
 
 	class VkTexture2D : public Texture2D {
 	public:
 		VkTexture2D(VkContext& context, const Descriptor& descriptor);
-		VkTexture2D(VkContext& context, vk::Image image, uint32_t width, uint32_t height, PixelFormat format, MemoryProperty usage, uint32_t bindFlags, uint32_t sampleCount, uint32_t mipLevels, uint32_t shaderStages);
+		VkTexture2D(VkContext& context, vk::Image image, uint32_t width, uint32_t height, PixelFormat format, MemoryProperty usage, uint32_t bindFlags, uint32_t sampleCount, uint32_t mipLevels);
 		~VkTexture2D();
 
 		void Fetch(void* outData, const uint32_t size) const override;
@@ -23,30 +28,21 @@ namespace flaw {
 		void CopyTo(Ref<Texture2D>& target) const override {}
 		void CopyToSub(Ref<Texture2D>& target, const uint32_t x, const uint32_t y, const uint32_t width, const uint32_t height) const override {}
 
-		ShaderResourceView GetShaderResourceView() const override { return (void*)&_imageView; }
-		UnorderedAccessView GetUnorderedAccessView() const override { return (void*)&_imageView; }
-		RenderTargetView GetRenderTargetView(uint32_t mipLevel = 0) const override { return (void*)&_imageView; }
-		DepthStencilView GetDepthStencilView(uint32_t mipLevel = 0) const override { return (void*)&_imageView; }
+		const NativeTexture& GetNativeTexture() const override { return _nativeTexture; }
 
 		uint32_t GetWidth() const override { return _width; }
 		uint32_t GetHeight() const override { return _height; }
 		PixelFormat GetPixelFormat() const override { return _format; }
 		TextureUsages GetUsages() const override { return _texUsages; }
 		uint32_t GetSampleCount() const override { return _sampleCount; }
-		ShaderStages GetShaderStages() const override { return _shaderStages; }
 
-		inline vk::Image GetVkImage() const { return _image; }
-		inline vk::ImageView GetVkImageView() const { return _imageView; }
+		inline vk::ImageView GetVkImageView() const { return _view; }
 		inline vk::Sampler GetVkSampler() const { return _sampler; }
 
 	private:
-		bool CreateImage(bool hasData);
-		bool AllocateMemory();
-		bool PullMemory(const uint8_t* data);
-
-		bool GenerateMipmaps();
-
-		bool TransitionFinalImageLayout(TextureLayout layout);
+		bool PullMemory(vk::CommandBuffer& commandBuffer, const uint8_t* data);
+		bool GenerateMipmaps(vk::CommandBuffer& commandBuffer);
+		bool TransitionFinalImageLayout(vk::CommandBuffer& commandBuffer, TextureLayout layout);
 
 		bool CreateImageView();
 		bool CreateSampler();
@@ -56,21 +52,16 @@ namespace flaw {
 
 		bool _isExternalImage = false;
 
-		vk::Image _image;
-		vk::DeviceMemory _imageMemory;
-		vk::ImageView _imageView;
-		vk::Sampler _sampler;
+		VkNativeTexture _nativeTexture;
 
-		vk::ImageLayout _currentLayout;
-		vk::AccessFlags _currentAccessFlags;
-		vk::PipelineStageFlags _currentPipelineStage;
+		vk::ImageView _view;
+		vk::Sampler _sampler;
 
 		PixelFormat _format;
 		MemoryProperty _memProperty;
 		TextureUsages _texUsages;
 		uint32_t _mipLevels;
 		uint32_t _sampleCount;
-		ShaderStages _shaderStages;
 
 		uint32_t _width;
 		uint32_t _height;
@@ -85,22 +76,22 @@ namespace flaw {
 
 		void CopyTo(Ref<Texture2DArray>& target) const override {}
 
+		const NativeTexture& GetNativeTexture() const override { return _nativeTexture; }
+
 		uint32_t GetWidth() const override { return _width; }
 		uint32_t GetHeight() const override { return _height; }
 		PixelFormat GetPixelFormat() const override { return _format; }
 		TextureUsages GetUsages() const override { return _texUsages; }
 		uint32_t GetSampleCount() const override { return _sampleCount; }
-		ShaderStages GetShaderStages() const override { return _shaderStages; }
 		uint32_t GetArraySize() const override { return _arraySize; }
 
+		inline vk::ImageView GetVkImageView() const { return _view; }
+		inline vk::Sampler GetVkSampler() const { return _sampler; }
+
 	private:
-		bool CreateImage(bool hasData);
-		bool AllocateMemory();
-		bool PullMemory(const uint8_t* data);
-
-		bool GenerateMipmaps();
-
-		bool TransitionFinalImageLayout(TextureLayout layout);
+		bool PullMemory(vk::CommandBuffer& commandBuffer, const uint8_t* data);
+		bool GenerateMipmaps(vk::CommandBuffer& commandBuffer);
+		bool TransitionFinalImageLayout(vk::CommandBuffer& commandBuffer, TextureLayout layout);
 
 		bool CreateImageView();
 		bool CreateSampler();
@@ -108,14 +99,10 @@ namespace flaw {
 	private:
 		VkContext& _context;
 
-		vk::Image _image;
-		vk::DeviceMemory _imageMemory;
-		vk::ImageView _imageView;
-		vk::Sampler _sampler;
+		VkNativeTexture _nativeTexture;
 
-		vk::ImageLayout _currentLayout;
-		vk::AccessFlags _currentAccessFlags;
-		vk::PipelineStageFlags _currentPipelineStage;
+		vk::ImageView _view;
+		vk::Sampler _sampler;
 
 		PixelFormat _format;
 		MemoryProperty _memProperty;
@@ -123,7 +110,6 @@ namespace flaw {
 		uint32_t _arraySize;
 		uint32_t _mipLevels;
 		uint32_t _sampleCount;
-		ShaderStages _shaderStages;
 
 		uint32_t _width;
 		uint32_t _height;
@@ -134,30 +120,21 @@ namespace flaw {
 		VkTextureCube(VkContext& context, const Descriptor& descriptor);
 		~VkTextureCube();
 
-		ShaderResourceView GetShaderResourceView() const override { return _imageView; }
-		UnorderedAccessView GetUnorderedAccessView() const override { return _imageView; }
-		RenderTargetView GetRenderTargetView(uint32_t mipLevel = 0) const override { return _imageView; }
-		DepthStencilView GetDepthStencilView(uint32_t mipLevel = 0) const override { return _imageView; }
-
 		uint32_t GetWidth() const override { return _width; }
 		uint32_t GetHeight() const override { return _height; }
 		PixelFormat GetPixelFormat() const override { return _format; }
 		TextureUsages GetUsages() const override { return _texUsages; }
 		uint32_t GetSampleCount() const override { return _sampleCount; }
-		ShaderStages GetShaderStages() const override { return _shaderStages; }
 
-		inline vk::Image GetVkImage() const { return _image; }
-		inline vk::ImageView GetVkImageView() const { return _imageView; }
+		const NativeTexture& GetNativeTexture() const override { return _nativeTexture; }
+		
+		inline vk::ImageView GetVkImageView() const { return _view; }
 		inline vk::Sampler GetVkSampler() const { return _sampler; }
 
 	private:
-		bool CreateImage(bool hasData);
-		bool AllocateMemory();
-		bool PullMemory(const uint8_t* data);
-
-		bool GenerateMipmaps();
-
-		bool TransitionFinalImageLayout(TextureLayout layout);
+		bool PullMemory(vk::CommandBuffer& commandBuffer, const uint8_t* data);
+		bool GenerateMipmaps(vk::CommandBuffer& commandBuffer);
+		bool TransitionFinalImageLayout(vk::CommandBuffer& commandBuffer, TextureLayout layout);
 
 		bool CreateImageView();
 		bool CreateSampler();
@@ -165,21 +142,16 @@ namespace flaw {
 	private:
 		VkContext& _context;
 
-		vk::Image _image;
-		vk::DeviceMemory _imageMemory;
-		vk::ImageView _imageView;
-		vk::Sampler _sampler;
+		VkNativeTexture _nativeTexture;
 
-		vk::ImageLayout _currentLayout;
-		vk::AccessFlags _currentAccessFlags;
-		vk::PipelineStageFlags _currentPipelineStage;
+		vk::ImageView _view;
+		vk::Sampler _sampler;
 
 		PixelFormat _format;
 		MemoryProperty _memProperty;
 		TextureUsages _texUsages;
 		uint32_t _mipLevels;
 		uint32_t _sampleCount;
-		ShaderStages _shaderStages;
 
 		uint32_t _width;
 		uint32_t _height;

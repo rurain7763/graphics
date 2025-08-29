@@ -127,10 +127,10 @@ void InitBaseResources() {
     RenderPass::Descriptor sceneClearRenderPassDesc;
     sceneClearRenderPassDesc.layout = g_sceneRenderPassLayout;
     sceneClearRenderPassDesc.colorAttachmentOps = {
-        { TextureLayout::Undefined, TextureLayout::ShaderReadOnly, AttachmentLoadOp::Clear, AttachmentStoreOp::Store }
+        { TextureLayout::Undefined, TextureLayout::ColorAttachment, AttachmentLoadOp::Clear, AttachmentStoreOp::Store }
     };
     sceneClearRenderPassDesc.depthStencilAttachmentOp = {
-        TextureLayout::DepthStencilAttachment, TextureLayout::DepthStencilAttachment, AttachmentLoadOp::Clear, AttachmentStoreOp::Store, AttachmentLoadOp::Clear, AttachmentStoreOp::Store
+        TextureLayout::DepthStencilAttachment, TextureLayout::DepthStencilAttachment, AttachmentLoadOp::Clear, AttachmentStoreOp::Store, AttachmentLoadOp::DontCare, AttachmentStoreOp::DontCare
     };
 
     g_sceneClearRenderPass = g_graphicsContext->CreateRenderPass(sceneClearRenderPassDesc);
@@ -138,10 +138,10 @@ void InitBaseResources() {
     RenderPass::Descriptor sceneLoadRenderPassDesc;
     sceneLoadRenderPassDesc.layout = g_sceneRenderPassLayout;
     sceneLoadRenderPassDesc.colorAttachmentOps = {
-        { TextureLayout::ShaderReadOnly, TextureLayout::ShaderReadOnly, AttachmentLoadOp::Load, AttachmentStoreOp::Store }
+        { TextureLayout::ColorAttachment, TextureLayout::ColorAttachment, AttachmentLoadOp::Load, AttachmentStoreOp::Store }
     };
     sceneLoadRenderPassDesc.depthStencilAttachmentOp = {
-        TextureLayout::DepthStencilAttachment, TextureLayout::DepthStencilAttachment, AttachmentLoadOp::Load, AttachmentStoreOp::Store, AttachmentLoadOp::Load, AttachmentStoreOp::Store
+        TextureLayout::DepthStencilAttachment, TextureLayout::DepthStencilAttachment, AttachmentLoadOp::Load, AttachmentStoreOp::Store, AttachmentLoadOp::DontCare, AttachmentStoreOp::DontCare
     };
 
 	g_sceneLoadRenderPass = g_graphicsContext->CreateRenderPass(sceneLoadRenderPassDesc);
@@ -154,9 +154,8 @@ void InitBaseResources() {
 	    sceneColorAttachmentDesc.height = height;
 	    sceneColorAttachmentDesc.format = PixelFormat::RGBA8;
         sceneColorAttachmentDesc.memProperty = MemoryProperty::Static;
-	    sceneColorAttachmentDesc.texUsages = TextureUsage::RenderTarget | TextureUsage::ShaderResource;
+	    sceneColorAttachmentDesc.texUsages = TextureUsage::ColorAttachment | TextureUsage::ShaderResource;
 		sceneColorAttachmentDesc.initialLayout = TextureLayout::ColorAttachment;
-	    sceneColorAttachmentDesc.shaderStages = ShaderStage::Pixel;
 
 	    Ref<Texture2D> sceneColorAttachment = g_graphicsContext->CreateTexture2D(sceneColorAttachmentDesc);
 
@@ -166,7 +165,7 @@ void InitBaseResources() {
 	    sceneDepthStencilAttachmentDesc.format = PixelFormat::D24S8_UINT;
 	    sceneDepthStencilAttachmentDesc.memProperty = MemoryProperty::Static;
 		sceneDepthStencilAttachmentDesc.initialLayout = TextureLayout::DepthStencilAttachment;
-	    sceneDepthStencilAttachmentDesc.texUsages = TextureUsage::DepthStencil;
+	    sceneDepthStencilAttachmentDesc.texUsages = TextureUsage::DepthStencilAttachment;
 
 	    Ref<Texture2D> sceneDepthStencilAttachment = g_graphicsContext->CreateTexture2D(sceneDepthStencilAttachmentDesc);
 
@@ -181,9 +180,8 @@ void InitBaseResources() {
 			desc.height = height;
 			desc.format = PixelFormat::RGBA8;
 			desc.memProperty = MemoryProperty::Static;
-			desc.texUsages = TextureUsage::RenderTarget | TextureUsage::ShaderResource;
+			desc.texUsages = TextureUsage::ColorAttachment | TextureUsage::ShaderResource;
 			desc.initialLayout = TextureLayout::ColorAttachment;
-			desc.shaderStages = ShaderStage::Pixel;
 			texture = g_graphicsContext->CreateTexture2D(desc);
 
             return true;
@@ -195,7 +193,7 @@ void InitBaseResources() {
             desc.height = height;
             desc.format = PixelFormat::D24S8_UINT;
             desc.memProperty = MemoryProperty::Static;
-            desc.texUsages = TextureUsage::DepthStencil;
+            desc.texUsages = TextureUsage::DepthStencilAttachment;
 			desc.initialLayout = TextureLayout::DepthStencilAttachment;
             texture = g_graphicsContext->CreateTexture2D(desc);
         
@@ -563,16 +561,16 @@ void World_Render() {
 }
 
 void World_FinalizeRender() {
-	g_finalizeShaderResourcesPool->Reset();
+    g_finalizeShaderResourcesPool->Reset();
 
-	auto& commandQueue = g_graphicsContext->GetCommandQueue();
-	auto& framebuffer = g_sceneFramebuffers[commandQueue.GetCurrentFrameIndex()];
+    auto& commandQueue = g_graphicsContext->GetCommandQueue();
+    auto& framebuffer = g_sceneFramebuffers[commandQueue.GetCurrentFrameIndex()];
 
-	auto quad = GetMesh("quad");
-	auto attachment = std::static_pointer_cast<Texture2D>(framebuffer->GetColorAttachment(0));
+    auto quad = GetMesh("quad");
+    auto attachment = std::static_pointer_cast<Texture2D>(framebuffer->GetColorAttachment(0));
 
-	auto finalizeResources = g_finalizeShaderResourcesPool->Get();
-	finalizeResources->BindTexture2D(attachment, 0);
+    auto finalizeResources = g_finalizeShaderResourcesPool->Get();
+    finalizeResources->BindTexture2D(attachment, 0);
 
 	commandQueue.SetPipeline(g_finalizePipeline);
 	commandQueue.SetVertexBuffers({ quad->vertexBuffer });

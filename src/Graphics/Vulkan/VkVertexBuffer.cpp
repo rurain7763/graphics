@@ -14,55 +14,64 @@ namespace flaw {
         , _elmSize(descriptor.elmSize)
         , _size(descriptor.bufferSize)
     {
-        if(!CreateBuffer()) {
-            Log::Fatal("Failed to create vertex buffer.");
+        vk::BufferUsageFlags usage = vk::BufferUsageFlagBits::eVertexBuffer;
+        GetRequiredVkBufferUsageFlags(_memProperty, usage);
+
+        vk::MemoryPropertyFlags memoryFlags;
+        GetRequiredVkMemoryPropertyFlags(_memProperty, memoryFlags);
+
+        _nativeBuffer = VkNativeBuffer::Create(_context, _size, usage, memoryFlags);
+
+		if (_memProperty != MemoryProperty::Static) {
+			auto mappedDataWrapper = _context.GetVkDevice().mapMemory(_nativeBuffer.memory, 0, _size, vk::MemoryMapFlags());
+			if (mappedDataWrapper.result != vk::Result::eSuccess) {
+				Log::Error("Failed to map vertex buffer memory.");
+				return;
+			}
+			_mappedData = mappedDataWrapper.value;
+		}
+
+        if (!descriptor.initialData) {
             return;
         }
 
-        if (!AllocateMemory()) {
-            Log::Fatal("Failed to allocate vertex buffer memory.");
-            return;
-        }
-
-        if (descriptor.initialData) {
-            if (descriptor.memProperty == MemoryProperty::Static) {
-                auto& vkCommandQueue = static_cast<VkCommandQueue&>(context.GetCommandQueue());
+        if (_memProperty == MemoryProperty::Static) {
+            auto& vkCommandQueue = static_cast<VkCommandQueue&>(context.GetCommandQueue());
     
-                Descriptor stagingDesc;
-                stagingDesc.memProperty = MemoryProperty::Staging;
-                stagingDesc.elmSize = descriptor.elmSize;
-                stagingDesc.bufferSize = descriptor.bufferSize;
-                stagingDesc.initialData = descriptor.initialData;
+            Descriptor stagingDesc;
+            stagingDesc.memProperty = MemoryProperty::Staging;
+            stagingDesc.elmSize = descriptor.elmSize;
+            stagingDesc.bufferSize = descriptor.bufferSize;
+            stagingDesc.initialData = descriptor.initialData;
     
-                auto stagingBuffer = CreateRef<VkVertexBuffer>(context, stagingDesc);
+            auto stagingBuffer = CreateRef<VkVertexBuffer>(context, stagingDesc);
                
-                vkCommandQueue.BeginOneTimeCommands();
-                vkCommandQueue.CopyBuffer(stagingBuffer->GetVkBuffer(), _buffer, _size, 0, 0);
-                vkCommandQueue.EndOneTimeCommands();
-            }
-            else {
-                auto mappedDataWrapper = _context.GetVkDevice().mapMemory(_memory, 0, descriptor.bufferSize, vk::MemoryMapFlags());
-                if (mappedDataWrapper.result != vk::Result::eSuccess) {
-                    Log::Error("Failed to map vertex buffer memory.");
-                    return;
-                }
+            vk::CommandBuffer commandBuffer;
+            vkCommandQueue.BeginOneTimeCommands(commandBuffer);
 
-                _mappedData = mappedDataWrapper.value;
+			vk::BufferCopy copyRegion;
+			copyRegion.size = _size;
+			copyRegion.srcOffset = 0;
+			copyRegion.dstOffset = 0;
 
-                Update(descriptor.initialData, _size);
-            }
+			commandBuffer.copyBuffer(stagingBuffer->_nativeBuffer.buffer, _nativeBuffer.buffer, 1, &copyRegion);
+
+            vkCommandQueue.EndOneTimeCommands(commandBuffer);
+        }
+        else {
+            Update(descriptor.initialData, _size);
         }
     }
 
     VkVertexBuffer::~VkVertexBuffer() {
         if (_mappedData) {
-            _context.GetVkDevice().unmapMemory(_memory);
+            _context.GetVkDevice().unmapMemory(_nativeBuffer.memory);
             _mappedData = nullptr;
         }
 
-        _context.AddDelayedDeletionTasks([&context = _context, buffer = _buffer, memory = _memory]() {
-            context.GetVkDevice().destroyBuffer(buffer, nullptr);
-            context.GetVkDevice().freeMemory(memory, nullptr);
+        _context.AddDelayedDeletionTasks([&context = _context, nativeBuffer = _nativeBuffer]() {
+            context.GetVkDevice().destroyBuffer(nativeBuffer.buffer);
+            context.GetVkDevice().freeMemory(nativeBuffer.memory);
         });
     }
 
@@ -87,48 +96,17 @@ namespace flaw {
 
         auto& vkCommandQueue = static_cast<VkCommandQueue&>(_context.GetCommandQueue());
 
-        vkCommandQueue.CopyBuffer(_buffer, vkDstBuffer->GetVkBuffer(), _size, srcOffset, dstOffset);
-    }
-    
-    bool VkVertexBuffer::CreateBuffer() {
-        vk::BufferCreateInfo bufferInfo;
-        bufferInfo.size = _size;
-        bufferInfo.usage = vk::BufferUsageFlagBits::eVertexBuffer;
-        GetRequiredVkBufferUsageFlags(_memProperty, bufferInfo.usage);
-        bufferInfo.sharingMode = vk::SharingMode::eExclusive;
+		vk::CommandBuffer commandBuffer;
+		vkCommandQueue.BeginOneTimeCommands(commandBuffer);
 
-        auto bufferWrapper = _context.GetVkDevice().createBuffer(bufferInfo, nullptr);
-        if (bufferWrapper.result != vk::Result::eSuccess) {
-            Log::Error("Failed to create vertex buffer: %s", vk::to_string(bufferWrapper.result).c_str());
-            return false;
-        }
+		vk::BufferCopy copyRegion;
+		copyRegion.size = _size;
+		copyRegion.srcOffset = srcOffset;
+		copyRegion.dstOffset = dstOffset;
 
-        _buffer = bufferWrapper.value;
+		commandBuffer.copyBuffer(_nativeBuffer.buffer, vkDstBuffer->_nativeBuffer.buffer, 1, &copyRegion);
 
-        return true;
-    }
-
-    bool VkVertexBuffer::AllocateMemory() {
-        vk::MemoryRequirements memRequirements = _context.GetVkDevice().getBufferMemoryRequirements(_buffer);
-
-        vk::MemoryPropertyFlags memoryFlags;
-        GetRequiredVkMemoryPropertyFlags(_memProperty, memoryFlags);
-
-        vk::MemoryAllocateInfo allocInfo;
-        allocInfo.allocationSize = memRequirements.size;
-        allocInfo.memoryTypeIndex = GetMemoryTypeIndex(_context.GetVkPhysicalDevice(), memRequirements.memoryTypeBits, memoryFlags);
-
-        auto memoryWrapper = _context.GetVkDevice().allocateMemory(allocInfo, nullptr);
-        if (memoryWrapper.result != vk::Result::eSuccess) {
-            Log::Error("Failed to allocate vertex buffer memory: %s", vk::to_string(memoryWrapper.result).c_str());
-            return false;
-        }
-
-        _memory = memoryWrapper.value;
-
-        _context.GetVkDevice().bindBufferMemory(_buffer, _memory, 0);
-
-        return true;
+		vkCommandQueue.EndOneTimeCommands(commandBuffer);
     }
 }
 

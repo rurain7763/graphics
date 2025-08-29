@@ -198,17 +198,16 @@ namespace flaw {
         for (uint32_t i = 0; i < images.size(); ++i) {
             vk::Image image = images[i];
 
-            uint32_t bindFlags = TextureUsage::RenderTarget | TextureUsage::ShaderResource;
+            uint32_t bindFlags = TextureUsage::ColorAttachment | TextureUsage::ShaderResource;
 
             _renderTextures[i] = CreateRef<VkTexture2D>(
                 _context, 
                 image, 
                 _extent.width, _extent.height, PixelFormat::RGBA8, 
                 MemoryProperty::Static,
-                TextureUsage::RenderTarget | TextureUsage::ShaderResource,
+                TextureUsage::ColorAttachment | TextureUsage::ShaderResource,
                 1,
-                1,
-                0
+                1
             );
         }
 
@@ -221,7 +220,7 @@ namespace flaw {
         desc.height = _extent.height;
         desc.format = _depthStencilFormat;
         desc.memProperty = MemoryProperty::Static;
-        desc.texUsages = TextureUsage::DepthStencil;
+        desc.texUsages = TextureUsage::DepthStencilAttachment;
 		desc.initialLayout = TextureLayout::DepthStencilAttachment;
         desc.sampleCount = _context.GetMSAAState() ? _context.GetMSAASampleCount() : 1;
 
@@ -245,7 +244,7 @@ namespace flaw {
             desc.height = _extent.height;
             desc.format = PixelFormat::RGBA8;
             desc.memProperty = MemoryProperty::Static;
-            desc.texUsages = TextureUsage::RenderTarget;
+            desc.texUsages = TextureUsage::ColorAttachment;
 			desc.initialLayout = TextureLayout::ColorAttachment;
             desc.sampleCount = _context.GetMSAASampleCount();
 
