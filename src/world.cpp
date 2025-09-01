@@ -23,13 +23,14 @@ std::vector<Object> g_objects;
 #if USE_VULKAN
 const uint32_t camersConstantsCBBinding = 0;
 const uint32_t lightConstantsCBBinding = 1;
-const uint32_t materialConstantsCBBinding = 3;
-const uint32_t instanceDataSBBinding = 2;
+const uint32_t materialConstantsCBBinding = 1;
+const uint32_t instanceDataSBBinding = 0;
 const uint32_t directionalLightSBBinding = 4;
 const uint32_t pointLightSBBinding = 5;
 const uint32_t spotLightSBBinding = 6;
-const uint32_t diffuseTextureBinding = 0;
-const uint32_t specularTextureBinding = 1;
+const uint32_t diffuseTextureBinding = 2;
+const uint32_t specularTextureBinding = 3;
+const uint32_t skyboxTextureBinding = 4;
 #elif USE_DX11
 const uint32_t camersConstantsCBBinding = 0;
 const uint32_t lightConstantsCBBinding = 1;
@@ -40,6 +41,7 @@ const uint32_t pointLightSBBinding = 2;
 const uint32_t spotLightSBBinding = 3;
 const uint32_t diffuseTextureBinding = 4;
 const uint32_t specularTextureBinding = 5;
+const uint32_t skyboxTextureBinding = 6;
 #endif
 
 std::vector<Ref<Framebuffer>> g_sceneFramebuffers;
@@ -333,6 +335,7 @@ void InitObjectShaderResources() {
 	shaderResourceLayoutDesc.bindings = {
         { diffuseTextureBinding, ResourceType::Texture2D, ShaderStage::Pixel, 1 },
         { specularTextureBinding, ResourceType::Texture2D, ShaderStage::Pixel, 1 },
+		{ skyboxTextureBinding, ResourceType::TextureCube, ShaderStage::Pixel, 1 },
         { materialConstantsCBBinding, ResourceType::ConstantBuffer, ShaderStage::Pixel, 1 },
         { instanceDataSBBinding, ResourceType::StructuredBuffer, ShaderStage::Vertex, 1 },
 	};
@@ -552,6 +555,8 @@ void World_Render() {
         else {
             objDynamicResources->BindTexture2D(GetTexture2D("dummy"), specularTextureBinding);
         }
+
+		objDynamicResources->BindTextureCube(GetTextureCube("skybox"), skyboxTextureBinding);
 
         objMaterialCB->Update(&materialConstants, sizeof(MaterialConstants));
 

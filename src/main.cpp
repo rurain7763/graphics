@@ -19,6 +19,7 @@ using namespace flaw;
 int main() {
     World_Init();
     Asset_Init();
+    Skybox_Init();
     Outliner_Init();
     Sprite_Init();
 
@@ -31,22 +32,24 @@ int main() {
     LoadTexture("assets/textures/container2_specular.png", "container2_specular");
 
     //LoadModel("assets/models/girl.obj", 1.0f, "girl");
-    //LoadModel("assets/models/survival-guitar-backpack/backpack.obj", 1.0f, "survival_backpack");
+    LoadModel("assets/models/survival-guitar-backpack/backpack.obj", 1.0f, "survival_backpack");
     LoadModel("assets/models/Sponza/Sponza.gltf", 0.05f, "sponza");
 
     struct ObjectCreateInfo {
         vec3 position;
 		float rotation;
+        float scale;
 		bool drawOutline;
 		std::string meshKey;
     };
 
 	ObjectCreateInfo objectCreateInfos[] = {
-		{ { 0.0f, 0.0f, 0.0f }, 0, false, "sponza" },
-		{ { 2.0f, 2.0f, 0.0f }, 0, true, "cube" },
-		{ { -2.0f, 2.0f, 0.0f }, 0, true, "sphere" },
-		{ { 0.0f, 2.0f, 0.0f }, 0, true, "cube" },
-		{ { 0.0f, 4.0f, 0.0f }, 0, true, "sphere" },
+		{ { 0.0f, -120.0f, 0.0f }, 0, 1.0 ,false, "sponza" },
+		{ { 2.0f, 2.0f, 0.0f }, 0, 1.0, true, "cube" },
+		{ { -2.0f, 2.0f, 0.0f }, 0, 1.0, true, "sphere" },
+		{ { 0.0f, 2.0f, 0.0f }, 0, 1.0, true, "cube" },
+		{ { 0.0f, 4.0f, 0.0f }, 0, 1.0, true, "sphere" },
+		{ { -4.0f, 0.0f, 0.0f }, 0, 1.0, true, "survival_backpack" },
 	};
 
     for (int32_t i = 0; i < sizeof(objectCreateInfos) / sizeof(ObjectCreateInfo); i++) {
@@ -55,6 +58,7 @@ int main() {
  	    auto& obj = AddObject();
         obj.position = info.position;
         obj.rotation = glm::vec3(info.rotation);
+		obj.scale = glm::vec3(info.scale);
 
         auto meshComp = obj.AddComponent<StaticMeshComponent>();
         meshComp->mesh = GetMesh(info.meshKey.c_str());
@@ -111,6 +115,7 @@ int main() {
             commandQueue.BeginRenderPass(g_sceneClearRenderPass, g_sceneLoadRenderPass, sceneFramebuffer);
 			Outliner_Render();
             World_Render();
+            Skybox_Render();
             Sprite_Render();
             commandQueue.EndRenderPass();
 
@@ -138,6 +143,7 @@ int main() {
 
     Sprite_Cleanup();
     Outliner_Cleanup();
+	Skybox_Cleanup();
     Asset_Cleanup();
     World_Cleanup();
 

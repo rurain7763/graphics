@@ -5,6 +5,7 @@
 #include "Math/Math.h"
 
 #include <vector>
+#include <array>
 
 using namespace flaw;
 
@@ -42,6 +43,7 @@ void Asset_Init();
 void Asset_Cleanup();
 
 void LoadTexture(const char* filePath, const char* key);
+void LoadTextureCube(const std::array<const char*, 6>& faceFilePaths, const char* key);
 void LoadPrimitiveModel(const std::vector<TexturedVertex>& vertices, const std::vector<uint32_t>& indices, const char* key);
 void LoadModel(const char* filePath, float scale, const char* key);
 

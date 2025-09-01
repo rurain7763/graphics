@@ -76,8 +76,8 @@ namespace flaw {
 	int32_t DXContext::CreateMainRenderPassLayout() {
 		RenderPassLayout::Descriptor renderPassLayoutDesc;
 		renderPassLayoutDesc.sampleCount = 1; // TODO: MSAA 지원 시 변경
-		renderPassLayoutDesc.colorAttachments = { { PixelFormat::RGBA8 } };
-		renderPassLayoutDesc.depthStencilAttachment = { PixelFormat::D24S8_UINT };
+		renderPassLayoutDesc.colorAttachments = { { GetSurfaceFormat() }};
+		renderPassLayoutDesc.depthStencilAttachment = { GetDepthStencilFormat() };
 
 		_mainRenderPassLayout = CreateRef<DXRenderPassLayout>(*this, renderPassLayoutDesc);
 
@@ -129,7 +129,7 @@ namespace flaw {
 		dxgiAdapter->GetParent(__uuidof(IDXGIFactory), (void**)dxgiFactory.GetAddressOf());
 
 		DXGI_SWAP_CHAIN_DESC swapchainDesc = {};
-		swapchainDesc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		swapchainDesc.BufferDesc.Format = ConvertToDXFormat(GetSurfaceFormat());
 		swapchainDesc.BufferCount = 1;
 		swapchainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 		swapchainDesc.BufferDesc.Width = _renderWidth;
@@ -160,7 +160,7 @@ namespace flaw {
 		}
 
 		Texture2D::Descriptor descDepth = {};
-		descDepth.format = PixelFormat::D24S8_UINT;
+		descDepth.format = GetDepthStencilFormat();
 		descDepth.width = _renderWidth;
 		descDepth.height = _renderHeight;
 		descDepth.memProperty = MemoryProperty::Static;
@@ -174,7 +174,7 @@ namespace flaw {
 		framebufferDesc.height = _renderHeight;
 		framebufferDesc.renderPassLayout = _mainRenderPassLayout;
 		framebufferDesc.colorAttachments.resize(1);
-		framebufferDesc.colorAttachments[0] = CreateRef<DXTexture2D>(*this, backBuffer, PixelFormat::RGBA8, 0);
+		framebufferDesc.colorAttachments[0] = CreateRef<DXTexture2D>(*this, backBuffer, GetSurfaceFormat(), 0);
 		framebufferDesc.colorResizeHandler = [this](Ref<Texture>& tex, uint32_t width, uint32_t height) -> bool {
 			tex.reset();
 
@@ -187,7 +187,7 @@ namespace flaw {
 				throw std::runtime_error("GetBuffer failed");
 			}
 
-			tex = CreateRef<DXTexture2D>(*this, backBuffer, PixelFormat::RGBA8, 0);
+			tex = CreateRef<DXTexture2D>(*this, backBuffer, GetSurfaceFormat(), 0);
 
 			return true;
 		};
@@ -196,7 +196,7 @@ namespace flaw {
 			tex.reset();
 
 			Texture2D::Descriptor desc = {};
-			desc.format = PixelFormat::D24S8_UINT;
+			desc.format = GetDepthStencilFormat();
 			desc.width = width;
 			desc.height = height;
 			desc.memProperty = MemoryProperty::Static;
@@ -379,6 +379,14 @@ namespace flaw {
 
 	bool DXContext::GetMSAAState() const {
 		return _enableMSAA;
+	}
+
+	PixelFormat DXContext::GetSurfaceFormat() const {
+		return PixelFormat::RGBA8;
+	}
+
+	PixelFormat DXContext::GetDepthStencilFormat() const {
+		return PixelFormat::D24S8_UINT;
 	}
 
 	Ref<ComputeShader> DXContext::CreateComputeShader(const ComputeShader::Descriptor& descriptor) {

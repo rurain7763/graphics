@@ -3,6 +3,7 @@
 #include "Platform/PlatformContext.h"
 #include "Event/EventDispatcher.h"
 #include "Graphics/GraphicsContext.h"
+#include "Graphics/GraphicsHelper.h"
 #include "Math/Math.h"
 #include "Image/Image.h"
 #include "EngineCamera.h"
@@ -112,6 +113,10 @@ void World_Cleanup();
 void World_Update();
 void World_Render();
 void World_FinalizeRender();
+
+void Skybox_Init();
+void Skybox_Cleanup();
+void Skybox_Render();
 
 Object& AddObject();
 

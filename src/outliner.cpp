@@ -92,12 +92,12 @@ void Outliner_Init() {
 
 	GraphicsShader::Descriptor outlineShaderDesc;
 #if USE_VULKAN
-	outlineShaderDesc.vertexShaderFile = "assets/shaders/object.vert.spv";
+	outlineShaderDesc.vertexShaderFile = "assets/shaders/outline.vert.spv";
 	outlineShaderDesc.vertexShaderEntry = "main";
 	outlineShaderDesc.pixelShaderFile = "assets/shaders/outline.frag.spv";
 	outlineShaderDesc.pixelShaderEntry = "main";
 #else USE_DX11
-	outlineShaderDesc.vertexShaderFile = "assets/shaders/object.fx";
+	outlineShaderDesc.vertexShaderFile = "assets/shaders/outline.fx";
 	outlineShaderDesc.vertexShaderEntry = "VSMain";
 	outlineShaderDesc.pixelShaderFile = "assets/shaders/outline.fx";
 	outlineShaderDesc.pixelShaderEntry = "PSMain";
@@ -198,7 +198,7 @@ void Outliner_Render() {
 
 		dynamicResources->BindConstantBuffer(objectConstantsCB, objectConstantsCBBinding);
 
-		objectConstants.model_matrix = ModelMatrix(object.position, object.rotation, object.scale * 1.05f);
+		objectConstants.model_matrix = ModelMatrix(object.position, object.rotation, object.scale);
 		objectConstants.inv_model_matrix = glm::inverse(objectConstants.model_matrix);
 
 		objectConstantsCB->Update(&objectConstants, sizeof(ObjectConstants));

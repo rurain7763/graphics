@@ -12,6 +12,7 @@ void main() {
     // normal
     fragColor = tex_color;
 
+    #if false
     // inversion
     fragColor = vec4(vec3(1.0 - tex_color), 1.0);
 
@@ -61,4 +62,5 @@ void main() {
     }
 
     fragColor = vec4(sum, 1.0);
+    #endif
 }

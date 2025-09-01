@@ -46,8 +46,7 @@ namespace flaw {
     
             auto stagingBuffer = CreateRef<VkVertexBuffer>(context, stagingDesc);
                
-            vk::CommandBuffer commandBuffer;
-            vkCommandQueue.BeginOneTimeCommands(commandBuffer);
+            vk::CommandBuffer commandBuffer = vkCommandQueue.BeginOneTimeCommands();
 
 			vk::BufferCopy copyRegion;
 			copyRegion.size = _size;
@@ -96,8 +95,7 @@ namespace flaw {
 
         auto& vkCommandQueue = static_cast<VkCommandQueue&>(_context.GetCommandQueue());
 
-		vk::CommandBuffer commandBuffer;
-		vkCommandQueue.BeginOneTimeCommands(commandBuffer);
+		vk::CommandBuffer commandBuffer = vkCommandQueue.BeginOneTimeCommands();
 
 		vk::BufferCopy copyRegion;
 		copyRegion.size = _size;

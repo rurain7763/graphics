@@ -18,7 +18,7 @@ struct InstanceData {
     mat4 inv_model_matrix;
 };
 
-layout(std140, set = 1, binding = 2) readonly buffer InstanceDataBuffer {
+layout(std140, set = 1, binding = 0) readonly buffer InstanceDataBuffer {
     InstanceData data[];
 } instance_datas;
 

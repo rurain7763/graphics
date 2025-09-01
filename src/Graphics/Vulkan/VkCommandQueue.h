@@ -51,8 +51,8 @@ namespace flaw {
         void SetComputeStructuredBuffer(const Ref<StructuredBuffer>& buffer, BufferUsages bufUsages, uint32_t slot) override;
         void Dispatch(uint32_t x, uint32_t y, uint32_t z) override;
 
-		void BeginOneTimeCommands(vk::CommandBuffer& commandBuffer);
-        void EndOneTimeCommands(vk::CommandBuffer& commandBuffer);
+        vk::CommandBuffer BeginOneTimeCommands();
+        void EndOneTimeCommands(vk::CommandBuffer commandBuffer);
 
     private:
         bool CreateCommandBuffers();

@@ -57,7 +57,7 @@ layout(std140, set = 0, binding = 1) uniform LightConstants {
     uint padding;
 } lightConstants;
 
-layout(std140, set = 1, binding = 3) uniform MaterialConstants {
+layout(std140, set = 1, binding = 1) uniform MaterialConstants {
     vec3 diffuse_color;
     float shininess;
     vec3 specular_color;
@@ -76,8 +76,9 @@ layout(std140, set = 0, binding = 6) readonly buffer SpotLightBuffer {
     SpotLight data[];
 } spot_lights;
 
-layout(set = 1, binding = 0) uniform sampler2D diffuse_texture;
-layout(set = 1, binding = 1) uniform sampler2D specular_texture;
+layout(set = 1, binding = 2) uniform sampler2D diffuse_texture;
+layout(set = 1, binding = 3) uniform sampler2D specular_texture;
+layout(set = 1, binding = 4) uniform samplerCube skybox_texture;
 
 layout(location = 0) in vec3 in_position;
 layout(location = 1) in vec4 in_color;
@@ -95,7 +96,7 @@ void calculate_phong_lighting(vec3 light_ambient, vec3 light_diffuse, vec3 light
     
     ambient = light_ambient * diffuse_color;
     diffuse = light_diffuse * diffuse_color * max(dot(normal, -light_direction), 0.0);
-    specular = light_specular * specular_color * pow(max(dot(view_direction, reflect_direction), 0.0), shininess);
+    specular = light_specular * specular_color * pow(max(dot(-view_direction, reflect_direction), 0.0), shininess);
 }
 
 float LinearizeDepth(float depth, float near, float far) {
@@ -104,7 +105,11 @@ float LinearizeDepth(float depth, float near, float far) {
 }
 
 void main() {
-    vec3 view_direction = normalize(cameraConstants.world_position - in_position);
+    vec3 view_direction = normalize(in_position - cameraConstants.world_position);
+    vec3 reflect_direction = reflect(view_direction, in_normal);
+
+    float refraction_ratio = 1.00 / 1.52; // Air to glass
+    vec3 refract_direction = refract(view_direction, in_normal, refraction_ratio);
 
     vec3 diffuse_color = materialConstants.diffuse_color;
     if (has_texture(materialConstants.texture_binding_flags, DIFFUSE_TEX_BINDING_FLAG)) {
@@ -169,5 +174,14 @@ void main() {
         total_specular += specular * attenuation * intensity;
     }
 
-    fragColor = vec4(total_ambient + total_diffuse + total_specular, 1.0);
+    vec3 object_color = total_ambient + total_diffuse + total_specular;
+    vec3 environment_color = texture(skybox_texture, reflect_direction).rgb;
+    vec3 refracted_color = texture(skybox_texture, refract_direction).rgb;
+
+    vec3 final_color = mix(object_color, environment_color, 0.3);
+    final_color = mix(final_color, refracted_color, 0.3);
+
+    final_color = object_color;
+
+    fragColor = vec4(final_color, 1.0);
 }

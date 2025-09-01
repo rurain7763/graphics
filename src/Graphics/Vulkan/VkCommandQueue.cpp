@@ -450,7 +450,7 @@ namespace flaw {
         // Issue a compute dispatch call with the specified dimensions
     }
 
-    void VkCommandQueue::BeginOneTimeCommands(vk::CommandBuffer& commandBuffer) {
+    vk::CommandBuffer VkCommandQueue::BeginOneTimeCommands() {
         auto device = _context.GetVkDevice();
         auto graphicsCommandPool = _context.GetVkGraphicsCommandPool();
 
@@ -462,10 +462,10 @@ namespace flaw {
         auto buffWrapper = device.allocateCommandBuffers(buffAllocInfo);
         if (buffWrapper.result != vk::Result::eSuccess) {
             Log::Fatal("Failed to allocate one-time command buffer: %s", vk::to_string(buffWrapper.result).c_str());
-            return;
+            return nullptr;
         }
 
-        commandBuffer = buffWrapper.value[0];
+        vk::CommandBuffer commandBuffer = buffWrapper.value[0];
 
         vk::CommandBufferBeginInfo beginInfo;
         beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
@@ -473,11 +473,13 @@ namespace flaw {
         auto result = commandBuffer.begin(beginInfo);
         if (result != vk::Result::eSuccess) {
             Log::Fatal("Failed to begin one-time command buffer: %s", vk::to_string(result).c_str());
-            return;
+            return nullptr;
         }
+
+        return commandBuffer;
     }
 
-    void VkCommandQueue::EndOneTimeCommands(vk::CommandBuffer& commandBuffer) {
+    void VkCommandQueue::EndOneTimeCommands(vk::CommandBuffer commandBuffer) {
         auto graphicsQueue = _context.GetVkGraphicsQueue();
 
         commandBuffer.end();
@@ -495,7 +497,6 @@ namespace flaw {
         graphicsQueue.waitIdle();
 
         _context.GetVkDevice().freeCommandBuffers(_context.GetVkGraphicsCommandPool(), 1, &commandBuffer);
-        commandBuffer = nullptr;
     }
 }
 

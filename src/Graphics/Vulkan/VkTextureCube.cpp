@@ -50,18 +50,17 @@ namespace flaw {
 
         auto& vkCmdQueue = static_cast<VkCommandQueue&>(_context.GetCommandQueue());
 
-		vk::CommandBuffer commandBuffer;
-        vkCmdQueue.BeginOneTimeCommands(commandBuffer);
+		vk::CommandBuffer commandBuffer = vkCmdQueue.BeginOneTimeCommands();
 
         if (descriptor.data) {
             if (!PullMemory(commandBuffer, descriptor.data)) {
                 return;
             }
-        }
 
-        if (descriptor.mipLevels > 1) {
-            if (!GenerateMipmaps(commandBuffer)) {
-                return;
+            if (descriptor.mipLevels > 1) {
+                if (!GenerateMipmaps(commandBuffer)) {
+                    return;
+                }
             }
         }
 

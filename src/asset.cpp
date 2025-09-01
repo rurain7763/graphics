@@ -76,27 +76,6 @@ void Asset_Init() {
     LoadPrimitiveModel(quadVertices, quadIndices, "quad");
     LoadPrimitiveModel(cubeVertices, cubeIndices, "cube");
     LoadPrimitiveModel(sphereVertices, sphereIndices, "sphere");
-
-    Image left("./assets/textures/sky/sky_left.png", 4);
-    Image right("./assets/textures/sky/sky_right.png", 4);
-    Image top("./assets/textures/sky/sky_top.png", 4);
-    Image bottom("./assets/textures/sky/sky_bottom.png", 4);
-    Image front("./assets/textures/sky/sky_front.png", 4);
-    Image back("./assets/textures/sky/sky_back.png", 4);
-
-    std::vector<uint8_t> textureData = GenerateTextureCubeData(left, right, top, bottom, front, back);
-
-    TextureCube::Descriptor skyboxDesc = {};
-    skyboxDesc.width = left.Width();
-    skyboxDesc.height = left.Height();
-    skyboxDesc.data = textureData.data();
-    skyboxDesc.format = PixelFormat::RGBA8;
-    skyboxDesc.memProperty = MemoryProperty::Static;
-    skyboxDesc.texUsages = TextureUsage::ShaderResource;
-    skyboxDesc.mipLevels = GetMaxMipLevels(skyboxDesc.width, skyboxDesc.height);
-	skyboxDesc.initialLayout = TextureLayout::ShaderReadOnly;
-
-    g_textureCubes["skybox"] = g_graphicsContext->CreateTextureCube(skyboxDesc);
 }
 
 void Asset_Cleanup() {
@@ -125,6 +104,30 @@ void LoadTexture(const char* filePath, const char* key) {
 	textureDesc.initialLayout = TextureLayout::ShaderReadOnly;
 
     g_textures[key] = g_graphicsContext->CreateTexture2D(textureDesc);
+}
+
+void LoadTextureCube(const std::array<const char*, 6>& faceFilePaths, const char* key) {
+	std::array<Image, 6> images;
+	for (size_t i = 0; i < 6; i++) {
+		images[i] = Image(faceFilePaths[i], 4);
+		if (!images[i].IsValid()) {
+			Log::Error("Failed to load texture cube face: %s", faceFilePaths[i]);
+			return;
+		}
+	}
+
+	std::vector<uint8_t> textureData = GenerateTextureCubeData(images[0], images[1], images[2], images[3], images[4], images[5]);
+	
+    TextureCube::Descriptor textureDesc = {};
+	textureDesc.width = images[0].Width();
+	textureDesc.height = images[0].Height();
+	textureDesc.data = textureData.data();
+	textureDesc.format = PixelFormat::RGBA8;
+	textureDesc.memProperty = MemoryProperty::Static;
+	textureDesc.texUsages = TextureUsage::ShaderResource;
+	textureDesc.initialLayout = TextureLayout::ShaderReadOnly;
+
+	g_textureCubes[key] = g_graphicsContext->CreateTextureCube(textureDesc);
 }
 
 void LoadPrimitiveModel(const std::vector<TexturedVertex>& vertices, const std::vector<uint32_t>& indices, const char* key) {
