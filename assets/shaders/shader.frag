@@ -48,7 +48,7 @@ layout(set = 0, binding = 0) uniform CameraConstants {
     float padding0;
     float padding1;
     float padding2;
-} cameraConstants;
+} camera_constants;
 
 layout(std140, set = 0, binding = 1) uniform LightConstants {
     uint directional_light_count;
@@ -80,10 +80,12 @@ layout(set = 1, binding = 2) uniform sampler2D diffuse_texture;
 layout(set = 1, binding = 3) uniform sampler2D specular_texture;
 layout(set = 1, binding = 4) uniform samplerCube skybox_texture;
 
-layout(location = 0) in vec3 in_position;
-layout(location = 1) in vec4 in_color;
-layout(location = 2) in vec2 in_tex_coord;
-layout(location = 3) in vec3 in_normal;
+in VS_OUT {
+    layout(location = 0) vec3 position;
+    layout(location = 1) vec4 color;
+    layout(location = 2) vec2 tex_coord;
+    layout(location = 3) vec3 normal;
+} fs_in;
 
 layout(location = 0) out vec4 fragColor;
 
@@ -105,20 +107,20 @@ float LinearizeDepth(float depth, float near, float far) {
 }
 
 void main() {
-    vec3 view_direction = normalize(in_position - cameraConstants.world_position);
-    vec3 reflect_direction = reflect(view_direction, in_normal);
+    vec3 view_direction = normalize(fs_in.position - camera_constants.world_position);
+    vec3 reflect_direction = reflect(view_direction, fs_in.normal);
 
     float refraction_ratio = 1.00 / 1.52; // Air to glass
-    vec3 refract_direction = refract(view_direction, in_normal, refraction_ratio);
+    vec3 refract_direction = refract(view_direction, fs_in.normal, refraction_ratio);
 
     vec3 diffuse_color = materialConstants.diffuse_color;
     if (has_texture(materialConstants.texture_binding_flags, DIFFUSE_TEX_BINDING_FLAG)) {
-        diffuse_color = texture(diffuse_texture, in_tex_coord).rgb;
+        diffuse_color = texture(diffuse_texture, fs_in.tex_coord).rgb;
     }
 
     vec3 specular_color = materialConstants.specular_color;
     if (has_texture(materialConstants.texture_binding_flags, SPECULAR_TEX_BINDING_FLAG)) {
-        specular_color = texture(specular_texture, in_tex_coord).rgb;
+        specular_color = texture(specular_texture, fs_in.tex_coord).rgb;
     }
 
     vec3 total_ambient = vec3(0.0);
@@ -131,7 +133,7 @@ void main() {
         vec3 light_direction = light.direction;
 
         vec3 ambient, diffuse, specular;
-        calculate_phong_lighting(light.ambient, light.diffuse, light.specular, light_direction, view_direction, in_normal, diffuse_color, specular_color, materialConstants.shininess, ambient, diffuse, specular);
+        calculate_phong_lighting(light.ambient, light.diffuse, light.specular, light_direction, view_direction, fs_in.normal, diffuse_color, specular_color, materialConstants.shininess, ambient, diffuse, specular);
 
         total_ambient += ambient;
         total_diffuse += diffuse;
@@ -141,13 +143,13 @@ void main() {
     for (uint i = 0; i < lightConstants.point_light_count; ++i) {
         PointLight light = point_lights.data[i];
 
-        vec3 light_direction = in_position - light.position;
+        vec3 light_direction = fs_in.position - light.position;
         float distance = length(light_direction);
         light_direction = light_direction / distance;
         float attenuation = 1.0 / (light.constant_attenuation + light.linear_attenuation * distance + light.quadratic_attenuation * (distance * distance));
 
         vec3 ambient, diffuse, specular;
-        calculate_phong_lighting(light.ambient, light.diffuse, light.specular, light_direction, view_direction, in_normal, diffuse_color, specular_color, materialConstants.shininess, ambient, diffuse, specular);
+        calculate_phong_lighting(light.ambient, light.diffuse, light.specular, light_direction, view_direction, fs_in.normal, diffuse_color, specular_color, materialConstants.shininess, ambient, diffuse, specular);
 
         total_ambient += ambient * attenuation;
         total_diffuse += diffuse * attenuation;
@@ -157,7 +159,7 @@ void main() {
     for (uint i = 0; i < lightConstants.spot_light_count; ++i) {
         SpotLight light = spot_lights.data[i];
 
-        vec3 light_direction = in_position - light.position;
+        vec3 light_direction = fs_in.position - light.position;
         float distance = length(light_direction);
         light_direction = light_direction / distance;
         float attenuation = 1.0 / (light.constant_attenuation + light.linear_attenuation * distance + light.quadratic_attenuation * (distance * distance));
@@ -167,7 +169,7 @@ void main() {
         float intensity = clamp((spot_effect - light.cutoff_outer_cosine) / epsilon, 0.0, 1.0);
 
         vec3 ambient, diffuse, specular;
-        calculate_phong_lighting(light.ambient, light.diffuse, light.specular, light_direction, view_direction, in_normal, diffuse_color, specular_color, materialConstants.shininess, ambient, diffuse, specular);
+        calculate_phong_lighting(light.ambient, light.diffuse, light.specular, light_direction, view_direction, fs_in.normal, diffuse_color, specular_color, materialConstants.shininess, ambient, diffuse, specular);
 
         total_ambient += ambient * attenuation * intensity;
         total_diffuse += diffuse * attenuation * intensity;

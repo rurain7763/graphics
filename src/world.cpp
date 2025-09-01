@@ -53,6 +53,7 @@ Ref<VertexInputLayout> g_texturedVertexInputLayout;
 
 Ref<ConstantBuffer> g_cameraCB;
 Ref<ConstantBuffer> g_lightCB;
+Ref<ConstantBuffer> g_globalCB;
 Ref<StructuredBuffer> g_directionalLightSB;
 Ref<StructuredBuffer> g_pointLightSB;
 Ref<StructuredBuffer> g_spotLightSB;
@@ -63,6 +64,7 @@ Ref<ShaderResourcesLayout> g_objDynamicShaderResourcesLayout;
 
 Ref<ShaderResourcesPool> g_objDynamicShaderResourcesPool;
 Ref<ConstantBufferPool> g_objMaterialCBPool;
+Ref<ConstantBufferPool> g_objConstantsCBPool;
 Ref<StructuredBufferPool> g_objInstanceSBPool;
 
 Ref<GraphicsPipeline> g_finalizePipeline;
@@ -233,6 +235,12 @@ void InitBaseResources() {
 
     g_lightCB = g_graphicsContext->CreateConstantBuffer(lightConstantsDesc);
 
+	ConstantBuffer::Descriptor globalConstantsDesc;
+	globalConstantsDesc.memProperty = MemoryProperty::Dynamic;
+	globalConstantsDesc.bufferSize = sizeof(GlobalConstants);
+
+	g_globalCB = g_graphicsContext->CreateConstantBuffer(globalConstantsDesc);
+
 	StructuredBuffer::Descriptor directionalLightDesc;
 	directionalLightDesc.memProperty = MemoryProperty::Dynamic;
 	directionalLightDesc.elmSize = sizeof(DirectionalLight);
@@ -300,6 +308,12 @@ void InitObjectBuffers() {
 	materialCBDesc.bufferSize = sizeof(MaterialConstants);
 
 	g_objMaterialCBPool = CreateRef<ConstantBufferPool>(*g_graphicsContext, materialCBDesc);
+
+	ConstantBuffer::Descriptor objConstantsDesc;
+	objConstantsDesc.memProperty = MemoryProperty::Dynamic;
+	objConstantsDesc.bufferSize = sizeof(ObjectConstants);
+
+	g_objConstantsCBPool = CreateRef<ConstantBufferPool>(*g_graphicsContext, objConstantsDesc);
 
 	StructuredBuffer::Descriptor instanceSBDesc;
 	instanceSBDesc.memProperty = MemoryProperty::Dynamic;
@@ -385,12 +399,14 @@ void World_Cleanup() {
     g_objShaderResources.reset();
     g_objShaderResourcesLayout.reset();
     g_objInstanceSBPool.reset();
+	g_objConstantsCBPool.reset();
     g_objMaterialCBPool.reset();
     g_directionalLightSB.reset();
     g_pointLightSB.reset();
     g_spotLightSB.reset();
     g_lightCB.reset();
     g_cameraCB.reset();
+	g_globalCB.reset();
     g_texturedVertexInputLayout.reset();
 	g_sceneLoadRenderPass.reset();
 	g_sceneClearRenderPass.reset();
@@ -407,6 +423,7 @@ void World_Cleanup() {
 void World_Update() {
 	g_objDynamicShaderResourcesPool->Reset();
 	g_objMaterialCBPool->Reset();
+	g_objConstantsCBPool->Reset();
     g_objInstanceSBPool->Reset();
 
     int32_t width, height;
@@ -461,6 +478,7 @@ void World_Update() {
     g_spotLightSB->Update(spotLights.data(), sizeof(SpotLight) * g_lightConstants.spot_light_count);
     g_lightCB->Update(&g_lightConstants, sizeof(LightConstants));
 
+	// NOTE: Update camera
     const float aspectRatio = static_cast<float>(width) / height;
     g_camera->SetAspectRatio(aspectRatio);
 
@@ -473,6 +491,13 @@ void World_Update() {
     g_cameraConstants.view_projection_matrix = g_cameraConstants.projection_matrix * g_cameraConstants.view_matrix;
     g_cameraConstants.world_position = g_camera->GetPosition();
     g_cameraCB->Update(&g_cameraConstants, sizeof(CameraConstants));
+
+	// NOTE: Update global constants
+	GlobalConstants globalConstants;
+	globalConstants.time = Time::GetTime();
+    globalConstants.delta_time = Time::DeltaTime();
+
+	g_globalCB->Update(&globalConstants, sizeof(GlobalConstants));
 }
 
 void World_Render() {
@@ -496,6 +521,10 @@ void World_Render() {
     for (const auto& obj : g_objects) {
         if (obj.HasComponent<StaticMeshComponent>()) {
             auto comp = obj.GetComponent<StaticMeshComponent>();
+
+			if (comp->excludeFromRendering) {
+				continue;
+			}
 
             for (uint32_t i = 0; i < comp->mesh->subMeshes.size(); i++) {
                 auto& subMesh = comp->mesh->subMeshes[i];
@@ -594,6 +623,32 @@ Object& AddObject() {
     g_objects.push_back(object);
 
 	return g_objects.back();
+}
+
+Object& GetObjectWithName(const char* name) {
+	for (auto& obj : g_objects) {
+		if (obj.name == name) {
+			return obj;
+		}
+	}
+	throw std::runtime_error("Object with name " + std::string(name) + " not found.");
+}
+
+MaterialConstants GetMaterialConstants(Ref<Material> material) {
+	MaterialConstants materialConstants;
+	materialConstants.texture_binding_flags = 0;
+	materialConstants.diffuseColor = material->diffuseColor;
+	materialConstants.specularColor = material->specularColor;
+	materialConstants.shininess = material->shininess;
+
+	if (material->diffuseTexture) {
+		materialConstants.texture_binding_flags |= static_cast<uint32_t>(TextureBindingFlag::Diffuse);
+	}
+	if (material->specularTexture) {
+		materialConstants.texture_binding_flags |= static_cast<uint32_t>(TextureBindingFlag::Specular);
+	}
+
+	return materialConstants;
 }
 
 std::vector<uint8_t> GenerateTextureCubeData(Image& left, Image& right, Image& top, Image& bottom, Image& front, Image& back) {

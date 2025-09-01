@@ -19,9 +19,6 @@ using namespace flaw;
 int main() {
     World_Init();
     Asset_Init();
-    Skybox_Init();
-    Outliner_Init();
-    Sprite_Init();
 
     srand(static_cast<uint32_t>(time(0)));
 
@@ -35,21 +32,27 @@ int main() {
     LoadModel("assets/models/survival-guitar-backpack/backpack.obj", 1.0f, "survival_backpack");
     LoadModel("assets/models/Sponza/Sponza.gltf", 0.05f, "sponza");
 
+    Skybox_Init();
+    Outliner_Init();
+    Sprite_Init();
+    Geometry_Init();
+
     struct ObjectCreateInfo {
         vec3 position;
 		float rotation;
         float scale;
 		bool drawOutline;
+		bool drawNormal;
 		std::string meshKey;
     };
 
 	ObjectCreateInfo objectCreateInfos[] = {
-		{ { 0.0f, -120.0f, 0.0f }, 0, 1.0 ,false, "sponza" },
-		{ { 2.0f, 2.0f, 0.0f }, 0, 1.0, true, "cube" },
-		{ { -2.0f, 2.0f, 0.0f }, 0, 1.0, true, "sphere" },
-		{ { 0.0f, 2.0f, 0.0f }, 0, 1.0, true, "cube" },
-		{ { 0.0f, 4.0f, 0.0f }, 0, 1.0, true, "sphere" },
-		{ { -4.0f, 0.0f, 0.0f }, 0, 1.0, true, "survival_backpack" },
+		{ { 0.0f, -120.0f, 0.0f }, 0, 1.0 ,false, false, "sponza" },
+		{ { 2.0f, 2.0f, 0.0f }, 0, 1.0, true, true, "cube" },
+		{ { -2.0f, 2.0f, 0.0f }, 0, 1.0, true, true, "sphere" },
+		{ { 0.0f, 2.0f, 0.0f }, 0, 1.0, true, false, "cube" },
+		{ { 0.0f, 4.0f, 0.0f }, 0, 1.0, true, false, "sphere" },
+		{ { -4.0f, 0.0f, 0.0f }, 0, 1.0, true, true, "survival_backpack" },
 	};
 
     for (int32_t i = 0; i < sizeof(objectCreateInfos) / sizeof(ObjectCreateInfo); i++) {
@@ -63,6 +66,7 @@ int main() {
         auto meshComp = obj.AddComponent<StaticMeshComponent>();
         meshComp->mesh = GetMesh(info.meshKey.c_str());
         meshComp->drawOutline = info.drawOutline;
+		meshComp->drawNormal = info.drawNormal;
     }
 
     struct SpriteCreateInfo {
@@ -115,6 +119,7 @@ int main() {
             commandQueue.BeginRenderPass(g_sceneClearRenderPass, g_sceneLoadRenderPass, sceneFramebuffer);
 			Outliner_Render();
             World_Render();
+			Geometry_Render();
             Skybox_Render();
             Sprite_Render();
             commandQueue.EndRenderPass();
@@ -141,6 +146,7 @@ int main() {
         }
     }
 
+    Geometry_Cleanup();
     Sprite_Cleanup();
     Outliner_Cleanup();
 	Skybox_Cleanup();

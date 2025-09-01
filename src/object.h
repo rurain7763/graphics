@@ -26,7 +26,9 @@ private:
 };
 
 struct StaticMeshComponent : public ObjectComponent<StaticMeshComponent> {
-    bool drawOutline;
+    bool drawOutline = false;
+	bool drawNormal = false;
+    bool excludeFromRendering = false;
     Ref<Mesh> mesh;
 };
 
@@ -35,6 +37,8 @@ struct SpriteComponent : public ObjectComponent<SpriteComponent> {
 };
 
 struct Object {
+	std::string name;
+
     glm::vec3 position;
     glm::vec3 rotation;
     glm::vec3 scale;

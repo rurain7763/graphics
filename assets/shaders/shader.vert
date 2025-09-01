@@ -33,10 +33,12 @@ layout(location = 1) in vec4 in_color;
 layout(location = 2) in vec2 in_tex_coord;
 layout(location = 3) in vec3 in_normal;
 
-layout(location = 0) out vec3 out_position;
-layout(location = 1) out vec4 out_color;
-layout(location = 2) out vec2 out_tex_coord;
-layout(location = 3) out vec3 out_normal;
+out VS_OUT {
+    layout(location = 0) vec3 position;
+    layout(location = 1) vec4 color;
+    layout(location = 2) vec2 tex_coord;
+    layout(location = 3) vec3 normal;
+} vs_out;
 
 void main() {
     mat4 model_matrix = instance_datas.data[gl_InstanceIndex].model_matrix;
@@ -44,8 +46,8 @@ void main() {
     vec4 world_position = model_matrix * vec4(in_position, 1.0);
 
     gl_Position = cameraConstants.projection_matrix * cameraConstants.view_matrix * world_position;
-    out_position = world_position.xyz;
-    out_color = in_color;
-    out_tex_coord = in_tex_coord;
-    out_normal = normalize(mat3(transpose(inv_model_matrix)) * in_normal);
+    vs_out.position = world_position.xyz;
+    vs_out.color = in_color;
+    vs_out.tex_coord = in_tex_coord;
+    vs_out.normal = normalize(mat3(transpose(inv_model_matrix)) * in_normal);
 }

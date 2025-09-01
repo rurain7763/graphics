@@ -18,6 +18,8 @@ using namespace flaw;
 #define MAX_POINT_LIGHTS 8
 #define MAX_SPOT_LIGHTS 8
 
+struct Material;
+
 struct CameraConstants {
     mat4 view_matrix;
     mat4 projection_matrix;
@@ -35,6 +37,13 @@ struct LightConstants {
 	uint32_t point_light_count;
 	uint32_t spot_light_count;
 	uint32_t padding;
+};
+
+struct GlobalConstants {
+	float time;
+	float delta_time;
+	float padding0;
+	float padding1;
 };
 
 enum TextureBindingFlag {
@@ -107,6 +116,14 @@ extern Ref<RenderPass> g_sceneClearRenderPass;
 extern Ref<RenderPass> g_sceneLoadRenderPass;
 extern Ref<VertexInputLayout> g_texturedVertexInputLayout;
 extern Ref<ConstantBuffer> g_cameraCB;
+extern Ref<ConstantBuffer> g_globalCB;
+extern Ref<ConstantBuffer> g_lightCB;
+extern Ref<StructuredBuffer> g_directionalLightSB;
+extern Ref<StructuredBuffer> g_pointLightSB;
+extern Ref<StructuredBuffer> g_spotLightSB;
+
+extern Ref<ConstantBufferPool> g_objMaterialCBPool;
+extern Ref<ConstantBufferPool> g_objConstantsCBPool;
 
 void World_Init();
 void World_Cleanup();
@@ -118,6 +135,13 @@ void Skybox_Init();
 void Skybox_Cleanup();
 void Skybox_Render();
 
+void Geometry_Init();
+void Geometry_Cleanup();
+void Geometry_Render();
+
 Object& AddObject();
+Object& GetObjectWithName(const char* name);
+
+MaterialConstants GetMaterialConstants(Ref<Material> material);
 
 std::vector<uint8_t> GenerateTextureCubeData(Image& left, Image& right, Image& top, Image& bottom, Image& front, Image& back);
