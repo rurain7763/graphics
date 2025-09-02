@@ -207,6 +207,9 @@ namespace flaw {
 
 		_blendModes.resize(_renderPassLayout->GetColorAttachmentCount());
 		_blendState = nullptr;
+
+		_rasterizerDesc.MultisampleEnable = _renderPassLayout->GetSampleCount() > 1;
+		_rasterizerState = nullptr;
 	}
 
 	void DXGraphicsPipeline::EnableBlendMode(uint32_t attachmentIndex, bool enable) {

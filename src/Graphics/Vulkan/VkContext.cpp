@@ -33,10 +33,10 @@ namespace flaw {
         return VK_FALSE; // Returning false indicates that the message should not be aborted
     }
 
-	VkContext::VkContext(PlatformContext& context, int32_t width, int32_t height) 
+	VkContext::VkContext(PlatformContext& context, int32_t width, int32_t height, bool msaa) 
         : _renderWidth(width)
         , _renderHeight(height)
-        , _msaaEnabled(false)
+        , _msaaEnabled(msaa)
         , _currentDeletionCounter(0)
     {
         VULKAN_HPP_DEFAULT_DISPATCHER.init();
@@ -465,26 +465,13 @@ namespace flaw {
 		height = _renderHeight;
 	}
 
-    void VkContext::SetMSAAState(bool enable) {
-        if (_msaaEnabled == enable) {
-            return; // No change needed
-        }
-
-        _msaaEnabled = enable;
-
-        _device.waitIdle();
-
-        _swapchain->Destroy();
-        _swapchain->Create(_renderWidth, _renderHeight);
-
-		for (const auto& handler : _onResizeHandlers) {
-			handler.second(_renderWidth, _renderHeight);
-		}
-    }
-
     bool VkContext::GetMSAAState() const {
         return _msaaEnabled;
     }
+
+	uint32_t VkContext::GetMSAASampleCount() const {
+		return _msaaSampleCount;
+	}
 
     PixelFormat VkContext::GetSurfaceFormat() const {
         return _swapchain->GetSurfaceFormat();

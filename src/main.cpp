@@ -153,7 +153,10 @@ int main() {
             Sprite_Render();
             commandQueue.EndRenderPass();
 
-            auto attachment = std::static_pointer_cast<Texture2D>(sceneFramebuffer->GetColorAttachment(0));
+            auto attachment = std::static_pointer_cast<Texture2D>(sceneFramebuffer->GetResolveAttachment());
+            if (!attachment) {
+				attachment = std::static_pointer_cast<Texture2D>(sceneFramebuffer->GetColorAttachment(0));
+            }
 
             commandQueue.SetPipelineBarrier(
                 attachment,

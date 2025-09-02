@@ -15,7 +15,7 @@ namespace flaw {
 
 	class FAPI DXContext : public GraphicsContext {
 	public:
-		DXContext(PlatformContext& context, int32_t width, int32_t height);
+		DXContext(PlatformContext& context, int32_t width, int32_t height, bool msaa = false);
 		~DXContext();
 
 		bool Prepare() override;
@@ -52,8 +52,8 @@ namespace flaw {
 
 		void Resize(int32_t width, int32_t height) override;
 		void GetSize(int32_t& width, int32_t& height) override;
-		void SetMSAAState(bool enable) override;
 		bool GetMSAAState() const override;
+		uint32_t GetMSAASampleCount() const override;
 
 		PixelFormat GetSurfaceFormat() const override;
 		PixelFormat GetDepthStencilFormat() const override;
@@ -84,6 +84,8 @@ namespace flaw {
 
 		int32_t _renderWidth, _renderHeight;
 		bool _enableMSAA;
+
+		uint32_t _msaaSampleCount;
 
 		ComPtr<ID3D11Device> _device;
 		ComPtr<ID3D11DeviceContext> _deviceContext;

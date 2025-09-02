@@ -128,8 +128,10 @@ void InitBaseResources() {
 
     // NOTE: Create render passes
     RenderPassLayout::Descriptor sceneRenderPassLayoutDesc;
+	sceneRenderPassLayoutDesc.sampleCount = g_graphicsContext->GetMSAASampleCount();
     sceneRenderPassLayoutDesc.colorAttachments = { { g_graphicsContext->GetSurfaceFormat() } };
     sceneRenderPassLayoutDesc.depthStencilAttachment = { g_graphicsContext->GetDepthStencilFormat() };
+	sceneRenderPassLayoutDesc.resolveAttachment = { { g_graphicsContext->GetSurfaceFormat() } };
 
     g_sceneRenderPassLayout = g_graphicsContext->CreateRenderPassLayout(sceneRenderPassLayoutDesc);
 
@@ -141,6 +143,9 @@ void InitBaseResources() {
     sceneClearRenderPassDesc.depthStencilAttachmentOp = {
         TextureLayout::DepthStencilAttachment, TextureLayout::DepthStencilAttachment, AttachmentLoadOp::Clear, AttachmentStoreOp::Store, AttachmentLoadOp::DontCare, AttachmentStoreOp::DontCare
     };
+	sceneClearRenderPassDesc.resolveAttachmentOp = {
+		TextureLayout::Undefined, TextureLayout::ColorAttachment, AttachmentLoadOp::Clear, AttachmentStoreOp::Store
+	};
 
     g_sceneClearRenderPass = g_graphicsContext->CreateRenderPass(sceneClearRenderPassDesc);
 
@@ -152,6 +157,9 @@ void InitBaseResources() {
     sceneLoadRenderPassDesc.depthStencilAttachmentOp = {
         TextureLayout::DepthStencilAttachment, TextureLayout::DepthStencilAttachment, AttachmentLoadOp::Load, AttachmentStoreOp::Store, AttachmentLoadOp::DontCare, AttachmentStoreOp::DontCare
     };
+	sceneLoadRenderPassDesc.resolveAttachmentOp = {
+		TextureLayout::ColorAttachment, TextureLayout::ColorAttachment, AttachmentLoadOp::Load, AttachmentStoreOp::Store
+	};
 
 	g_sceneLoadRenderPass = g_graphicsContext->CreateRenderPass(sceneLoadRenderPassDesc);
 
@@ -163,8 +171,9 @@ void InitBaseResources() {
 	    sceneColorAttachmentDesc.height = height;
 	    sceneColorAttachmentDesc.format = g_graphicsContext->GetSurfaceFormat();
         sceneColorAttachmentDesc.memProperty = MemoryProperty::Static;
-	    sceneColorAttachmentDesc.texUsages = TextureUsage::ColorAttachment | TextureUsage::ShaderResource;
+	    sceneColorAttachmentDesc.texUsages = TextureUsage::ColorAttachment;
 		sceneColorAttachmentDesc.initialLayout = TextureLayout::ColorAttachment;
+        sceneColorAttachmentDesc.sampleCount = g_graphicsContext->GetMSAASampleCount();
 
 	    Ref<Texture2D> sceneColorAttachment = g_graphicsContext->CreateTexture2D(sceneColorAttachmentDesc);
 
@@ -174,9 +183,20 @@ void InitBaseResources() {
 	    sceneDepthStencilAttachmentDesc.format = g_graphicsContext->GetDepthStencilFormat();
 	    sceneDepthStencilAttachmentDesc.memProperty = MemoryProperty::Static;
 		sceneDepthStencilAttachmentDesc.initialLayout = TextureLayout::DepthStencilAttachment;
-	    sceneDepthStencilAttachmentDesc.texUsages = TextureUsage::DepthStencilAttachment;
+		sceneDepthStencilAttachmentDesc.texUsages = TextureUsage::DepthStencilAttachment;
+		sceneDepthStencilAttachmentDesc.sampleCount = g_graphicsContext->GetMSAASampleCount();
 
 	    Ref<Texture2D> sceneDepthStencilAttachment = g_graphicsContext->CreateTexture2D(sceneDepthStencilAttachmentDesc);
+
+		Texture2D::Descriptor sceneResolveAttachmentDesc;
+		sceneResolveAttachmentDesc.width = width;
+		sceneResolveAttachmentDesc.height = height;
+		sceneResolveAttachmentDesc.format = g_graphicsContext->GetSurfaceFormat();
+		sceneResolveAttachmentDesc.memProperty = MemoryProperty::Static;
+		sceneResolveAttachmentDesc.texUsages = TextureUsage::ColorAttachment | TextureUsage::ShaderResource;
+		sceneResolveAttachmentDesc.initialLayout = TextureLayout::ColorAttachment;
+
+		Ref<Texture2D> sceneResolveAttachment = g_graphicsContext->CreateTexture2D(sceneResolveAttachmentDesc);
 
 	    Framebuffer::Descriptor sceneFramebufferDesc;
 		sceneFramebufferDesc.renderPassLayout = g_sceneRenderPassLayout;
@@ -189,8 +209,9 @@ void InitBaseResources() {
 			desc.height = height;
 			desc.format = g_graphicsContext->GetSurfaceFormat();
 			desc.memProperty = MemoryProperty::Static;
-			desc.texUsages = TextureUsage::ColorAttachment | TextureUsage::ShaderResource;
+			desc.texUsages = TextureUsage::ColorAttachment;
 			desc.initialLayout = TextureLayout::ColorAttachment;
+			desc.sampleCount = g_graphicsContext->GetMSAASampleCount();
 			texture = g_graphicsContext->CreateTexture2D(desc);
 
             return true;
@@ -204,10 +225,25 @@ void InitBaseResources() {
             desc.memProperty = MemoryProperty::Static;
             desc.texUsages = TextureUsage::DepthStencilAttachment;
 			desc.initialLayout = TextureLayout::DepthStencilAttachment;
+			desc.sampleCount = g_graphicsContext->GetMSAASampleCount();
             texture = g_graphicsContext->CreateTexture2D(desc);
         
             return true;
         };
+
+		sceneFramebufferDesc.resolveAttachment = sceneResolveAttachment;
+		sceneFramebufferDesc.resolveResizeHandler = [](Ref<Texture>& texture, int32_t width, int32_t height) -> bool {
+			Texture2D::Descriptor desc;
+			desc.width = width;
+			desc.height = height;
+			desc.format = g_graphicsContext->GetSurfaceFormat();
+			desc.memProperty = MemoryProperty::Static;
+			desc.texUsages = TextureUsage::ColorAttachment | TextureUsage::ShaderResource;
+			desc.initialLayout = TextureLayout::ColorAttachment;
+			texture = g_graphicsContext->CreateTexture2D(desc);
+
+			return true;
+		};
 
 	    g_sceneFramebuffers[i] = g_graphicsContext->CreateFramebuffer(sceneFramebufferDesc);
 	}
@@ -622,7 +658,10 @@ void World_FinalizeRender() {
     auto& framebuffer = g_sceneFramebuffers[commandQueue.GetCurrentFrameIndex()];
 
     auto quad = GetMesh("quad");
-    auto attachment = std::static_pointer_cast<Texture2D>(framebuffer->GetColorAttachment(0));
+    auto attachment = std::static_pointer_cast<Texture2D>(framebuffer->GetResolveAttachment());
+    if (!attachment) {
+        attachment = std::static_pointer_cast<Texture2D>(framebuffer->GetColorAttachment(0));
+    }
 
     auto finalizeResources = g_finalizeShaderResourcesPool->Get();
     finalizeResources->BindTexture2D(attachment, 0);

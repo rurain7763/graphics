@@ -114,7 +114,7 @@ namespace flaw {
         createInfo.imageColorSpace = _surfaceFormat.colorSpace;
         createInfo.imageExtent = _extent;
         createInfo.imageArrayLayers = 1;
-        createInfo.imageUsage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferDst;
+		createInfo.imageUsage = vk::ImageUsageFlagBits::eColorAttachment;
         createInfo.preTransform = _transform;
         createInfo.compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque;
         createInfo.presentMode = _presentMode;
@@ -206,7 +206,7 @@ namespace flaw {
                 _extent.width, _extent.height, GetSurfaceFormat(), 
                 MemoryProperty::Static,
                 TextureUsage::ColorAttachment | TextureUsage::ShaderResource,
-                1,
+                _context.GetMSAAState() ? _context.GetMSAASampleCount() : 1,
                 1
             );
         }
@@ -246,7 +246,6 @@ namespace flaw {
             desc.memProperty = MemoryProperty::Static;
             desc.texUsages = TextureUsage::ColorAttachment;
 			desc.initialLayout = TextureLayout::ColorAttachment;
-            desc.sampleCount = _context.GetMSAASampleCount();
 
             _msaaColorTextures.push_back(CreateRef<VkTexture2D>(_context, desc));
         }

@@ -50,8 +50,8 @@ namespace flaw {
 		
 		virtual void Resize(int32_t width, int32_t height) = 0;
 		virtual void GetSize(int32_t& width, int32_t& height) = 0;
-		virtual void SetMSAAState(bool enable) = 0;
 		virtual bool GetMSAAState() const = 0;
+		virtual uint32_t GetMSAASampleCount() const = 0;
 
 		virtual PixelFormat GetSurfaceFormat() const = 0;
 		virtual PixelFormat GetDepthStencilFormat() const = 0;

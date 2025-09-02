@@ -15,7 +15,7 @@ namespace flaw {
 
 	class FAPI VkContext : public GraphicsContext {
 	public:
-		VkContext(PlatformContext& context, int32_t width, int32_t height);
+		VkContext(PlatformContext& context, int32_t width, int32_t height, bool msaa = false);
 		~VkContext();
 
 		bool Prepare() override;
@@ -52,8 +52,8 @@ namespace flaw {
 
 		void Resize(int32_t width, int32_t height) override;
 		void GetSize(int32_t& width, int32_t& height) override;
-		void SetMSAAState(bool enable) override;
 		bool GetMSAAState() const override;
+		uint32_t GetMSAASampleCount() const override;
 
 		PixelFormat GetSurfaceFormat() const override;
 		PixelFormat GetDepthStencilFormat() const override;
@@ -76,7 +76,6 @@ namespace flaw {
 		inline vk::Queue GetVkPresentQueue() const { return _presentQueue; }
 		inline uint32_t GetVkPresentQueueFamilyIndex() const { return _queueFamilyIndices.presentFamily.value(); }
 		inline vk::CommandPool GetVkGraphicsCommandPool() const { return _graphicsCommandPool; }
-		inline uint32_t GetMSAASampleCount() const { return _msaaSampleCount; }
 		inline vk::DescriptorPool GetVkDescriptorPool() const { return _descriptorPool; }
 
 	private:

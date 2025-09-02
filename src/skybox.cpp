@@ -72,6 +72,7 @@ void Skybox_Init() {
 	g_skyboxPipeline->SetCullMode(CullMode::Front);
 	g_skyboxPipeline->SetDepthTest(CompareOp::LessEqual, false);
 	g_skyboxPipeline->SetShaderResourcesLayouts({ g_staticShaderResourcesLayout, g_dynamicShaderResourcesLayout });
+	g_skyboxPipeline->SetRenderPassLayout(g_sceneRenderPassLayout);
 	g_skyboxPipeline->SetVertexInputLayouts({ g_texturedVertexInputLayout });
 	g_skyboxPipeline->SetBehaviorStates(GraphicsPipeline::Behavior::AutoResizeViewport | GraphicsPipeline::Behavior::AutoResizeScissor);
 }

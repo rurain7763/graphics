@@ -64,6 +64,7 @@ void Geometry_Init() {
 
 	g_explodePipeline = g_graphicsContext->CreateGraphicsPipeline();
 	g_explodePipeline->SetShader(explodeShader);
+	g_explodePipeline->SetRenderPassLayout(g_sceneRenderPassLayout);
 	g_explodePipeline->SetShaderResourcesLayouts({ g_staticShaderResourcesLayout, g_dynamicShaderResourcesLayout });
 	g_explodePipeline->SetVertexInputLayouts({ g_texturedVertexInputLayout });
 	g_explodePipeline->SetBehaviorStates(GraphicsPipeline::Behavior::AutoResizeViewport | GraphicsPipeline::Behavior::AutoResizeScissor);
@@ -80,6 +81,7 @@ void Geometry_Init() {
 
 	g_viewNormalPipeline = g_graphicsContext->CreateGraphicsPipeline();
 	g_viewNormalPipeline->SetShader(viewNormalShader);
+	g_viewNormalPipeline->SetRenderPassLayout(g_sceneRenderPassLayout);
 	g_viewNormalPipeline->SetShaderResourcesLayouts({ g_staticShaderResourcesLayout, g_dynamicShaderResourcesLayout });
 	g_viewNormalPipeline->SetVertexInputLayouts({ g_texturedVertexInputLayout });
 	g_viewNormalPipeline->SetBehaviorStates(GraphicsPipeline::Behavior::AutoResizeViewport | GraphicsPipeline::Behavior::AutoResizeScissor);

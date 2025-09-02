@@ -68,6 +68,8 @@ namespace flaw {
 
 		_mipLevels = desc.MipLevels;
 
+		_sampleCount = desc.SampleDesc.Count;
+
 		_width = desc.Width;
 		_height = desc.Height;
 
@@ -152,12 +154,25 @@ namespace flaw {
 		desc.MipLevels = _mipLevels;
 		desc.ArraySize = 1;
 		desc.Format = ConvertToDXFormat(_format);
-		desc.SampleDesc.Count = _sampleCount;
-		desc.SampleDesc.Quality = 0;
 		desc.Usage = ConvertToDXUsage(_memProperty);
 		desc.CPUAccessFlags = ConvertToDXCPUAccessFlags(_memProperty);
 		desc.BindFlags = ConvertToDXTexBindFlags(_usages);
 		desc.MiscFlags = 0;
+		if (_sampleCount > 1) {
+			desc.SampleDesc.Count = _sampleCount;
+			
+			UINT qualityLevels = 0;
+			if (FAILED(_context.Device()->CheckMultisampleQualityLevels(desc.Format, _sampleCount, &qualityLevels)) || qualityLevels == 0) {
+				LOG_ERROR("CheckMultisampleQualityLevels failed");
+				return false;
+			}
+
+			desc.SampleDesc.Quality = qualityLevels - 1;
+		}
+		else {
+			desc.SampleDesc.Count = 1;
+			desc.SampleDesc.Quality = 0;
+		}
 
 		if (_mipLevels > 1) {
 			desc.BindFlags |= D3D11_BIND_RENDER_TARGET;
@@ -186,7 +201,7 @@ namespace flaw {
 	bool DXTexture2D::CreateRenderTargetView() {
 		D3D11_RENDER_TARGET_VIEW_DESC rtvDesc = {};
 		rtvDesc.Format = ConvertToDXFormat(_format);
-		rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+		rtvDesc.ViewDimension = _sampleCount == 1 ? D3D11_RTV_DIMENSION_TEXTURE2D : D3D11_RTV_DIMENSION_TEXTURE2DMS;
 		rtvDesc.Texture2D.MipSlice = 0;
 
 		if (FAILED(_context.Device()->CreateRenderTargetView(_nativeTexture.texture.Get(), &rtvDesc, _nativeTexture.rtv.GetAddressOf()))) {
@@ -200,7 +215,7 @@ namespace flaw {
 	bool DXTexture2D::CreateDepthStencilView() {
 		D3D11_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
 		dsvDesc.Format = ConvertToDXFormat(_format);
-		dsvDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+		dsvDesc.ViewDimension = _sampleCount == 1 ? D3D11_DSV_DIMENSION_TEXTURE2D : D3D11_DSV_DIMENSION_TEXTURE2DMS;
 		dsvDesc.Texture2D.MipSlice = 0;
 
 		if (FAILED(_context.Device()->CreateDepthStencilView(_nativeTexture.texture.Get(), &dsvDesc, _nativeTexture.dsv.GetAddressOf()))) {
@@ -214,7 +229,7 @@ namespace flaw {
 	bool DXTexture2D::CreateShaderResourceView() {
 		D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 		srvDesc.Format = ConvertToDXFormat(_format);
-		srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+		srvDesc.ViewDimension = _sampleCount == 1 ? D3D11_SRV_DIMENSION_TEXTURE2D : D3D11_SRV_DIMENSION_TEXTURE2DMS;
 		srvDesc.Texture2D.MostDetailedMip = 0;
 		srvDesc.Texture2D.MipLevels = _mipLevels;
 
