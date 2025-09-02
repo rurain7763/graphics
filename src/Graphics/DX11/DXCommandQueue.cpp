@@ -257,8 +257,8 @@ namespace flaw {
 		_context.DeviceContext()->Draw(vertexCount, vertexOffset);
 	}
 
-	void DXCommandQueue::DrawInstanced(uint32_t vertexCount, uint32_t instanceCount, uint32_t vertexOffset) {
-		_context.DeviceContext()->DrawInstanced(vertexCount, instanceCount, vertexOffset, 0);
+	void DXCommandQueue::DrawInstanced(uint32_t vertexCount, uint32_t instanceCount, uint32_t vertexOffset, uint32_t instanceOffset) {
+		_context.DeviceContext()->DrawInstanced(vertexCount, instanceCount, vertexOffset, instanceOffset);
 	}
 
 	void DXCommandQueue::DrawIndexed(const Ref<IndexBuffer>& indexBuffer, uint32_t indexCount, uint32_t indexOffset, uint32_t vertexOffset) {
@@ -271,14 +271,14 @@ namespace flaw {
 		_context.DeviceContext()->DrawIndexed(indexCount, indexOffset, vertexOffset);
 	}
 
-	void DXCommandQueue::DrawIndexedInstanced(const Ref<IndexBuffer>& indexBuffer, uint32_t indexCount, uint32_t instanceCount, uint32_t indexOffset, uint32_t vertexOffset) {
+	void DXCommandQueue::DrawIndexedInstanced(const Ref<IndexBuffer>& indexBuffer, uint32_t indexCount, uint32_t instanceCount, uint32_t indexOffset, uint32_t vertexOffset, uint32_t instanceOffset) {
 		auto dxIndexBuffer = std::static_pointer_cast<DXIndexBuffer>(indexBuffer);
 		FASSERT(dxIndexBuffer, "IndexBuffer is not a DXIndexBuffer");
 
 		const auto& dxNativeBuff = static_cast<const DXNativeBuffer&>(dxIndexBuffer->GetNativeBuffer());
 				
 		_context.DeviceContext()->IASetIndexBuffer(dxNativeBuff.buffer.Get(), DXGI_FORMAT_R32_UINT, 0);
-		_context.DeviceContext()->DrawIndexedInstanced(indexCount, instanceCount, indexOffset, vertexOffset, 0);
+		_context.DeviceContext()->DrawIndexedInstanced(indexCount, instanceCount, indexOffset, vertexOffset, instanceOffset);
 	}
 
 	void DXCommandQueue::BeginRenderPassImpl(const Ref<DXRenderPass>& beginRenderPass, const Ref<DXFramebuffer>& framebuffer) {

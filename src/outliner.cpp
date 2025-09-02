@@ -165,16 +165,11 @@ void Outliner_Render() {
 	g_objectConstantsCBUsed = 0;
 	g_dynamicShaderResourcesUsed = 0;
 
-	for (const auto& object : g_objects) {
-		if (!object.HasComponent<StaticMeshComponent>()) {
-			continue;
-		}
+	for (uint32_t index : g_outlineObjects) {
+		const auto& object = g_objects[index];
 
 		auto meshComp = object.GetComponent<StaticMeshComponent>();
-		if (!meshComp->drawOutline) {
-			continue;
-		}
-		
+
 		auto dynamicResources = GetDynamicShaderResources(frameIndex);
 		auto objectConstantsCB = GetObjectConstantsCB(frameIndex);
 

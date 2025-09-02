@@ -125,11 +125,8 @@ void Sprite_Render() {
 
     std::map<float, Object*> sorted;
     vec3 cameraPos = g_camera->GetPosition();
-    for (auto& object : g_objects) {
-        if (!object.HasComponent<SpriteComponent>()) {
-            continue;
-        }
-
+    for (uint32_t index : g_spriteObjects) {
+		auto& object = g_objects[index];
         float distance = glm::distance(cameraPos, object.position);
         sorted[distance] = &object;
     }

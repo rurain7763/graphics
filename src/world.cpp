@@ -19,6 +19,9 @@ Ref<GraphicsContext> g_graphicsContext;
 Ref<EngineCamera> g_camera;
 
 std::vector<Object> g_objects;
+std::vector<uint32_t> g_outlineObjects;
+std::vector<uint32_t> g_viewNormalObjects;
+std::vector<uint32_t> g_spriteObjects;
 
 #if USE_VULKAN
 const uint32_t camersConstantsCBBinding = 0;
@@ -44,6 +47,8 @@ const uint32_t specularTextureBinding = 5;
 const uint32_t skyboxTextureBinding = 6;
 #endif
 
+RenderQueue g_renderQueue;
+
 std::vector<Ref<Framebuffer>> g_sceneFramebuffers;
 Ref<RenderPassLayout> g_sceneRenderPassLayout;
 Ref<RenderPass> g_sceneClearRenderPass;
@@ -62,14 +67,14 @@ Ref<ShaderResourcesLayout> g_objShaderResourcesLayout;
 Ref<ShaderResources> g_objShaderResources;
 Ref<ShaderResourcesLayout> g_objDynamicShaderResourcesLayout;
 
-Ref<ShaderResourcesPool> g_objDynamicShaderResourcesPool;
-Ref<ConstantBufferPool> g_objMaterialCBPool;
-Ref<ConstantBufferPool> g_objConstantsCBPool;
-Ref<StructuredBufferPool> g_objInstanceSBPool;
+Ref<GraphicsResourcesPool<ShaderResources>> g_objDynamicShaderResourcesPool;
+Ref<GraphicsResourcesPool<ConstantBuffer>> g_objMaterialCBPool;
+Ref<GraphicsResourcesPool<ConstantBuffer>> g_objConstantsCBPool;
+Ref<GraphicsResourcesPool<StructuredBuffer>> g_objInstanceSBPool;
 
 Ref<GraphicsPipeline> g_finalizePipeline;
 
-Ref<ShaderResourcesPool> g_finalizeShaderResourcesPool;
+Ref<GraphicsResourcesPool<ShaderResources>> g_finalizeShaderResourcesPool;
 
 CameraConstants g_cameraConstants;
 LightConstants g_lightConstants;
@@ -273,10 +278,11 @@ void InitBaseResources() {
 
 	auto finalizeSRL = g_graphicsContext->CreateShaderResourcesLayout(finalizeSRLDesc);
 
-	ShaderResources::Descriptor finalizeSRDesc;
-	finalizeSRDesc.layout = finalizeSRL;
-
-	g_finalizeShaderResourcesPool = CreateRef<ShaderResourcesPool>(*g_graphicsContext, finalizeSRDesc);
+    g_finalizeShaderResourcesPool = CreateRef<GraphicsResourcesPool<ShaderResources>>(*g_graphicsContext, [finalizeSRL](GraphicsContext& context) { 
+		ShaderResources::Descriptor desc;
+		desc.layout = finalizeSRL;
+		return context.CreateShaderResources(desc);
+    });
 
 	// NOTE: Create finalize pipeline
 	GraphicsShader::Descriptor finalizeShaderDesc;
@@ -303,25 +309,31 @@ void InitBaseResources() {
 }
 
 void InitObjectBuffers() {
-	ConstantBuffer::Descriptor materialCBDesc;
-	materialCBDesc.memProperty = MemoryProperty::Dynamic;
-	materialCBDesc.bufferSize = sizeof(MaterialConstants);
+    g_objMaterialCBPool = CreateRef<GraphicsResourcesPool<ConstantBuffer>>(*g_graphicsContext, [](GraphicsContext& context) {
+		ConstantBuffer::Descriptor desc;
+		desc.memProperty = MemoryProperty::Dynamic;
+		desc.bufferSize = sizeof(MaterialConstants);
 
-	g_objMaterialCBPool = CreateRef<ConstantBufferPool>(*g_graphicsContext, materialCBDesc);
+		return context.CreateConstantBuffer(desc);
+    });
 
-	ConstantBuffer::Descriptor objConstantsDesc;
-	objConstantsDesc.memProperty = MemoryProperty::Dynamic;
-	objConstantsDesc.bufferSize = sizeof(ObjectConstants);
+    g_objConstantsCBPool = CreateRef<GraphicsResourcesPool<ConstantBuffer>>(*g_graphicsContext, [](GraphicsContext& context) {
+		ConstantBuffer::Descriptor desc;
+		desc.memProperty = MemoryProperty::Dynamic;
+		desc.bufferSize = sizeof(ObjectConstants);
 
-	g_objConstantsCBPool = CreateRef<ConstantBufferPool>(*g_graphicsContext, objConstantsDesc);
+		return context.CreateConstantBuffer(desc);
+    });
 
-	StructuredBuffer::Descriptor instanceSBDesc;
-	instanceSBDesc.memProperty = MemoryProperty::Dynamic;
-	instanceSBDesc.elmSize = sizeof(InstanceData);
-	instanceSBDesc.bufferSize = sizeof(InstanceData) * 1;
-	instanceSBDesc.bufferUsages = BufferUsage::ShaderResource;
+    g_objInstanceSBPool = CreateRef<GraphicsResourcesPool<StructuredBuffer>>(*g_graphicsContext, [](GraphicsContext& context) {
+		StructuredBuffer::Descriptor desc;
+		desc.memProperty = MemoryProperty::Dynamic;
+		desc.elmSize = sizeof(InstanceData);
+		desc.bufferSize = sizeof(InstanceData) * MaxInstancingCount;
+		desc.bufferUsages = BufferUsage::ShaderResource;
 
-	g_objInstanceSBPool = CreateRef<StructuredBufferPool>(*g_graphicsContext, instanceSBDesc);
+		return context.CreateStructuredBuffer(desc);
+    });
 }
 
 void InitObjectShaderResources() {
@@ -356,10 +368,12 @@ void InitObjectShaderResources() {
 
     g_objDynamicShaderResourcesLayout = g_graphicsContext->CreateShaderResourcesLayout(shaderResourceLayoutDesc);
 
-	ShaderResources::Descriptor dynamicShaderResourcesDesc;
-	dynamicShaderResourcesDesc.layout = g_objDynamicShaderResourcesLayout;
+    g_objDynamicShaderResourcesPool = CreateRef<GraphicsResourcesPool<ShaderResources>>(*g_graphicsContext, [](GraphicsContext& context) {
+		ShaderResources::Descriptor desc;
+		desc.layout = g_objDynamicShaderResourcesLayout;
 
-	g_objDynamicShaderResourcesPool = CreateRef<ShaderResourcesPool>(*g_graphicsContext, dynamicShaderResourcesDesc);
+		return context.CreateShaderResources(desc);
+    });
 }
 
 void InitObjectGraphicsPipeline() {
@@ -388,6 +402,7 @@ void InitObjectGraphicsPipeline() {
 }
 
 void World_Cleanup() {
+	g_renderQueue.Clear();
     g_objects.clear();
     g_finalizePipeline.reset();
     g_finalizeShaderResourcesPool.reset();
@@ -498,99 +513,105 @@ void World_Update() {
     globalConstants.delta_time = Time::DeltaTime();
 
 	g_globalCB->Update(&globalConstants, sizeof(GlobalConstants));
+
+    static bool initRender = false;
+
+    if (!initRender) {
+        g_outlineObjects.clear();
+        g_viewNormalObjects.clear();
+        g_spriteObjects.clear();
+
+        g_renderQueue.Open();
+        for (uint32_t i = 0; i < g_objects.size(); i++) {
+            const auto& obj = g_objects[i];
+
+            if (obj.HasComponent<StaticMeshComponent>()) {
+                auto comp = obj.GetComponent<StaticMeshComponent>();
+
+                if (comp->drawOutline) {
+                    g_outlineObjects.push_back(i);
+                }
+
+                if (comp->drawOutline) {
+                    g_viewNormalObjects.push_back(i);
+                }
+
+                if (comp->excludeFromRendering) {
+                    continue;
+                }
+
+                for (uint32_t i = 0; i < comp->mesh->segments.size(); i++) {
+                    g_renderQueue.Push(comp->mesh, i, ModelMatrix(obj.position, obj.rotation, obj.scale), comp->mesh->materials[i]);
+                }
+            }
+
+            if (obj.HasComponent<SpriteComponent>()) {
+                g_spriteObjects.push_back(i);
+            }
+        }
+        g_renderQueue.Close();
+
+		initRender = true;
+    }
 }
 
 void World_Render() {
     auto& commandQueue = g_graphicsContext->GetCommandQueue();
 
-    struct RenderObject {
-        Ref<VertexBuffer> vertexBuffer;
-        Ref<IndexBuffer> indexBuffer;
-        Ref<Material> material;
-
-        mat4 modelMatrix;
-        mat4 invModelMatrix;
-
-        uint32_t vertexOffset;
-        uint32_t indexOffset;
-        uint32_t indexCount;
-    };
-
-    std::vector<RenderObject> renderObjects;
-
-    for (const auto& obj : g_objects) {
-        if (obj.HasComponent<StaticMeshComponent>()) {
-            auto comp = obj.GetComponent<StaticMeshComponent>();
-
-			if (comp->excludeFromRendering) {
-				continue;
-			}
-
-            for (uint32_t i = 0; i < comp->mesh->subMeshes.size(); i++) {
-                auto& subMesh = comp->mesh->subMeshes[i];
-                auto material = comp->mesh->materials[i];
-
-                RenderObject renderObj;
-                renderObj.vertexBuffer = comp->mesh->vertexBuffer;
-                renderObj.indexBuffer = comp->mesh->indexBuffer;
-                renderObj.material = material;
-                renderObj.modelMatrix = ModelMatrix(obj.position, obj.rotation, obj.scale);
-                renderObj.invModelMatrix = glm::inverse(renderObj.modelMatrix);
-                renderObj.vertexOffset = subMesh.vertexOffset;
-                renderObj.indexOffset = subMesh.indexOffset;
-                renderObj.indexCount = subMesh.indexCount;
-
-                renderObjects.push_back(renderObj);
-            }
-        }
-    }
-
     commandQueue.SetPipeline(g_objPipeline);
 
-	for (const auto& obj : renderObjects) {
-        commandQueue.SetVertexBuffers({ obj.vertexBuffer });
+    auto objInstanceBuffer = g_objInstanceSBPool->Get();
+	uint32_t instanceOffset = 0;
 
-        auto objDynamicResources = g_objDynamicShaderResourcesPool->Get();
-		auto objInstanceBuffer = g_objInstanceSBPool->Get();
-		auto objMaterialCB = g_objMaterialCBPool->Get();
+    objInstanceBuffer->Update(g_renderQueue.AllInstanceDatas().data(), sizeof(InstanceData)* g_renderQueue.AllInstanceDatas().size());
 
-        objDynamicResources->BindStructuredBuffer(objInstanceBuffer, instanceDataSBBinding);
-        objDynamicResources->BindConstantBuffer(objMaterialCB, materialConstantsCBBinding);
+    g_renderQueue.Reset();
+	while (!g_renderQueue.Empty()) {
+		auto& entry = g_renderQueue.Front();
+        auto objMaterialCB = g_objMaterialCBPool->Get();
 
-        InstanceData instanceData;
-		instanceData.model_matrix = obj.modelMatrix;
-		instanceData.inv_model_matrix = obj.invModelMatrix;
-
-        objInstanceBuffer->Update(&instanceData, sizeof(InstanceData));
-
-        MaterialConstants materialConstants;
-        materialConstants.texture_binding_flags = 0;
-        materialConstants.diffuseColor = obj.material->diffuseColor;
-        materialConstants.specularColor = obj.material->specularColor;
-        materialConstants.shininess = obj.material->shininess;
-
-        if (obj.material->diffuseTexture) {
-            materialConstants.texture_binding_flags |= static_cast<uint32_t>(TextureBindingFlag::Diffuse);
-            objDynamicResources->BindTexture2D(obj.material->diffuseTexture, diffuseTextureBinding);
-        }
-        else {
-            objDynamicResources->BindTexture2D(GetTexture2D("dummy"), diffuseTextureBinding);
-        }
-
-        if (obj.material->specularTexture) {
-            materialConstants.texture_binding_flags |= static_cast<uint32_t>(TextureBindingFlag::Specular);
-            objDynamicResources->BindTexture2D(obj.material->specularTexture, specularTextureBinding);
-        }
-        else {
-            objDynamicResources->BindTexture2D(GetTexture2D("dummy"), specularTextureBinding);
-        }
-
-		objDynamicResources->BindTextureCube(GetTextureCube("skybox"), skyboxTextureBinding);
+        MaterialConstants materialConstants = GetMaterialConstants(entry.material);
 
         objMaterialCB->Update(&materialConstants, sizeof(MaterialConstants));
 
-        commandQueue.SetShaderResources({ g_objShaderResources, objDynamicResources });
-        commandQueue.DrawIndexed(obj.indexBuffer, obj.indexCount, obj.indexOffset, obj.vertexOffset);
+        for (const auto& instancingObj : entry.instancingObjects) {
+			const auto& segment = instancingObj.mesh->segments[instancingObj.segmentIndex];
+
+            auto objDynamicResources = g_objDynamicShaderResourcesPool->Get();
+
+            objDynamicResources->BindStructuredBuffer(objInstanceBuffer, instanceDataSBBinding);
+            objDynamicResources->BindConstantBuffer(objMaterialCB, materialConstantsCBBinding);
+
+            if (entry.material->diffuseTexture) {
+                objDynamicResources->BindTexture2D(entry.material->diffuseTexture, diffuseTextureBinding);
+            }
+            else {
+                objDynamicResources->BindTexture2D(GetTexture2D("dummy"), diffuseTextureBinding);
+            }
+
+            if (entry.material->specularTexture) {
+                objDynamicResources->BindTexture2D(entry.material->specularTexture, specularTextureBinding);
+            }
+            else {
+                objDynamicResources->BindTexture2D(GetTexture2D("dummy"), specularTextureBinding);
+            }
+
+            objDynamicResources->BindTextureCube(GetTextureCube("skybox"), skyboxTextureBinding);
+
+            commandQueue.SetVertexBuffers({ instancingObj.mesh->vertexBuffer });
+            commandQueue.SetShaderResources({ g_objShaderResources, objDynamicResources });
+            commandQueue.DrawIndexedInstanced(instancingObj.mesh->indexBuffer, segment.indexCount, instancingObj.instanceCount, segment.indexOffset, segment.vertexOffset, instanceOffset);
+
+			instanceOffset += instancingObj.instanceCount;
+        }
+
+        for (const auto& skeltalObj : entry.skeletalInstancingObjects) {
+			// TODO: Skeletal mesh rendering
+
+			instanceOffset += skeltalObj.instanceCount;
+        }
+
+		g_renderQueue.Next();
 	}
 }
 

@@ -5,7 +5,7 @@
 static Ref<ShaderResourcesLayout> g_staticShaderResourcesLayout;
 static Ref<ShaderResourcesLayout> g_dynamicShaderResourcesLayout;
 static Ref<ShaderResources> g_staticShaderResources;
-static Ref<ShaderResourcesPool> g_dynamicShaderResourcesPool;
+static Ref<GraphicsResourcesPool<ShaderResources>> g_dynamicShaderResourcesPool;
 
 static Ref<GraphicsPipeline> g_skyboxPipeline;
 
@@ -44,10 +44,12 @@ void Skybox_Init() {
 
 	g_dynamicShaderResourcesLayout = g_graphicsContext->CreateShaderResourcesLayout(dynamicSRLDesc);
 
-	ShaderResources::Descriptor dynamicSRDesc;
-	dynamicSRDesc.layout = g_dynamicShaderResourcesLayout;
+	g_dynamicShaderResourcesPool = CreateRef<GraphicsResourcesPool<ShaderResources>>(*g_graphicsContext, [](GraphicsContext& context) {
+		ShaderResources::Descriptor desc;
+		desc.layout = g_dynamicShaderResourcesLayout;
 
-	g_dynamicShaderResourcesPool = CreateRef<ShaderResourcesPool>(*g_graphicsContext, dynamicSRDesc);
+		return context.CreateShaderResources(desc);
+	});
 
 	// NOTE: Create pipeline
 	GraphicsShader::Descriptor skyboxShaderDesc;
@@ -95,7 +97,7 @@ void Skybox_Render() {
 	commandQueue.SetVertexBuffers({ cubeMesh->vertexBuffer });
 	commandQueue.SetPipeline(g_skyboxPipeline);
 	commandQueue.SetShaderResources({ g_staticShaderResources, dynmicShaderResources });
-	for (const auto& subMesh : cubeMesh->subMeshes) {
+	for (const auto& subMesh : cubeMesh->segments) {
 		commandQueue.DrawIndexed(cubeMesh->indexBuffer, subMesh.indexCount, subMesh.indexOffset, subMesh.vertexOffset);
 	}
 }

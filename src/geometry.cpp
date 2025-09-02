@@ -4,7 +4,7 @@
 static Ref<ShaderResourcesLayout> g_staticShaderResourcesLayout;
 static Ref<ShaderResourcesLayout> g_dynamicShaderResourcesLayout;
 static Ref<ShaderResources> g_staticShaderResources;
-static Ref<ShaderResourcesPool> g_dynamicShaderResourcesPool;
+static Ref<GraphicsResourcesPool<ShaderResources>> g_dynamicShaderResourcesPool;
 
 static Ref<GraphicsPipeline> g_explodePipeline;
 static Ref<GraphicsPipeline> g_viewNormalPipeline;
@@ -44,10 +44,12 @@ void Geometry_Init() {
 
 	g_dynamicShaderResourcesLayout = g_graphicsContext->CreateShaderResourcesLayout(dynamicSRLDesc);
 
-	ShaderResources::Descriptor dynamicSRDesc;
-	dynamicSRDesc.layout = g_dynamicShaderResourcesLayout;
+	g_dynamicShaderResourcesPool = CreateRef<GraphicsResourcesPool<ShaderResources>>(*g_graphicsContext, [](GraphicsContext& context) {
+		ShaderResources::Descriptor desc;
+		desc.layout = g_dynamicShaderResourcesLayout;
 
-	g_dynamicShaderResourcesPool = CreateRef<ShaderResourcesPool>(*g_graphicsContext, dynamicSRDesc);
+		return context.CreateShaderResources(desc);
+	});
 
 	// NOTE: Create pipeline
 	GraphicsShader::Descriptor explodeShaderDesc;
@@ -122,8 +124,8 @@ void Geometry_Render() {
 
 	objectConstantsCB->Update(&objConstants, sizeof(ObjectConstants));
 
-	for (uint32_t i = 0; i < meshComp->mesh->subMeshes.size(); i++) {
-		auto& subMesh = meshComp->mesh->subMeshes[i];
+	for (uint32_t i = 0; i < meshComp->mesh->segments.size(); i++) {
+		auto& subMesh = meshComp->mesh->segments[i];
 		auto material = meshComp->mesh->materials[i];
 
 		MaterialConstants materialConstants = GetMaterialConstants(material);
@@ -151,15 +153,10 @@ void Geometry_Render() {
 		commandQueue.DrawIndexed(meshComp->mesh->indexBuffer, subMesh.indexCount, subMesh.indexOffset, subMesh.vertexOffset);
 	}
 
-	for (const auto& object : g_objects) {
-		if (!object.HasComponent<StaticMeshComponent>()) {
-			continue;
-		}
+	for (uint32_t index : g_viewNormalObjects) {
+		const auto& object = g_objects[index];
 
 		auto meshComp = object.GetComponent<StaticMeshComponent>();
-		if (!meshComp->drawNormal) {
-			continue;
-		}
 
 		auto dynamicShaderResources = g_dynamicShaderResourcesPool->Get();
 		auto objectConstantsCB = g_objConstantsCBPool->Get();
@@ -173,8 +170,8 @@ void Geometry_Render() {
 		objConstants.inv_model_matrix = glm::inverse(objConstants.model_matrix);
 		objectConstantsCB->Update(&objConstants, sizeof(ObjectConstants));
 
-		for (uint32_t i = 0; i < meshComp->mesh->subMeshes.size(); i++) {
-			auto& subMesh = meshComp->mesh->subMeshes[i];
+		for (uint32_t i = 0; i < meshComp->mesh->segments.size(); i++) {
+			auto& subMesh = meshComp->mesh->segments[i];
 			auto material = meshComp->mesh->materials[i];
 
 			MaterialConstants materialConstants = GetMaterialConstants(material);

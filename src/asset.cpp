@@ -148,12 +148,12 @@ void LoadPrimitiveModel(const std::vector<TexturedVertex>& vertices, const std::
 
     mesh->indexBuffer = g_graphicsContext->CreateIndexBuffer(indexBufferDesc);
 
-    SubMesh subMesh;
+    MeshSegment subMesh;
     subMesh.vertexOffset = 0;
     subMesh.indexOffset = 0;
     subMesh.indexCount = indices.size();
 
-    mesh->subMeshes.push_back(subMesh);
+    mesh->segments.push_back(subMesh);
     mesh->materials.push_back(g_materials["default"]);
 
     g_meshes[key] = mesh;
@@ -236,11 +236,11 @@ void LoadModel(const char* filePath, float scale, const char* key) {
         };
 
     for (const auto& modelSubMesh : model.GetMeshs()) {
-        SubMesh subMesh;
+        MeshSegment subMesh;
         subMesh.vertexOffset = modelSubMesh.vertexStart;
         subMesh.indexOffset = modelSubMesh.indexStart;
         subMesh.indexCount = modelSubMesh.indexCount;
-        mesh->subMeshes.push_back(subMesh);
+        mesh->segments.push_back(subMesh);
 
         Ref<Material> material;
         if (modelSubMesh.materialIndex == -1) {

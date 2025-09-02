@@ -31,9 +31,9 @@ namespace flaw {
 		void ResetShaderResources() override;
 
 		void Draw(uint32_t vertexCount, uint32_t vertexOffset = 0) override;
-		void DrawInstanced(uint32_t vertexCount, uint32_t instanceCount, uint32_t vertexOffset = 0) override;
+		void DrawInstanced(uint32_t vertexCount, uint32_t instanceCount, uint32_t vertexOffset = 0, uint32_t instanceOffset = 0) override;
 		void DrawIndexed(const Ref<IndexBuffer>& indexBuffer, uint32_t indexCount, uint32_t indexOffset = 0, uint32_t vertexOffset = 0) override;
-		void DrawIndexedInstanced(const Ref<IndexBuffer>& indexBuffer, uint32_t indexCount, uint32_t instanceCount, uint32_t indexOffset = 0, uint32_t vertexOffset = 0) override;
+		void DrawIndexedInstanced(const Ref<IndexBuffer>& indexBuffer, uint32_t indexCount, uint32_t instanceCount, uint32_t indexOffset = 0, uint32_t vertexOffset = 0, uint32_t instanceOffset = 0) override;
 		
 		void BeginRenderPass() override;
 		void BeginRenderPass(const Ref<RenderPass>& beginRenderPass, const Ref<RenderPass>& resumeRenderPass, const Ref<Framebuffer>& framebuffer) override;

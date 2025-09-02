@@ -1,43 +1,9 @@
 #pragma once
 
-#include "Graphics/GraphicsBuffers.h"
-#include "Graphics/GraphicsTextures.h"
-#include "Math/Math.h"
+#include "EngineCore.h"
 
 #include <vector>
 #include <array>
-
-using namespace flaw;
-
-struct TexturedVertex {
-    vec3 position;
-    vec4 color;
-    vec2 texCoord;
-    vec3 normal;
-};
-
-struct Material {
-    vec3 diffuseColor;
-    vec3 specularColor;
-    float shininess;
-
-    Ref<Texture2D> diffuseTexture;
-    Ref<Texture2D> specularTexture;
-};
-
-struct SubMesh {
-    uint32_t vertexOffset;
-    uint32_t indexOffset;
-    uint32_t indexCount;
-};
-
-struct Mesh {
-    Ref<VertexBuffer> vertexBuffer;
-    Ref<IndexBuffer> indexBuffer;
-
-    std::vector<SubMesh> subMeshes;
-    std::vector<Ref<Material>> materials;
-};
 
 void Asset_Init();
 void Asset_Cleanup();

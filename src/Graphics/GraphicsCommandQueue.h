@@ -23,9 +23,9 @@ namespace flaw {
 		virtual void ResetShaderResources() = 0;
 
 		virtual void Draw(uint32_t vertexCount, uint32_t vertexOffset = 0) = 0;
-		virtual void DrawInstanced(uint32_t vertexCount, uint32_t instanceCount, uint32_t vertexOffset = 0) = 0;
+		virtual void DrawInstanced(uint32_t vertexCount, uint32_t instanceCount, uint32_t vertexOffset = 0, uint32_t instanceOffset = 0) = 0;
 		virtual void DrawIndexed(const Ref<IndexBuffer>& indexBuffer, uint32_t indexCount, uint32_t indexOffset = 0, uint32_t vertexOffset = 0) = 0;
-		virtual void DrawIndexedInstanced(const Ref<IndexBuffer>& indexBuffer, uint32_t indexCount, uint32_t instanceCount, uint32_t indexOffset = 0, uint32_t vertexOffset = 0) = 0;
+		virtual void DrawIndexedInstanced(const Ref<IndexBuffer>& indexBuffer, uint32_t indexCount, uint32_t instanceCount, uint32_t indexOffset = 0, uint32_t vertexOffset = 0, uint32_t instanceOffset = 0) = 0;
 	
 		virtual void BeginRenderPass() = 0;
 		virtual void BeginRenderPass(const Ref<RenderPass>& beginRenderPass, const Ref<RenderPass>& resumeRenderPass, const Ref<Framebuffer>& framebuffer) = 0;

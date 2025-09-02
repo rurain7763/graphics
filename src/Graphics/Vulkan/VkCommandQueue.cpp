@@ -277,17 +277,17 @@ namespace flaw {
         DrawInstanced(vertexCount, 1, vertexOffset);
     }
 
-    void VkCommandQueue::DrawInstanced(uint32_t vertexCount, uint32_t instanceCount, uint32_t vertexOffset) {
+    void VkCommandQueue::DrawInstanced(uint32_t vertexCount, uint32_t instanceCount, uint32_t vertexOffset, uint32_t instanceOffset) {
         auto& commandBuffer = _graphicsFrameCommandBuffers[_currentCommandBufferIndex];
 
-        commandBuffer.draw(vertexCount, instanceCount, vertexOffset, 0);
+        commandBuffer.draw(vertexCount, instanceCount, vertexOffset, instanceOffset);
     }
 
     void VkCommandQueue::DrawIndexed(const Ref<IndexBuffer>& indexBuffer, uint32_t indexCount, uint32_t indexOffset, uint32_t vertexOffset) {
         DrawIndexedInstanced(indexBuffer, indexCount, 1, indexOffset, vertexOffset);
     }
 
-    void VkCommandQueue::DrawIndexedInstanced(const Ref<IndexBuffer>& indexBuffer, uint32_t indexCount, uint32_t instanceCount, uint32_t indexOffset, uint32_t vertexOffset) {
+    void VkCommandQueue::DrawIndexedInstanced(const Ref<IndexBuffer>& indexBuffer, uint32_t indexCount, uint32_t instanceCount, uint32_t indexOffset, uint32_t vertexOffset, uint32_t instanceOffset) {
         auto vkIndexBuffer = std::dynamic_pointer_cast<VkIndexBuffer>(indexBuffer);
         FASSERT(vkIndexBuffer, "Invalid index buffer type for Vulkan command queue");
 
@@ -296,7 +296,7 @@ namespace flaw {
         auto& commandBuffer = _graphicsFrameCommandBuffers[_currentCommandBufferIndex];
 
         commandBuffer.bindIndexBuffer(vkNativeBuff.buffer, 0, vk::IndexType::eUint32);
-        commandBuffer.drawIndexed(indexCount, instanceCount, indexOffset, vertexOffset, 0);
+        commandBuffer.drawIndexed(indexCount, instanceCount, indexOffset, vertexOffset, instanceOffset);
     }
 
     void VkCommandQueue::BeginRenderPassImpl(const Ref<VkRenderPass>& renderPass, const Ref<VkFramebuffer>& framebuffer) {

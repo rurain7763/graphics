@@ -31,6 +31,8 @@ int main() {
     //LoadModel("assets/models/girl.obj", 1.0f, "girl");
     LoadModel("assets/models/survival-guitar-backpack/backpack.obj", 1.0f, "survival_backpack");
     LoadModel("assets/models/Sponza/Sponza.gltf", 0.05f, "sponza");
+    LoadModel("assets/models/planet/planet.obj", 1.0f, "planet");
+	LoadModel("assets/models/rock/rock.obj", 1.0f, "rock");
 
     Skybox_Init();
     Outliner_Init();
@@ -46,16 +48,43 @@ int main() {
 		std::string meshKey;
     };
 
-	ObjectCreateInfo objectCreateInfos[] = {
-		{ { 0.0f, -120.0f, 0.0f }, 0, 1.0 ,false, false, "sponza" },
+	std::vector<ObjectCreateInfo> objectCreateInfos = {
+		{ { 0.0f, -120.0f, 0.0f }, 0, 1.0, false, false, "sponza" },
 		{ { 2.0f, 2.0f, 0.0f }, 0, 1.0, true, true, "cube" },
 		{ { -2.0f, 2.0f, 0.0f }, 0, 1.0, true, true, "sphere" },
 		{ { 0.0f, 2.0f, 0.0f }, 0, 1.0, true, false, "cube" },
 		{ { 0.0f, 4.0f, 0.0f }, 0, 1.0, true, false, "sphere" },
 		{ { -4.0f, 0.0f, 0.0f }, 0, 1.0, true, true, "survival_backpack" },
+		{ { 20.0f, 0.0f, 0.0f }, 0, 4.0, false, false, "planet" },
 	};
 
-    for (int32_t i = 0; i < sizeof(objectCreateInfos) / sizeof(ObjectCreateInfo); i++) {
+	const uint32_t amount = 1000;
+    float radius = 50.0;
+    float offset = 2.5f;
+    for (uint32_t i = 0; i < amount; i++) {
+		ObjectCreateInfo info;
+
+        glm::mat4 model = glm::mat4(1.0f);
+
+        float angle = (float)i / (float)amount * 360.0f;
+        float displacement = (rand() % (int)(2 * offset * 100)) / 100.0f - offset;
+        float x = sin(angle) * radius + displacement;
+        displacement = (rand() % (int)(2 * offset * 100)) / 100.0f - offset;
+        float y = displacement * 0.4f;
+        displacement = (rand() % (int)(2 * offset * 100)) / 100.0f - offset;
+        float z = cos(angle) * radius + displacement;
+
+		info.position = vec3(x, y, z) + vec3(20.f, 0, 0);
+		info.scale = (rand() % 20) / 100.0f + 0.05;
+		info.rotation = glm::radians((float)(rand() % 360));
+        info.meshKey = "rock";
+		info.drawNormal = false;
+		info.drawOutline = false;
+
+		objectCreateInfos.push_back(info);
+    }
+
+    for (int32_t i = 0; i < objectCreateInfos.size(); i++) {
 		const auto& info = objectCreateInfos[i];
 
  	    auto& obj = AddObject();
