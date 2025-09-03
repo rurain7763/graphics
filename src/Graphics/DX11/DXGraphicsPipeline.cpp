@@ -294,9 +294,9 @@ namespace flaw {
 		}
 
 		std::vector<D3D11_INPUT_ELEMENT_DESC> inputElements;
-		for (const auto& layout : _vertexInputLayouts) {
-			const auto& elements = layout->GetInputElements();
-			inputElements.insert(inputElements.end(), elements.begin(), elements.end());
+		for (uint32_t i = 0; i < _vertexInputLayouts.size(); i++) {
+			const auto& layout = _vertexInputLayouts[i];
+			layout->GetInputElements(i, inputElements);
 		}
 
 		if (FAILED(_context.Device()->CreateInputLayout(inputElements.data(), inputElements.size(), vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), _dxInputLayout.GetAddressOf()))) {

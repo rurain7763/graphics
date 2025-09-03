@@ -28,7 +28,7 @@ int main() {
     LoadTexture("assets/textures/container2.png", "container2");
     LoadTexture("assets/textures/container2_specular.png", "container2_specular");
 
-    //LoadModel("assets/models/girl.obj", 1.0f, "girl");
+    LoadModel("assets/models/girl.obj", 1.0f, "girl");
     LoadModel("assets/models/survival-guitar-backpack/backpack.obj", 1.0f, "survival_backpack");
     LoadModel("assets/models/Sponza/Sponza.gltf", 0.05f, "sponza");
     LoadModel("assets/models/planet/planet.obj", 1.0f, "planet");
@@ -58,7 +58,7 @@ int main() {
 		{ { 20.0f, 0.0f, 0.0f }, 0, 4.0, false, false, "planet" },
 	};
 
-	const uint32_t amount = 1000;
+    const uint32_t amount = 5000;
     float radius = 50.0;
     float offset = 2.5f;
     for (uint32_t i = 0; i < amount; i++) {
@@ -153,7 +153,7 @@ int main() {
             Sprite_Render();
             commandQueue.EndRenderPass();
 
-            auto attachment = std::static_pointer_cast<Texture2D>(sceneFramebuffer->GetResolveAttachment());
+            auto attachment = std::static_pointer_cast<Texture2D>(sceneFramebuffer->GetResolveAttachment(0));
             if (!attachment) {
 				attachment = std::static_pointer_cast<Texture2D>(sceneFramebuffer->GetColorAttachment(0));
             }

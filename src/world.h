@@ -41,6 +41,7 @@ extern Ref<RenderPassLayout> g_sceneRenderPassLayout;
 extern Ref<RenderPass> g_sceneClearRenderPass;
 extern Ref<RenderPass> g_sceneLoadRenderPass;
 extern Ref<VertexInputLayout> g_texturedVertexInputLayout;
+extern Ref<VertexInputLayout> g_instanceVertexInputLayout;
 extern Ref<ConstantBuffer> g_cameraCB;
 extern Ref<ConstantBuffer> g_globalCB;
 extern Ref<ConstantBuffer> g_lightCB;
@@ -48,6 +49,7 @@ extern Ref<StructuredBuffer> g_directionalLightSB;
 extern Ref<StructuredBuffer> g_pointLightSB;
 extern Ref<StructuredBuffer> g_spotLightSB;
 
+extern Ref<GraphicsResourcesPool<VertexBuffer>> g_instanceVBPool;
 extern Ref<GraphicsResourcesPool<ConstantBuffer>> g_objMaterialCBPool;
 extern Ref<GraphicsResourcesPool<ConstantBuffer>> g_objConstantsCBPool;
 

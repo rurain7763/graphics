@@ -20,7 +20,8 @@ namespace flaw {
 		Attachment GetColorAttachment(uint32_t index) const override;
 		bool HasDepthStencilAttachment() const override;
 		Attachment GetDepthStencilAttachment() const override;
-		bool HasResolveAttachment() const override;
+		uint32_t GetResolveAttachmentCount() const override;
+		Attachment GetResolveAttachment(uint32_t index) const override;
 
 		uint32_t GetSampleCount() const override;
 
@@ -30,9 +31,8 @@ namespace flaw {
 		uint32_t _sampleCount;
 		
 		std::vector<Attachment> _colorAttachments;
-
 		std::optional<Attachment> _depthStencilAttachment;
-		std::optional<Attachment> _resolveAttachment;
+		std::vector<Attachment> _resolveAttachments;
 	};
 
 	class DXRenderPass : public RenderPass {
@@ -40,21 +40,20 @@ namespace flaw {
 		DXRenderPass(DXContext& context, const Descriptor& desc);
 		~DXRenderPass() = default;
 
-		uint32_t GetColorAttachmentOpCount() const override;
 		const ColorAttachmentOperation& GetColorAttachmentOp(uint32_t index) const override;
-
-		bool HasDepthStencilAttachmentOp() const override;
 		const DepthStencilAttachmentOperation& GetDepthStencilAttachmentOp() const override;
+		const ResolveAttachmentOperation& GetResolveAttachmentOp(uint32_t index) const override;
 
-		bool HasResolveAttachmentOp() const override;
-		const ResolveAttachmentOperation& GetResolveAttachmentOp() const override;
+		Ref<RenderPassLayout> GetLayout() const override { return _layout; }
 
 	private:
 		DXContext& _context;
 
+		Ref<DXRenderPassLayout> _layout;
+
 		std::vector<ColorAttachmentOperation> _colorAttachmentOps;
 		std::optional<DepthStencilAttachmentOperation> _depthStencilAttachmentOp;
-		std::optional<ResolveAttachmentOperation> _resolveAttachmentOp;
+		std::vector<ResolveAttachmentOperation> _resolveAttachmentOps;
 	};
 }
 

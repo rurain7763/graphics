@@ -18,10 +18,6 @@ struct InstanceData {
     mat4 inv_model_matrix;
 };
 
-layout(std140, set = 1, binding = 0) readonly buffer InstanceDataBuffer {
-    InstanceData data[];
-} instance_datas;
-
 /*
 layout(push_constant) uniform PushConstants {
     mat4 model_matrix;
@@ -32,6 +28,8 @@ layout(location = 0) in vec3 in_position;
 layout(location = 1) in vec4 in_color;
 layout(location = 2) in vec2 in_tex_coord;
 layout(location = 3) in vec3 in_normal;
+layout(location = 4) in mat4 in_instance_model_matrix;
+layout(location = 8) in mat4 in_instance_inv_model_matrix;
 
 out VS_OUT {
     layout(location = 0) vec3 position;
@@ -41,8 +39,9 @@ out VS_OUT {
 } vs_out;
 
 void main() {
-    mat4 model_matrix = instance_datas.data[gl_InstanceIndex].model_matrix;
-    mat4 inv_model_matrix = instance_datas.data[gl_InstanceIndex].inv_model_matrix;
+    mat4 model_matrix = in_instance_model_matrix;
+    mat4 inv_model_matrix = in_instance_inv_model_matrix;
+
     vec4 world_position = model_matrix * vec4(in_position, 1.0);
 
     gl_Position = cameraConstants.projection_matrix * cameraConstants.view_matrix * world_position;

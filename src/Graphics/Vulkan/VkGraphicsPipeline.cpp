@@ -260,12 +260,9 @@ namespace flaw {
 			auto vkVertexInputLayout = std::static_pointer_cast<VkVertexInputLayout>(vertexInputLayouts[i]);
 			FASSERT(vkVertexInputLayout, "Invalid vertex input layout type for Vulkan pipeline");
 
-            const auto& vkBindingDescription = vkVertexInputLayout->GetVkVertexInputBindingDescription();
-            const auto& vkAttributeDescriptions = vkVertexInputLayout->GetVkVertexInputAttributeDescriptions();
-
 			_vertexInputLayouts.push_back(vkVertexInputLayout);
-			_bindingDescriptions.push_back(vkBindingDescription);
-			_attributeDescriptions.insert(_attributeDescriptions.end(), vkAttributeDescriptions.begin(), vkAttributeDescriptions.end());
+			_bindingDescriptions.push_back(vkVertexInputLayout->GetVkVertexInputBindingDescription(i));
+            vkVertexInputLayout->GetVkVertexInputAttributeDescriptions(i, _attributeDescriptions);
 		}
 
 		_vertexInputState.vertexBindingDescriptionCount = _bindingDescriptions.size();
@@ -306,14 +303,14 @@ namespace flaw {
             };
         }
 
-        if (vkRenderPassLayout->HasResolveAttachment()) {
-            renderPassDesc.resolveAttachmentOp = {
-                TextureLayout::Undefined,
-                TextureLayout::ColorAttachment,
-                AttachmentLoadOp::Clear,
-                AttachmentStoreOp::Store
-            };
-        }
+		renderPassDesc.resolveAttachmentOps.resize(vkRenderPassLayout->GetResolveAttachmentCount());
+		for (uint32_t i = 0; i < renderPassDesc.resolveAttachmentOps.size(); ++i) {
+			auto& op = renderPassDesc.resolveAttachmentOps[i];
+			op.initialLayout = TextureLayout::Undefined;
+			op.finalLayout = TextureLayout::ColorAttachment;
+			op.loadOp = AttachmentLoadOp::Clear;
+			op.storeOp = AttachmentStoreOp::Store;
+		}
 
         _renderPass = CreateRef<VkRenderPass>(_context, renderPassDesc);
 

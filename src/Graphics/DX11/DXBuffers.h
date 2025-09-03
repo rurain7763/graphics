@@ -21,14 +21,16 @@ namespace flaw {
 	class DXVertexInputLayout : public VertexInputLayout {
 	public:
 		DXVertexInputLayout(DXContext& context, const Descriptor& descriptor);
-		~DXVertexInputLayout() override;
+		~DXVertexInputLayout() override = default;
 
-		inline const std::vector<D3D11_INPUT_ELEMENT_DESC>& GetInputElements() const { return _inputElements; }
+		void GetInputElements(uint32_t binding, std::vector<D3D11_INPUT_ELEMENT_DESC>& elements) const;
 
 	private:
 		DXContext& _context;
 
-		std::vector<D3D11_INPUT_ELEMENT_DESC> _inputElements;
+		D3D11_INPUT_CLASSIFICATION _inputClassification;
+		std::vector<InputElement> _inputElements;
+		std::vector<uint32_t> _semanticIndices;
 	};
 
 	class DXVertexBuffer : public VertexBuffer {

@@ -20,17 +20,18 @@ namespace flaw {
 
 	class VkVertexInputLayout : public VertexInputLayout {
     public:
-        VkVertexInputLayout(VkContext& context, const Descriptor& descriptor);
+		VkVertexInputLayout(VkContext& context, const Descriptor& descriptor);
         ~VkVertexInputLayout() override = default;
 
-        inline vk::VertexInputBindingDescription& GetVkVertexInputBindingDescription() { return _bindingDescription; }
-        inline const std::vector<vk::VertexInputAttributeDescription>& GetVkVertexInputAttributeDescriptions() const { return _attributeDescriptions; }
+		vk::VertexInputBindingDescription GetVkVertexInputBindingDescription(uint32_t binding) const;
+		void GetVkVertexInputAttributeDescriptions(uint32_t binding, std::vector<vk::VertexInputAttributeDescription>& attrs) const;
 
     private:
         VkContext& _context;
         
-        vk::VertexInputBindingDescription _bindingDescription;
-		std::vector<vk::VertexInputAttributeDescription> _attributeDescriptions;
+		uint32_t _stride;
+		vk::VertexInputRate _vertexInputRate;
+		std::vector<InputElement> _inputElements;
     };
 
 	class VkVertexBuffer : public VertexBuffer {

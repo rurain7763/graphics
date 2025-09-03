@@ -4,12 +4,6 @@
 #define DIFFUSE_TEX_BINDING_FLAG (1 << 0)
 #define SPECULAR_TEX_BINDING_FLAG (1 << 1)
 
-struct InstanceData 
-{
-    row_major float4x4 model_matrix;
-    row_major float4x4 inv_model_matrix;
-};
-
 struct DirectionalLight
 {
     float3 direction;
@@ -77,7 +71,6 @@ cbuffer MaterialConstants : register(b2)
     uint g_texture_binding_flags;
 };
 
-StructuredBuffer<InstanceData> g_instance_datas : register(t0);
 StructuredBuffer<DirectionalLight> g_directional_lights : register(t1);
 StructuredBuffer<PointLight> g_point_lights : register(t2);
 StructuredBuffer<SpotLight> g_spot_lights : register(t3);
@@ -93,6 +86,14 @@ struct VS_INPUT
     float4 color : COLOR;
     float2 texcoord : TEXCOORD0;
     float3 normal : NORMAL;
+    float4 model_matrix0 : MODEL_MATRIX;
+    float4 model_matrix1 : MODEL_MATRIX1;
+    float4 model_matrix2 : MODEL_MATRIX2;
+    float4 model_matrix3 : MODEL_MATRIX3;
+    float4 inv_model_matrix0 : INV_MODEL_MATRIX;
+    float4 inv_model_matrix1 : INV_MODEL_MATRIX1;
+    float4 inv_model_matrix2 : INV_MODEL_MATRIX2;
+    float4 inv_model_matrix3 : INV_MODEL_MATRIX3;
     uint instance_id : SV_InstanceID;
 };
 
@@ -128,9 +129,9 @@ VS_OUTPUT VSMain(VS_INPUT input)
 {
     VS_OUTPUT output = (VS_OUTPUT) 0;
 
-    float4x4 world_matrix = g_instance_datas[input.instance_id].model_matrix;
-    float4x4 inv_world_matrix = g_instance_datas[input.instance_id].inv_model_matrix;
-
+    float4x4 world_matrix = float4x4(input.model_matrix0, input.model_matrix1, input.model_matrix2, input.model_matrix3);
+    float4x4 inv_world_matrix = float4x4(input.inv_model_matrix0, input.inv_model_matrix1, input.inv_model_matrix2, input.inv_model_matrix3);
+    
     float4 world_position = mul(float4(input.position, 1.0f), world_matrix);
     float4 view_position = mul(world_position, g_view_matrix);
     float4 projected_position = mul(view_position, g_projection_matrix);

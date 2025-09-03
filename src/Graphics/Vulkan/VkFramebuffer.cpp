@@ -14,7 +14,7 @@ namespace flaw {
         , _extent{ descriptor.width, descriptor.height }
         , _colorAttachments(descriptor.colorAttachments)
         , _depthStencilAttachment(descriptor.depthStencilAttachment.has_value() ? descriptor.depthStencilAttachment.value() : nullptr)
-        , _resolveAttachment(descriptor.resolveAttachment.has_value() ? descriptor.resolveAttachment.value() : nullptr)
+        , _resolveAttachments(descriptor.resolveAttachments)
         , _renderPassLayout(std::static_pointer_cast<VkRenderPassLayout>(descriptor.renderPassLayout))
         , _colorResizeHandler(descriptor.colorResizeHandler ? descriptor.colorResizeHandler : nullptr)
         , _depthStencilResizeHandler(descriptor.depthStencilResizeHandler ? descriptor.depthStencilResizeHandler : nullptr)
@@ -63,8 +63,10 @@ namespace flaw {
 			needRecreate |= _depthStencilResizeHandler(_depthStencilAttachment, width, height);
         }
 
-        if (_resolveResizeHandler && _resolveAttachment) {
-			needRecreate |= _resolveResizeHandler(_resolveAttachment, width, height);
+        if (_resolveResizeHandler) {
+            for (uint32_t i = 0; i < _resolveAttachments.size(); ++i) {
+                needRecreate |= _resolveResizeHandler(_resolveAttachments[i], width, height);
+            }
         }
 
         if (!needRecreate) {
@@ -111,13 +113,13 @@ namespace flaw {
             };
         }
 
-        if (_renderPassLayout->HasResolveAttachment()) {
-            renderPassDesc.resolveAttachmentOp = {
-                TextureLayout::Undefined,
-                TextureLayout::ColorAttachment,
-                AttachmentLoadOp::Clear,
-                AttachmentStoreOp::Store
-            };
+		renderPassDesc.resolveAttachmentOps.resize(_renderPassLayout->GetResolveAttachmentCount());
+        for (uint32_t i = 0; i < renderPassDesc.resolveAttachmentOps.size(); ++i) {
+			auto& op = renderPassDesc.resolveAttachmentOps[i];
+			op.initialLayout = TextureLayout::Undefined;
+			op.finalLayout = TextureLayout::ColorAttachment;
+			op.loadOp = AttachmentLoadOp::Clear;
+			op.storeOp = AttachmentStoreOp::Store;
         }
 
         _renderpass = CreateRef<VkRenderPass>(_context, renderPassDesc);
@@ -126,7 +128,7 @@ namespace flaw {
     }
 
     bool VkFramebuffer::CreateFramebuffer() {
-        std::vector<vk::ImageView> attachmentViews(_colorAttachments.size());
+        std::vector<vk::ImageView> attachmentViews;
         for (size_t i = 0; i < _colorAttachments.size(); ++i) {
             auto& colorAttachment = _colorAttachments[i];
 
@@ -141,7 +143,7 @@ namespace flaw {
 				return false;
 			}
 
-			attachmentViews[i] = view;
+			attachmentViews.push_back(view);
         }
 
         if (_depthStencilAttachment) {
@@ -159,8 +161,10 @@ namespace flaw {
 			attachmentViews.push_back(view);
         }
 
-        if (_resolveAttachment) {
-			vk::ImageView view = GetViewFromAttachment(_resolveAttachment);
+        for (size_t i = 0; i < _resolveAttachments.size(); ++i) {
+			auto& resolveAttachment = _resolveAttachments[i];
+
+            vk::ImageView view = GetViewFromAttachment(resolveAttachment);
 			if (!view) {
 				LOG_ERROR("Failed to get image view from resolve attachment.");
 				return false;

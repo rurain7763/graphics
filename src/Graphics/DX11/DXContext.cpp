@@ -43,7 +43,7 @@ namespace flaw {
 			return;
 		}
 
-		_msaaSampleCount = GetMaxMSAASampleCount(_device, ConvertToDXFormat(GetSurfaceFormat()));
+		_msaaSampleCount = GetDXMaxMSAASampleCount(_device, ConvertToDXFormat(GetSurfaceFormat()));
 
 		if (CreateMainRenderPassLayout()) {
 			return;
@@ -79,10 +79,10 @@ namespace flaw {
 	int32_t DXContext::CreateMainRenderPassLayout() {
 		RenderPassLayout::Descriptor renderPassLayoutDesc;
 		renderPassLayoutDesc.sampleCount = GetMSAAState() ? _msaaSampleCount : 1;
-		renderPassLayoutDesc.colorAttachments = { { GetSurfaceFormat() }};
+		renderPassLayoutDesc.colorAttachments = { { GetSurfaceFormat() } };
 		renderPassLayoutDesc.depthStencilAttachment = { GetDepthStencilFormat() };
 		if (GetMSAAState()) {
-			renderPassLayoutDesc.resolveAttachment = { { GetSurfaceFormat() } };
+			renderPassLayoutDesc.resolveAttachments = { { GetSurfaceFormat() } };
 		}
 
 		_mainRenderPassLayout = CreateRef<DXRenderPassLayout>(*this, renderPassLayoutDesc);
@@ -102,8 +102,8 @@ namespace flaw {
 				{ TextureLayout::Undefined, TextureLayout::ColorAttachment, AttachmentLoadOp::Clear, AttachmentStoreOp::Store }
 			};
 
-			mainRenderPassDesc.resolveAttachmentOp = {
-				TextureLayout::Undefined, TextureLayout::PresentSource, AttachmentLoadOp::Clear, AttachmentStoreOp::Store
+			mainRenderPassDesc.resolveAttachmentOps = {
+				{ TextureLayout::Undefined, TextureLayout::PresentSource, AttachmentLoadOp::Clear, AttachmentStoreOp::Store }
 			};
 		}
 		else {
@@ -122,8 +122,8 @@ namespace flaw {
 			mainRenderPassDesc.colorAttachmentOps = {
 				{ TextureLayout::ColorAttachment, TextureLayout::ColorAttachment, AttachmentLoadOp::Load, AttachmentStoreOp::Store }
 			};
-			mainRenderPassDesc.resolveAttachmentOp = {
-				TextureLayout::PresentSource, TextureLayout::PresentSource, AttachmentLoadOp::Load, AttachmentStoreOp::Store
+			mainRenderPassDesc.resolveAttachmentOps = {
+				{ TextureLayout::PresentSource, TextureLayout::PresentSource, AttachmentLoadOp::Load, AttachmentStoreOp::Store }
 			};
 		}
 		else {
@@ -221,6 +221,7 @@ namespace flaw {
 
 			return true;
 		};
+
 		if (GetMSAAState()) {
 			Texture2D::Descriptor colorDesc;
 			colorDesc.format = GetSurfaceFormat();
@@ -249,8 +250,9 @@ namespace flaw {
 
 				return true;
 			};
-
-			framebufferDesc.resolveAttachment = CreateRef<DXTexture2D>(*this, backBuffer, GetSurfaceFormat(), 0);
+			framebufferDesc.resolveAttachments = {
+				{ CreateRef<DXTexture2D>(*this, backBuffer, GetSurfaceFormat(), 0) }
+			};
 			framebufferDesc.resolveResizeHandler = [this](Ref<Texture>& tex, uint32_t width, uint32_t height) -> bool {
 				tex.reset();
 

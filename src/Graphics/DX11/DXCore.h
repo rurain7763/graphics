@@ -337,7 +337,7 @@ namespace flaw {
 		}
 	}
 
-	static uint32_t GetMaxMSAASampleCount(ComPtr<ID3D11Device> device, DXGI_FORMAT format) {
+	static uint32_t GetDXMaxMSAASampleCount(ComPtr<ID3D11Device> device, DXGI_FORMAT format) {
 		uint32_t maxSampleCount = 1;
 		for (uint32_t i = 1; i <= D3D11_MAX_MULTISAMPLE_SAMPLE_COUNT; i *= 2) {
 			UINT qualityLevel = 0;

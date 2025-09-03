@@ -27,7 +27,6 @@ std::vector<uint32_t> g_spriteObjects;
 const uint32_t camersConstantsCBBinding = 0;
 const uint32_t lightConstantsCBBinding = 1;
 const uint32_t materialConstantsCBBinding = 1;
-const uint32_t instanceDataSBBinding = 0;
 const uint32_t directionalLightSBBinding = 4;
 const uint32_t pointLightSBBinding = 5;
 const uint32_t spotLightSBBinding = 6;
@@ -38,7 +37,6 @@ const uint32_t skyboxTextureBinding = 4;
 const uint32_t camersConstantsCBBinding = 0;
 const uint32_t lightConstantsCBBinding = 1;
 const uint32_t materialConstantsCBBinding = 2;
-const uint32_t instanceDataSBBinding = 0;
 const uint32_t directionalLightSBBinding = 1;
 const uint32_t pointLightSBBinding = 2;
 const uint32_t spotLightSBBinding = 3;
@@ -55,6 +53,7 @@ Ref<RenderPass> g_sceneClearRenderPass;
 Ref<RenderPass> g_sceneLoadRenderPass;
 
 Ref<VertexInputLayout> g_texturedVertexInputLayout;
+Ref<VertexInputLayout> g_instanceVertexInputLayout;
 
 Ref<ConstantBuffer> g_cameraCB;
 Ref<ConstantBuffer> g_lightCB;
@@ -67,10 +66,10 @@ Ref<ShaderResourcesLayout> g_objShaderResourcesLayout;
 Ref<ShaderResources> g_objShaderResources;
 Ref<ShaderResourcesLayout> g_objDynamicShaderResourcesLayout;
 
+Ref<GraphicsResourcesPool<VertexBuffer>> g_instanceVBPool;
 Ref<GraphicsResourcesPool<ShaderResources>> g_objDynamicShaderResourcesPool;
 Ref<GraphicsResourcesPool<ConstantBuffer>> g_objMaterialCBPool;
 Ref<GraphicsResourcesPool<ConstantBuffer>> g_objConstantsCBPool;
-Ref<GraphicsResourcesPool<StructuredBuffer>> g_objInstanceSBPool;
 
 Ref<GraphicsPipeline> g_finalizePipeline;
 
@@ -131,7 +130,7 @@ void InitBaseResources() {
 	sceneRenderPassLayoutDesc.sampleCount = g_graphicsContext->GetMSAASampleCount();
     sceneRenderPassLayoutDesc.colorAttachments = { { g_graphicsContext->GetSurfaceFormat() } };
     sceneRenderPassLayoutDesc.depthStencilAttachment = { g_graphicsContext->GetDepthStencilFormat() };
-	sceneRenderPassLayoutDesc.resolveAttachment = { { g_graphicsContext->GetSurfaceFormat() } };
+	sceneRenderPassLayoutDesc.resolveAttachments = { { g_graphicsContext->GetSurfaceFormat() } };
 
     g_sceneRenderPassLayout = g_graphicsContext->CreateRenderPassLayout(sceneRenderPassLayoutDesc);
 
@@ -143,8 +142,8 @@ void InitBaseResources() {
     sceneClearRenderPassDesc.depthStencilAttachmentOp = {
         TextureLayout::DepthStencilAttachment, TextureLayout::DepthStencilAttachment, AttachmentLoadOp::Clear, AttachmentStoreOp::Store, AttachmentLoadOp::DontCare, AttachmentStoreOp::DontCare
     };
-	sceneClearRenderPassDesc.resolveAttachmentOp = {
-		TextureLayout::Undefined, TextureLayout::ColorAttachment, AttachmentLoadOp::Clear, AttachmentStoreOp::Store
+	sceneClearRenderPassDesc.resolveAttachmentOps = {
+        { TextureLayout::Undefined, TextureLayout::ColorAttachment, AttachmentLoadOp::Clear, AttachmentStoreOp::Store }
 	};
 
     g_sceneClearRenderPass = g_graphicsContext->CreateRenderPass(sceneClearRenderPassDesc);
@@ -157,8 +156,8 @@ void InitBaseResources() {
     sceneLoadRenderPassDesc.depthStencilAttachmentOp = {
         TextureLayout::DepthStencilAttachment, TextureLayout::DepthStencilAttachment, AttachmentLoadOp::Load, AttachmentStoreOp::Store, AttachmentLoadOp::DontCare, AttachmentStoreOp::DontCare
     };
-	sceneLoadRenderPassDesc.resolveAttachmentOp = {
-		TextureLayout::ColorAttachment, TextureLayout::ColorAttachment, AttachmentLoadOp::Load, AttachmentStoreOp::Store
+	sceneLoadRenderPassDesc.resolveAttachmentOps = {
+        { TextureLayout::ColorAttachment, TextureLayout::ColorAttachment, AttachmentLoadOp::Load, AttachmentStoreOp::Store }
 	};
 
 	g_sceneLoadRenderPass = g_graphicsContext->CreateRenderPass(sceneLoadRenderPassDesc);
@@ -231,7 +230,7 @@ void InitBaseResources() {
             return true;
         };
 
-		sceneFramebufferDesc.resolveAttachment = sceneResolveAttachment;
+        sceneFramebufferDesc.resolveAttachments = { sceneResolveAttachment };
 		sceneFramebufferDesc.resolveResizeHandler = [](Ref<Texture>& texture, int32_t width, int32_t height) -> bool {
 			Texture2D::Descriptor desc;
 			desc.width = width;
@@ -250,7 +249,6 @@ void InitBaseResources() {
 
 	// NOTE: Vertex input layout
     VertexInputLayout::Descriptor vertexInputLayoutDesc;
-    vertexInputLayoutDesc.binding = 0;
     vertexInputLayoutDesc.vertexInputRate = VertexInputRate::Vertex;
     vertexInputLayoutDesc.inputElements = {
         { "POSITION", ElementType::Float, 3 },
@@ -260,6 +258,31 @@ void InitBaseResources() {
     };
 
     g_texturedVertexInputLayout = g_graphicsContext->CreateVertexInputLayout(vertexInputLayoutDesc);
+
+	VertexInputLayout::Descriptor instanceInputLayoutDesc;
+	instanceInputLayoutDesc.vertexInputRate = VertexInputRate::Instance;
+    instanceInputLayoutDesc.inputElements = {
+		{ "MODEL_MATRIX", ElementType::Float, 4 },
+		{ "MODEL_MATRIX1", ElementType::Float, 4 },
+		{ "MODEL_MATRIX2", ElementType::Float, 4 },
+		{ "MODEL_MATRIX3", ElementType::Float, 4 },
+		{ "INV_MODEL_MATRIX", ElementType::Float, 4 },
+		{ "INV_MODEL_MATRIX1", ElementType::Float, 4 },
+		{ "INV_MODEL_MATRIX2", ElementType::Float, 4 },
+		{ "INV_MODEL_MATRIX3", ElementType::Float, 4 }
+    };
+
+	g_instanceVertexInputLayout = g_graphicsContext->CreateVertexInputLayout(instanceInputLayoutDesc);
+
+	// NOTE: Create instance vertex buffer pool
+	g_instanceVBPool = CreateRef<GraphicsResourcesPool<VertexBuffer>>(*g_graphicsContext, [](GraphicsContext& context) {
+		VertexBuffer::Descriptor desc;
+		desc.memProperty = MemoryProperty::Dynamic;
+		desc.elmSize = sizeof(InstanceData);
+		desc.bufferSize = sizeof(InstanceData) * MaxInstancingCount;
+
+		return context.CreateVertexBuffer(desc);
+	});
 
 	// NOTE: Create buffers
     ConstantBuffer::Descriptor cameraConstantsDesc;
@@ -360,16 +383,6 @@ void InitObjectBuffers() {
 
 		return context.CreateConstantBuffer(desc);
     });
-
-    g_objInstanceSBPool = CreateRef<GraphicsResourcesPool<StructuredBuffer>>(*g_graphicsContext, [](GraphicsContext& context) {
-		StructuredBuffer::Descriptor desc;
-		desc.memProperty = MemoryProperty::Dynamic;
-		desc.elmSize = sizeof(InstanceData);
-		desc.bufferSize = sizeof(InstanceData) * MaxInstancingCount;
-		desc.bufferUsages = BufferUsage::ShaderResource;
-
-		return context.CreateStructuredBuffer(desc);
-    });
 }
 
 void InitObjectShaderResources() {
@@ -399,7 +412,6 @@ void InitObjectShaderResources() {
         { specularTextureBinding, ResourceType::Texture2D, ShaderStage::Pixel, 1 },
 		{ skyboxTextureBinding, ResourceType::TextureCube, ShaderStage::Pixel, 1 },
         { materialConstantsCBBinding, ResourceType::ConstantBuffer, ShaderStage::Pixel, 1 },
-        { instanceDataSBBinding, ResourceType::StructuredBuffer, ShaderStage::Vertex, 1 },
 	};
 
     g_objDynamicShaderResourcesLayout = g_graphicsContext->CreateShaderResourcesLayout(shaderResourceLayoutDesc);
@@ -432,7 +444,7 @@ void InitObjectGraphicsPipeline() {
 	g_objPipeline->SetShaderResourcesLayouts({ g_objShaderResourcesLayout, g_objDynamicShaderResourcesLayout });
     g_objPipeline->SetShader(graphicsShader);
     g_objPipeline->SetPrimitiveTopology(PrimitiveTopology::TriangleList);
-    g_objPipeline->SetVertexInputLayouts({ g_texturedVertexInputLayout });
+    g_objPipeline->SetVertexInputLayouts({ g_texturedVertexInputLayout, g_instanceVertexInputLayout });
 	g_objPipeline->SetRenderPassLayout(g_sceneRenderPassLayout);
     g_objPipeline->SetBehaviorStates(GraphicsPipeline::Behavior::AutoResizeViewport | GraphicsPipeline::Behavior::AutoResizeScissor);
 }
@@ -441,6 +453,7 @@ void World_Cleanup() {
 	g_renderQueue.Clear();
     g_objects.clear();
     g_finalizePipeline.reset();
+	g_instanceVBPool.reset();
     g_finalizeShaderResourcesPool.reset();
     g_objPipeline.reset();
     g_objShaderResources.reset();
@@ -449,7 +462,6 @@ void World_Cleanup() {
     g_objDynamicShaderResourcesLayout.reset();
     g_objShaderResources.reset();
     g_objShaderResourcesLayout.reset();
-    g_objInstanceSBPool.reset();
 	g_objConstantsCBPool.reset();
     g_objMaterialCBPool.reset();
     g_directionalLightSB.reset();
@@ -458,6 +470,7 @@ void World_Cleanup() {
     g_lightCB.reset();
     g_cameraCB.reset();
 	g_globalCB.reset();
+	g_instanceVertexInputLayout.reset();
     g_texturedVertexInputLayout.reset();
 	g_sceneLoadRenderPass.reset();
 	g_sceneClearRenderPass.reset();
@@ -474,8 +487,8 @@ void World_Cleanup() {
 void World_Update() {
 	g_objDynamicShaderResourcesPool->Reset();
 	g_objMaterialCBPool->Reset();
+	g_instanceVBPool->Reset();
 	g_objConstantsCBPool->Reset();
-    g_objInstanceSBPool->Reset();
 
     int32_t width, height;
     g_context->GetFrameBufferSize(width, height);
@@ -596,10 +609,11 @@ void World_Render() {
 
     commandQueue.SetPipeline(g_objPipeline);
 
-    auto objInstanceBuffer = g_objInstanceSBPool->Get();
 	uint32_t instanceOffset = 0;
 
-    objInstanceBuffer->Update(g_renderQueue.AllInstanceDatas().data(), sizeof(InstanceData)* g_renderQueue.AllInstanceDatas().size());
+	auto objInstanceVB = g_instanceVBPool->Get();
+
+	objInstanceVB->Update(g_renderQueue.AllInstanceDatas().data(), sizeof(InstanceData) * g_renderQueue.AllInstanceDatas().size());
 
     g_renderQueue.Reset();
 	while (!g_renderQueue.Empty()) {
@@ -615,7 +629,6 @@ void World_Render() {
 
             auto objDynamicResources = g_objDynamicShaderResourcesPool->Get();
 
-            objDynamicResources->BindStructuredBuffer(objInstanceBuffer, instanceDataSBBinding);
             objDynamicResources->BindConstantBuffer(objMaterialCB, materialConstantsCBBinding);
 
             if (entry.material->diffuseTexture) {
@@ -634,7 +647,7 @@ void World_Render() {
 
             objDynamicResources->BindTextureCube(GetTextureCube("skybox"), skyboxTextureBinding);
 
-            commandQueue.SetVertexBuffers({ instancingObj.mesh->vertexBuffer });
+            commandQueue.SetVertexBuffers({ instancingObj.mesh->vertexBuffer, objInstanceVB });
             commandQueue.SetShaderResources({ g_objShaderResources, objDynamicResources });
             commandQueue.DrawIndexedInstanced(instancingObj.mesh->indexBuffer, segment.indexCount, instancingObj.instanceCount, segment.indexOffset, segment.vertexOffset, instanceOffset);
 
@@ -658,7 +671,7 @@ void World_FinalizeRender() {
     auto& framebuffer = g_sceneFramebuffers[commandQueue.GetCurrentFrameIndex()];
 
     auto quad = GetMesh("quad");
-    auto attachment = std::static_pointer_cast<Texture2D>(framebuffer->GetResolveAttachment());
+    auto attachment = std::static_pointer_cast<Texture2D>(framebuffer->GetResolveAttachment(0));
     if (!attachment) {
         attachment = std::static_pointer_cast<Texture2D>(framebuffer->GetColorAttachment(0));
     }

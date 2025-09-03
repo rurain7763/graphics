@@ -21,7 +21,8 @@ namespace flaw {
         virtual bool HasDepthStencilAttachment() const override;
 		virtual Attachment GetDepthStencilAttachment() const override;
 
-        virtual bool HasResolveAttachment() const override;
+        virtual uint32_t GetResolveAttachmentCount() const override;
+        virtual Attachment GetResolveAttachment(uint32_t index) const override;
 
         virtual uint32_t GetSampleCount() const override;
 
@@ -29,7 +30,7 @@ namespace flaw {
         inline std::vector<vk::AttachmentDescription> GetVkAttachments() { return _vkAttachments; }
         inline std::vector<vk::AttachmentReference> GetVkColorAttachmentRefs() { return _colorAttachmentRefs; }
         inline vk::AttachmentReference GetVkDepthAttachmentRef() { return _depthAttachmentRef.value(); }
-        inline vk::AttachmentReference GetVkResolveAttachmentRef() { return _resolveAttachmentRef.value(); }
+        inline std::vector<vk::AttachmentReference> GetVkResolveAttachmentRefs() { return _resolveAttachmentRefs; }
 
     private:
         VkContext& _context;
@@ -41,7 +42,7 @@ namespace flaw {
         std::vector<vk::AttachmentDescription> _vkAttachments;
         std::vector<vk::AttachmentReference> _colorAttachmentRefs;
         std::optional<vk::AttachmentReference> _depthAttachmentRef;
-        std::optional<vk::AttachmentReference> _resolveAttachmentRef;
+        std::vector<vk::AttachmentReference> _resolveAttachmentRefs;
     };
     
     class VkRenderPass : public RenderPass {
@@ -49,14 +50,11 @@ namespace flaw {
         VkRenderPass(VkContext& context, const Descriptor& descriptor);
         ~VkRenderPass();
 
-        virtual uint32_t GetColorAttachmentOpCount() const override;
         virtual const ColorAttachmentOperation& GetColorAttachmentOp(uint32_t index) const override;
-
-        virtual bool HasDepthStencilAttachmentOp() const override;
         virtual const DepthStencilAttachmentOperation& GetDepthStencilAttachmentOp() const override;
+        virtual const ResolveAttachmentOperation& GetResolveAttachmentOp(uint32_t index) const override;
 
-        virtual bool HasResolveAttachmentOp() const override;
-        virtual const ResolveAttachmentOperation& GetResolveAttachmentOp() const override;
+		virtual Ref<RenderPassLayout> GetLayout() const override { return _layout; }
 
         inline vk::RenderPass& GetNativeVkRenderPass() { return _renderPass; }
 
@@ -66,10 +64,12 @@ namespace flaw {
     private:
         VkContext& _context;
 
+		Ref<VkRenderPassLayout> _layout;
+
         vk::RenderPass _renderPass;
-        std::vector<ColorAttachmentOperation> _colorAttachmentOp;
+        std::vector<ColorAttachmentOperation> _colorAttachmentOps;
         std::optional<DepthStencilAttachmentOperation> _depthStencilOp;
-        std::optional<ResolveAttachmentOperation> _resolveAttachmentOp;
+        std::vector<ResolveAttachmentOperation> _resolveAttachmentOps;
     };
 }
 

@@ -14,6 +14,10 @@ namespace flaw {
     {
         for (uint32_t i = 0; i < descriptor.colorAttachments.size(); ++i) {
             const auto &attachment = descriptor.colorAttachments[i];
+
+            vk::AttachmentReference resolveAttachmentRef;
+			resolveAttachmentRef.attachment = static_cast<uint32_t>(_vkAttachments.size());
+			resolveAttachmentRef.layout = vk::ImageLayout::eColorAttachmentOptimal;
             
             vk::AttachmentDescription attachmentDescription;
             attachmentDescription.format = ConvertToVkFormat(attachment.format);
@@ -26,11 +30,10 @@ namespace flaw {
             attachmentDescription.finalLayout = vk::ImageLayout::eColorAttachmentOptimal;
 
             _vkAttachments.push_back(attachmentDescription);
-            _colorAttachmentRefs.push_back({static_cast<uint32_t>(i), vk::ImageLayout::eColorAttachmentOptimal});
+            _colorAttachmentRefs.push_back(resolveAttachmentRef);
         }
 
-        if (descriptor.depthStencilAttachment.has_value())
-        {
+        if (descriptor.depthStencilAttachment.has_value()) {
             const auto &depthAttachment = descriptor.depthStencilAttachment.value();
 
             vk::AttachmentReference depthAttachmentRef;
@@ -51,9 +54,8 @@ namespace flaw {
             _depthAttachmentRef = depthAttachmentRef;
         }
 
-        if (descriptor.resolveAttachment.has_value())
-        {
-            const auto &resolveAttachment = descriptor.resolveAttachment.value();
+        for (uint32_t i = 0; i < descriptor.resolveAttachments.size(); ++i) {
+            const auto& resolveAttachment = descriptor.resolveAttachments[i];
 
             vk::AttachmentReference resolveAttachmentRef;
             resolveAttachmentRef.attachment = static_cast<uint32_t>(_vkAttachments.size());
@@ -70,7 +72,7 @@ namespace flaw {
             resolveAttachmentDescription.finalLayout = vk::ImageLayout::eColorAttachmentOptimal;
 
             _vkAttachments.push_back(resolveAttachmentDescription);
-            _resolveAttachmentRef = resolveAttachmentRef;
+			_resolveAttachmentRefs.push_back(resolveAttachmentRef);
         }
     }
 
@@ -83,7 +85,9 @@ namespace flaw {
 			throw std::runtime_error("Color attachment index out of bounds.");
 		}
 
-        return { ConvertToPixelFormat(_vkAttachments[index].format) };
+		uint32_t attachmentIndex = _colorAttachmentRefs[index].attachment;
+
+        return { ConvertToPixelFormat(_vkAttachments[attachmentIndex].format) };
 	}
 
     bool VkRenderPassLayout::HasDepthStencilAttachment() const {
@@ -98,8 +102,18 @@ namespace flaw {
 		return { ConvertToPixelFormat(_vkAttachments[_depthAttachmentRef->attachment].format) };
     }
 
-    bool VkRenderPassLayout::HasResolveAttachment() const {
-        return _resolveAttachmentRef.has_value();
+    uint32_t VkRenderPassLayout::GetResolveAttachmentCount() const {
+        return _resolveAttachmentRefs.size();
+    }
+
+	VkRenderPassLayout::Attachment VkRenderPassLayout::GetResolveAttachment(uint32_t index) const {
+		if (index >= _resolveAttachmentRefs.size()) {
+			throw std::runtime_error("Resolve attachment index out of bounds.");
+		}
+
+		uint32_t attachmentIndex = _resolveAttachmentRefs[index].attachment;
+
+		return { ConvertToPixelFormat(_vkAttachments[attachmentIndex].format) };
     }
 
     uint32_t VkRenderPassLayout::GetSampleCount() const {
@@ -108,16 +122,18 @@ namespace flaw {
 
     VkRenderPass::VkRenderPass(VkContext &context, const Descriptor &descriptor)
         : _context(context)
+		, _layout(std::static_pointer_cast<VkRenderPassLayout>(descriptor.layout))
     {
-        if (!CreateRenderPass(descriptor))
-        {
+		FASSERT(_layout, "VkRenderPassLayout is not set in the descriptor.");
+
+        if (!CreateRenderPass(descriptor)) {
             Log::Fatal("Failed to create Vulkan render pass.");
             return;
         }
 
-        _colorAttachmentOp = descriptor.colorAttachmentOps;
+        _colorAttachmentOps = descriptor.colorAttachmentOps;
         _depthStencilOp = descriptor.depthStencilAttachmentOp;
-		_resolveAttachmentOp = descriptor.resolveAttachmentOp;
+		_resolveAttachmentOps = descriptor.resolveAttachmentOps;
     }
 
     VkRenderPass::~VkRenderPass() {
@@ -126,46 +142,29 @@ namespace flaw {
         });
     }
 
-    uint32_t VkRenderPass::GetColorAttachmentOpCount() const {
-        return _colorAttachmentOp.size();
-    }
-
     const RenderPass::ColorAttachmentOperation& VkRenderPass::GetColorAttachmentOp(uint32_t index) const {
-        return _colorAttachmentOp.at(index);
-    }
-
-    bool VkRenderPass::HasDepthStencilAttachmentOp() const {
-        return _depthStencilOp.has_value();
+        return _colorAttachmentOps.at(index);
     }
 
     const RenderPass::DepthStencilAttachmentOperation& VkRenderPass::GetDepthStencilAttachmentOp() const {
         return _depthStencilOp.value();
     }
 
-    bool VkRenderPass::HasResolveAttachmentOp() const {
-        return _resolveAttachmentOp.has_value();
-    }
-
-    const RenderPass::ResolveAttachmentOperation& VkRenderPass::GetResolveAttachmentOp() const {
-        return _resolveAttachmentOp.value();
+    const RenderPass::ResolveAttachmentOperation& VkRenderPass::GetResolveAttachmentOp(uint32_t index) const {
+        return _resolveAttachmentOps.at(index);
     }
 
     bool VkRenderPass::CreateRenderPass(const Descriptor &descriptor) {
-        auto vkRenderPassLayout = std::static_pointer_cast<VkRenderPassLayout>(descriptor.layout);
-        if (!vkRenderPassLayout) {
-            Log::Fatal("VkRenderPassLayout is not set in the descriptor.");
-            return false;
-        }
-
         vk::SubpassDescription subpassDescription;
-        subpassDescription.pipelineBindPoint = vkRenderPassLayout->GetVkPipelineBindPoint();
+        subpassDescription.pipelineBindPoint = _layout->GetVkPipelineBindPoint();
 
-        std::vector<vk::AttachmentDescription> attachments = vkRenderPassLayout->GetVkAttachments();
+        std::vector<vk::AttachmentDescription> attachments = _layout->GetVkAttachments();
 
-        std::vector<vk::AttachmentReference> colorAttachmentRefs = vkRenderPassLayout->GetVkColorAttachmentRefs();
+        std::vector<vk::AttachmentReference> colorAttachmentRefs = _layout->GetVkColorAttachmentRefs();
         for (uint32_t i = 0; i < colorAttachmentRefs.size(); ++i) {
-            auto &attachment = attachments[i];
-            auto &operation = descriptor.colorAttachmentOps[i];
+			auto& colorAttachmentRef = colorAttachmentRefs[i];
+			auto& attachment = attachments[colorAttachmentRef.attachment];
+            auto& operation = descriptor.colorAttachmentOps[i];
 
             attachment.loadOp = ConvertToVkAttachmentLoadOp(operation.loadOp);
             attachment.storeOp = ConvertToVkAttachmentStoreOp(operation.storeOp);
@@ -179,11 +178,10 @@ namespace flaw {
         subpassDescription.pColorAttachments = colorAttachmentRefs.data();
 
         vk::AttachmentReference depthStencilAttachmentRef;
-        if (vkRenderPassLayout->HasDepthStencilAttachment() && descriptor.depthStencilAttachmentOp.has_value()) {
-            depthStencilAttachmentRef = vkRenderPassLayout->GetVkDepthAttachmentRef();
-
-            auto &attachment = *(attachments.begin() + colorAttachmentRefs.size());
-            auto &operation = descriptor.depthStencilAttachmentOp.value();
+        if (_layout->HasDepthStencilAttachment() && descriptor.depthStencilAttachmentOp.has_value()) {
+            depthStencilAttachmentRef = _layout->GetVkDepthAttachmentRef();
+			auto& attachment = attachments[depthStencilAttachmentRef.attachment];
+            auto& operation = descriptor.depthStencilAttachmentOp.value();
 
             attachment.loadOp = ConvertToVkAttachmentLoadOp(operation.loadOp);
             attachment.storeOp = ConvertToVkAttachmentStoreOp(operation.storeOp);
@@ -195,20 +193,19 @@ namespace flaw {
             subpassDescription.pDepthStencilAttachment = &depthStencilAttachmentRef;
         }
 
-        vk::AttachmentReference resolveAttachmentRef;
-        if (vkRenderPassLayout->HasResolveAttachment() && descriptor.resolveAttachmentOp.has_value()) {
-            resolveAttachmentRef = vkRenderPassLayout->GetVkResolveAttachmentRef();
-
-            auto &attachment = *(attachments.begin() + colorAttachmentRefs.size() + (vkRenderPassLayout->HasDepthStencilAttachment() ? 1 : 0));
-            auto &operation = descriptor.resolveAttachmentOp.value();
+        std::vector<vk::AttachmentReference> resolveAttachmentRefs = _layout->GetVkResolveAttachmentRefs();
+        for (uint32_t i = 0; i < resolveAttachmentRefs.size(); ++i) {
+			auto& resolveAttachmentRef = resolveAttachmentRefs[i];
+			auto& attachment = attachments[resolveAttachmentRef.attachment];
+            auto &operation = descriptor.resolveAttachmentOps[i];
 
             attachment.loadOp = ConvertToVkAttachmentLoadOp(operation.loadOp);
             attachment.storeOp = ConvertToVkAttachmentStoreOp(operation.storeOp);
             attachment.initialLayout = ConvertToVkImageLayout(operation.initialLayout);
             attachment.finalLayout = ConvertToVkImageLayout(operation.finalLayout);
-
-            subpassDescription.pResolveAttachments = &resolveAttachmentRef;
         }
+
+		subpassDescription.pResolveAttachments = resolveAttachmentRefs.data();
 
         vk::RenderPassCreateInfo renderPassInfo;
         renderPassInfo.attachmentCount = attachments.size();
@@ -218,7 +215,7 @@ namespace flaw {
 
         auto renderPassWrapper = _context.GetVkDevice().createRenderPass(renderPassInfo, nullptr);
         if (renderPassWrapper.result != vk::Result::eSuccess) {
-            Log::Fatal("Failed to create Vulkan render pass: %s", vk::to_string(renderPassWrapper.result).c_str());
+            LOG_FATAL("Failed to create Vulkan render pass: %s", vk::to_string(renderPassWrapper.result).c_str());
             return false;
         }
 

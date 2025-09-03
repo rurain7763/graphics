@@ -31,8 +31,8 @@ void Outliner_Init() {
 	renderPassDesc.depthStencilAttachmentOp = {
 		TextureLayout::DepthStencilAttachment, TextureLayout::DepthStencilAttachment, AttachmentLoadOp::Load, AttachmentStoreOp::Store, AttachmentLoadOp::Clear, AttachmentStoreOp::Store
 	};
-	renderPassDesc.resolveAttachmentOp = {
-		TextureLayout::ColorAttachment, TextureLayout::ColorAttachment, AttachmentLoadOp::Load, AttachmentStoreOp::Store
+	renderPassDesc.resolveAttachmentOps = {
+		{ TextureLayout::ColorAttachment, TextureLayout::ColorAttachment, AttachmentLoadOp::Load, AttachmentStoreOp::Store }
 	};
 
 	g_renderPass = g_graphicsContext->CreateRenderPass(renderPassDesc);

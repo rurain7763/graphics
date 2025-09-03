@@ -13,7 +13,7 @@ namespace flaw {
 		, _sampleCount(desc.sampleCount)
 		, _colorAttachments(desc.colorAttachments)
 		, _depthStencilAttachment(desc.depthStencilAttachment)
-		, _resolveAttachment(desc.resolveAttachment)
+		, _resolveAttachments(desc.resolveAttachments)
 	{
 	}
 
@@ -35,8 +35,13 @@ namespace flaw {
 		return _depthStencilAttachment.value();
 	}
 
-	bool DXRenderPassLayout::HasResolveAttachment() const {
-		return _resolveAttachment.has_value();
+	uint32_t DXRenderPassLayout::GetResolveAttachmentCount() const {
+		return _resolveAttachments.size();
+	}
+
+	DXRenderPassLayout::Attachment DXRenderPassLayout::GetResolveAttachment(uint32_t index) const {
+		FASSERT(index < _resolveAttachments.size(), "Resolve attachment index out of bounds");
+		return _resolveAttachments[index];
 	}
 
 	uint32_t DXRenderPassLayout::GetSampleCount() const {
@@ -45,34 +50,24 @@ namespace flaw {
 
 	DXRenderPass::DXRenderPass(DXContext& context, const Descriptor& desc)
 		: _context(context)
+		, _layout(std::static_pointer_cast<DXRenderPassLayout>(desc.layout))
 		, _colorAttachmentOps(desc.colorAttachmentOps)
 		, _depthStencilAttachmentOp(desc.depthStencilAttachmentOp)
-		, _resolveAttachmentOp(desc.resolveAttachmentOp)
+		, _resolveAttachmentOps(desc.resolveAttachmentOps)
 	{
-	}
-
-	uint32_t DXRenderPass::GetColorAttachmentOpCount() const {
-		return _colorAttachmentOps.size();
+		FASSERT(_layout, "Render pass layout is not a DXRenderPassLayout or null");
 	}
 
 	const RenderPass::ColorAttachmentOperation& DXRenderPass::GetColorAttachmentOp(uint32_t index) const {
 		return _colorAttachmentOps[index];
 	}
 
-	bool DXRenderPass::HasDepthStencilAttachmentOp() const {
-		return _depthStencilAttachmentOp.has_value();
-	}
-
 	const RenderPass::DepthStencilAttachmentOperation& DXRenderPass::GetDepthStencilAttachmentOp() const {
 		return _depthStencilAttachmentOp.value();
 	}
 
-	bool DXRenderPass::HasResolveAttachmentOp() const {
-		return _resolveAttachmentOp.has_value();
-	}
-
-	const RenderPass::ResolveAttachmentOperation& DXRenderPass::GetResolveAttachmentOp() const {
-		return _resolveAttachmentOp.value();
+	const RenderPass::ResolveAttachmentOperation& DXRenderPass::GetResolveAttachmentOp(uint32_t index) const {
+		return _resolveAttachmentOps[index];
 	}
 }
 

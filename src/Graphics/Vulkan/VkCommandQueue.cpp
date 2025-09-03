@@ -302,17 +302,19 @@ namespace flaw {
     void VkCommandQueue::BeginRenderPassImpl(const Ref<VkRenderPass>& renderPass, const Ref<VkFramebuffer>& framebuffer) {
         auto& commandBuffer = _graphicsFrameCommandBuffers[_currentCommandBufferIndex];
 
+		auto layout = renderPass->GetLayout();
+
         std::vector<vk::ClearValue> clearValues;
-        for(uint32_t i = 0; i < renderPass->GetColorAttachmentOpCount(); ++i) {
+        for(uint32_t i = 0; i < layout->GetColorAttachmentCount(); ++i) {
             clearValues.push_back(vk::ClearColorValue(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f}));
         }
 
-        if (renderPass->HasDepthStencilAttachmentOp()) {
+        if (layout->HasDepthStencilAttachment()) {
 			clearValues.push_back(vk::ClearDepthStencilValue{ 1.0f, 0 });
         }
 
-        if (renderPass->HasResolveAttachmentOp()) {
-			clearValues.push_back(vk::ClearColorValue(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f}));
+        for (uint32_t i = 0; i < layout->GetResolveAttachmentCount(); ++i) {
+            clearValues.push_back(vk::ClearColorValue(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f}));
         }
 
         vk::RenderPassBeginInfo renderPassInfo;

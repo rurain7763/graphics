@@ -263,7 +263,7 @@ namespace flaw {
             renderPassLayoutDesc.sampleCount = _context.GetMSAASampleCount();
             renderPassLayoutDesc.colorAttachments = { { _context.GetSurfaceFormat() } };
             renderPassLayoutDesc.depthStencilAttachment = { _depthStencilFormat };
-            renderPassLayoutDesc.resolveAttachment = { _context.GetSurfaceFormat() };
+            renderPassLayoutDesc.resolveAttachments = { { _context.GetSurfaceFormat() } };
         }
 
         _renderPassLayout = CreateRef<VkRenderPassLayout>(_context, renderPassLayoutDesc);
@@ -279,7 +279,7 @@ namespace flaw {
             renderPassDesc.colorAttachmentOps = {
                 { TextureLayout::Undefined, TextureLayout::ColorAttachment, AttachmentLoadOp::Clear, AttachmentStoreOp::Store }
             };
-            renderPassDesc.resolveAttachmentOp = {
+            renderPassDesc.resolveAttachmentOps = {
                 { TextureLayout::Undefined, TextureLayout::PresentSource, AttachmentLoadOp::Clear, AttachmentStoreOp::Store }
             };
         } else {
@@ -298,7 +298,7 @@ namespace flaw {
             renderPassDesc.colorAttachmentOps = {
                 { TextureLayout::ColorAttachment, TextureLayout::ColorAttachment, AttachmentLoadOp::Load, AttachmentStoreOp::Store }
             };
-            renderPassDesc.resolveAttachmentOp = {
+            renderPassDesc.resolveAttachmentOps = {
                 { TextureLayout::PresentSource, TextureLayout::PresentSource, AttachmentLoadOp::Load, AttachmentStoreOp::Store }
             };
         } else {
@@ -327,7 +327,7 @@ namespace flaw {
 
             if (_context.GetMSAAState()) {
                 desc.colorAttachments.push_back(_msaaColorTextures[i]);
-                desc.resolveAttachment = renderTexture;
+                desc.resolveAttachments.push_back(renderTexture);
             } else {
                 desc.colorAttachments.push_back(renderTexture);
             }

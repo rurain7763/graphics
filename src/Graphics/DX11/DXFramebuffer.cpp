@@ -15,6 +15,8 @@ namespace flaw {
 		, _height(descriptor.height)
 		, _colorAttachments(descriptor.colorAttachments)
 		, _colorResizeHandler(descriptor.colorResizeHandler)
+		, _resolveAttachments(descriptor.resolveAttachments)
+		, _resolveResizeHandler(descriptor.resolveResizeHandler)
 		, _renderPassLayout(std::static_pointer_cast<DXRenderPassLayout>(descriptor.renderPassLayout))
 	{
 		if (!_renderPassLayout) {
@@ -25,11 +27,6 @@ namespace flaw {
 		if (descriptor.depthStencilAttachment) {
 			_depthStencilAttachment = descriptor.depthStencilAttachment.value();
 			_depthStencilResizeHandler = descriptor.depthStencilResizeHandler;
-		}
-
-		if (descriptor.resolveAttachment) {
-			_resolveAttachment = descriptor.resolveAttachment.value();
-			_resolveResizeHandler = descriptor.resolveResizeHandler;
 		}
 
 		_context.AddOnResizeHandler(PID(this), std::bind(&DXFramebuffer::Resize, this, std::placeholders::_1, std::placeholders::_2));
@@ -55,8 +52,10 @@ namespace flaw {
 			needRecreate |= _depthStencilResizeHandler(_depthStencilAttachment, width, height);
 		}
 
-		if (_resolveResizeHandler && _resolveAttachment) {
-			needRecreate |= _resolveResizeHandler(_resolveAttachment, width, height);
+		if (_resolveResizeHandler) {
+			for (uint32_t i = 0; i < _resolveAttachments.size(); ++i) {
+				needRecreate |= _resolveResizeHandler(_resolveAttachments[i], width, height);
+			}
 		}
 
 		if (!needRecreate) {

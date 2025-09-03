@@ -16,7 +16,7 @@ namespace flaw {
 			uint32_t sampleCount = 1;
 			std::vector<Attachment> colorAttachments;
 			std::optional<Attachment> depthStencilAttachment;
-			std::optional<Attachment> resolveAttachment;
+			std::vector<Attachment> resolveAttachments;
 		};
 
 		virtual ~RenderPassLayout() = default;
@@ -25,7 +25,8 @@ namespace flaw {
 		virtual Attachment GetColorAttachment(uint32_t index) const = 0;
 		virtual bool HasDepthStencilAttachment() const = 0;
 		virtual Attachment GetDepthStencilAttachment() const = 0;
-		virtual bool HasResolveAttachment() const = 0;
+		virtual uint32_t GetResolveAttachmentCount() const = 0;
+		virtual Attachment GetResolveAttachment(uint32_t index) const = 0;
 
 		virtual uint32_t GetSampleCount() const = 0;
 	};
@@ -60,18 +61,15 @@ namespace flaw {
 
 			std::vector<ColorAttachmentOperation> colorAttachmentOps;
 			std::optional<DepthStencilAttachmentOperation> depthStencilAttachmentOp;
-			std::optional<ResolveAttachmentOperation> resolveAttachmentOp;
+			std::vector<ResolveAttachmentOperation> resolveAttachmentOps;
 		};
 
 		virtual ~RenderPass() = default;
 
-		virtual uint32_t GetColorAttachmentOpCount() const = 0;
 		virtual const ColorAttachmentOperation& GetColorAttachmentOp(uint32_t index) const = 0;
-
-		virtual bool HasDepthStencilAttachmentOp() const = 0;
 		virtual const DepthStencilAttachmentOperation& GetDepthStencilAttachmentOp() const = 0;
+		virtual const ResolveAttachmentOperation& GetResolveAttachmentOp(uint32_t index) const = 0;
 
-		virtual bool HasResolveAttachmentOp() const = 0;
-		virtual const ResolveAttachmentOperation& GetResolveAttachmentOp() const = 0;
+		virtual Ref<RenderPassLayout> GetLayout() const = 0;
 	};
 }

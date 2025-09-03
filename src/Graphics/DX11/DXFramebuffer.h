@@ -21,7 +21,8 @@ namespace flaw {
 		inline uint32_t GetColorAttachmentCount() const override { return _colorAttachments.size(); }
 		inline Ref<Texture> GetColorAttachment(uint32_t index) const override { return _colorAttachments[index]; }
 		inline Ref<Texture> GetDepthStencilAttachment() const override { return _depthStencilAttachment; }
-		inline Ref<Texture> GetResolveAttachment() const override { return _resolveAttachment; }
+		inline uint32_t GetResolveAttachmentCount() const override { return _resolveAttachments.size(); }
+		inline Ref<Texture> GetResolveAttachment(uint32_t index) const override { return _resolveAttachments[index]; }
 
 		Ref<RenderPassLayout> GetRenderPassLayout() const override;
 
@@ -35,7 +36,7 @@ namespace flaw {
 
 		std::vector<Ref<Texture>> _colorAttachments;
 		Ref<Texture> _depthStencilAttachment;
-		Ref<Texture> _resolveAttachment;
+		std::vector<Ref<Texture>> _resolveAttachments;
 
 		Ref<DXRenderPassLayout> _renderPassLayout;
 

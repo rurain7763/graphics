@@ -282,8 +282,10 @@ namespace flaw {
 	}
 
 	void DXCommandQueue::BeginRenderPassImpl(const Ref<DXRenderPass>& beginRenderPass, const Ref<DXFramebuffer>& framebuffer) {
-		std::vector<ID3D11RenderTargetView*> rtvs(beginRenderPass->GetColorAttachmentOpCount());
-		for (uint32_t i = 0; i < beginRenderPass->GetColorAttachmentOpCount(); i++) {
+		auto layout = beginRenderPass->GetLayout();
+		
+		std::vector<ID3D11RenderTargetView*> rtvs(layout->GetColorAttachmentCount());
+		for (uint32_t i = 0; i < layout->GetColorAttachmentCount(); i++) {
 			auto& op = beginRenderPass->GetColorAttachmentOp(i);
 			auto& renderTargetTex = std::static_pointer_cast<DXTexture2D>(framebuffer->GetColorAttachment(i));
 			const auto& dxNativeTex = static_cast<const DXNativeTexture&>(renderTargetTex->GetNativeTexture());
@@ -296,7 +298,7 @@ namespace flaw {
 		}
 
 		ID3D11DepthStencilView* dsv = nullptr;
-		if (beginRenderPass->HasDepthStencilAttachmentOp()) {
+		if (layout->HasDepthStencilAttachment()) {
 			auto& depthStencilOp = beginRenderPass->GetDepthStencilAttachmentOp();
 			auto& depthStencilTex = std::static_pointer_cast<DXTexture2D>(framebuffer->GetDepthStencilAttachment());
 			const auto& dxNativeTex = static_cast<const DXNativeTexture&>(depthStencilTex->GetNativeTexture());
@@ -335,12 +337,40 @@ namespace flaw {
 		auto dxFramebuffer = std::static_pointer_cast<DXFramebuffer>(framebuffer);
 		FASSERT(dxFramebuffer, "Invalid framebuffer type for DXCommandQueue");
 
+		if (!_currentBeginInfoStack.empty()) {
+			const auto& endedBeginInfo = _currentBeginInfoStack.back();
+			const auto layout = endedBeginInfo.framebuffer->GetRenderPassLayout();
+
+			for (uint32_t i = 0; i < layout->GetResolveAttachmentCount(); i++) {
+				auto& resolveTex = endedBeginInfo.framebuffer->GetResolveAttachment(i);
+				const auto& dxNativeResolveTex = static_cast<const DXNativeTexture&>(resolveTex->GetNativeTexture());
+				auto& colorTex = endedBeginInfo.framebuffer->GetColorAttachment(i);
+				const auto& dxNativeColorTex = static_cast<const DXNativeTexture&>(colorTex->GetNativeTexture());
+
+				_context.DeviceContext()->ResolveSubresource(dxNativeResolveTex.texture.Get(), 0, dxNativeColorTex.texture.Get(), 0, ConvertToDXFormat(resolveTex->GetPixelFormat()));
+			}
+		}
+
 		_currentBeginInfoStack.push_back({ dxFramebuffer, dxBeginRenderPass, dxResumeRenderPass });
 
 		BeginRenderPassImpl(dxBeginRenderPass, dxFramebuffer);
 	}
 
 	void DXCommandQueue::EndRenderPass() {
+		if (!_currentBeginInfoStack.empty()) {
+			const auto& endedBeginInfo = _currentBeginInfoStack.back();
+			const auto layout = endedBeginInfo.framebuffer->GetRenderPassLayout();
+
+			for (uint32_t i = 0; i < layout->GetResolveAttachmentCount(); i++) {
+				auto& resolveTex = endedBeginInfo.framebuffer->GetResolveAttachment(i);
+				const auto& dxNativeResolveTex = static_cast<const DXNativeTexture&>(resolveTex->GetNativeTexture());
+				auto& colorTex = endedBeginInfo.framebuffer->GetColorAttachment(i);
+				const auto& dxNativeColorTex = static_cast<const DXNativeTexture&>(colorTex->GetNativeTexture());
+
+				_context.DeviceContext()->ResolveSubresource(dxNativeResolveTex.texture.Get(), 0, dxNativeColorTex.texture.Get(), 0, ConvertToDXFormat(resolveTex->GetPixelFormat()));
+			}
+		}
+
 		_currentBeginInfoStack.pop_back();
 		if (_currentBeginInfoStack.empty()) {
 			_context.DeviceContext()->OMSetRenderTargets(0, nullptr, nullptr);
