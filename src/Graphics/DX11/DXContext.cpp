@@ -456,7 +456,7 @@ namespace flaw {
 	}
 
 	PixelFormat DXContext::GetSurfaceFormat() const {
-		return PixelFormat::RGBA8;
+		return PixelFormat::RGBA8Unorm;
 	}
 
 	PixelFormat DXContext::GetDepthStencilFormat() const {

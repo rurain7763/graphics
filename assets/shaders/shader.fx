@@ -1,8 +1,7 @@
 #ifndef SHADER_FX
 #define SHADER_FX
 
-#define DIFFUSE_TEX_BINDING_FLAG (1 << 0)
-#define SPECULAR_TEX_BINDING_FLAG (1 << 1)
+#include "common.fx"
 
 struct DirectionalLight
 {
@@ -110,20 +109,6 @@ struct PS_OUTPUT
 {
     float4 color : SV_Target0;
 };
-
-bool has_texture(uint binding_flags, uint flag)
-{
-    return (binding_flags & flag) == flag;
-}
-
-void calculate_phong_lighting(float3 light_ambient, float3 light_diffuse, float3 light_specular, float3 light_direction, float3 view_direction, float3 normal, float3 diffuse_color, float3 specular_color, float shininess, out float3 ambient, out float3 diffuse, out float3 specular)
-{
-    float3 reflect_dir = reflect(light_direction, normal);
-    
-    ambient = light_ambient * diffuse_color;
-    diffuse = light_diffuse * diffuse_color * max(dot(normal, -light_direction), 0.0);
-    specular = light_specular * specular_color * pow(max(dot(view_direction, reflect_dir), 0.0), shininess);
-}
 
 VS_OUTPUT VSMain(VS_INPUT input)
 {

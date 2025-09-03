@@ -1,4 +1,7 @@
 #version 450
+#extension GL_ARB_shading_language_include : enable
+
+#include "common.glsl"
 
 layout(set = 0, binding = 0) uniform sampler2D final_texture;
 
@@ -8,17 +11,17 @@ layout(location = 0) out vec4 fragColor;
 
 void main() {
     vec4 tex_color = texture(final_texture, in_tex_coord);
+    vec4 final_color = vec4(0.0);
 
-    // normal
-    fragColor = tex_color;
+    final_color = tex_color;
 
     #if false
     // inversion
-    fragColor = vec4(vec3(1.0 - tex_color), 1.0);
+    final_color.rgb = vec4(vec3(1.0 - tex_color), 1.0);
 
     // gray scale
     float average = tex_color.r * 0.299 + tex_color.g * 0.587 + tex_color.b * 0.114;
-    fragColor = vec4(vec3(average), 1.0);
+    final_color.rgb = vec4(vec3(average), 1.0);
 
     // kernel
     vec2 texture_size = textureSize(final_texture, 0);
@@ -56,11 +59,12 @@ void main() {
 
     float kernel[9] = edge_detection_kernel;
 
-    vec3 sum = vec3(0.0);
     for (int i = 0; i < 9; i++) {
-        sum += texture(final_texture, in_tex_coord + offsets[i]).rgb * kernel[i];
+        final_color.rgb += texture(final_texture, in_tex_coord + offsets[i]).rgb * kernel[i];
     }
-
-    fragColor = vec4(sum, 1.0);
     #endif
+
+    final_color.rgb = gamma_correct(final_color.rgb, 2.2);
+
+    fragColor = final_color;
 }

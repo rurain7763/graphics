@@ -1,7 +1,7 @@
 #version 450
+#extension GL_ARB_shading_language_include : enable
 
-#define DIFFUSE_TEX_BINDING_FLAG (1 << 0)
-#define SPECULAR_TEX_BINDING_FLAG (1 << 1)
+#include "common.glsl"
 
 struct DirectionalLight {
     vec3 direction;
@@ -89,23 +89,6 @@ in VS_OUT {
 
 layout(location = 0) out vec4 fragColor;
 
-bool has_texture(uint bindingFlags, uint textureFlags) {
-    return (bindingFlags & textureFlags) == textureFlags;
-}
-
-void calculate_phong_lighting(vec3 light_ambient, vec3 light_diffuse, vec3 light_specular, vec3 light_direction, vec3 view_direction, vec3 normal, vec3 diffuse_color, vec3 specular_color, float shininess, out vec3 ambient, out vec3 diffuse, out vec3 specular) {
-    vec3 reflect_direction = reflect(light_direction, normal);
-    
-    ambient = light_ambient * diffuse_color;
-    diffuse = light_diffuse * diffuse_color * max(dot(normal, -light_direction), 0.0);
-    specular = light_specular * specular_color * pow(max(dot(-view_direction, reflect_direction), 0.0), shininess);
-}
-
-float LinearizeDepth(float depth, float near, float far) {
-    float ndc_z = 2.0 * depth - 1.0; // Convert depth from [0, 1] to [-1, 1]
-    return (2.0 * near * far) / (far + near - ndc_z * (far - near));
-}
-
 void main() {
     vec3 view_direction = normalize(fs_in.position - camera_constants.world_position);
     vec3 reflect_direction = reflect(view_direction, fs_in.normal);
@@ -133,7 +116,7 @@ void main() {
         vec3 light_direction = light.direction;
 
         vec3 ambient, diffuse, specular;
-        calculate_phong_lighting(light.ambient, light.diffuse, light.specular, light_direction, view_direction, fs_in.normal, diffuse_color, specular_color, materialConstants.shininess, ambient, diffuse, specular);
+        calculate_blinn_phong_lighting(light.ambient, light.diffuse, light.specular, light_direction, view_direction, fs_in.normal, diffuse_color, specular_color, materialConstants.shininess, ambient, diffuse, specular);
 
         total_ambient += ambient;
         total_diffuse += diffuse;
@@ -149,7 +132,7 @@ void main() {
         float attenuation = 1.0 / (light.constant_attenuation + light.linear_attenuation * distance + light.quadratic_attenuation * (distance * distance));
 
         vec3 ambient, diffuse, specular;
-        calculate_phong_lighting(light.ambient, light.diffuse, light.specular, light_direction, view_direction, fs_in.normal, diffuse_color, specular_color, materialConstants.shininess, ambient, diffuse, specular);
+        calculate_blinn_phong_lighting(light.ambient, light.diffuse, light.specular, light_direction, view_direction, fs_in.normal, diffuse_color, specular_color, materialConstants.shininess, ambient, diffuse, specular);
 
         total_ambient += ambient * attenuation;
         total_diffuse += diffuse * attenuation;
@@ -169,7 +152,7 @@ void main() {
         float intensity = clamp((spot_effect - light.cutoff_outer_cosine) / epsilon, 0.0, 1.0);
 
         vec3 ambient, diffuse, specular;
-        calculate_phong_lighting(light.ambient, light.diffuse, light.specular, light_direction, view_direction, fs_in.normal, diffuse_color, specular_color, materialConstants.shininess, ambient, diffuse, specular);
+        calculate_blinn_phong_lighting(light.ambient, light.diffuse, light.specular, light_direction, view_direction, fs_in.normal, diffuse_color, specular_color, materialConstants.shininess, ambient, diffuse, specular);
 
         total_ambient += ambient * attenuation * intensity;
         total_diffuse += diffuse * attenuation * intensity;

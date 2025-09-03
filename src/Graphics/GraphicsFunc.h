@@ -14,8 +14,9 @@ namespace flaw {
 			return 2;
 		case PixelFormat::RGB8:
 			return 3;
-		case PixelFormat::RGBA8:
-		case PixelFormat::BGRX8:
+		case PixelFormat::RGBA8Unorm:
+		case PixelFormat::BGRX8Unorm:
+		case PixelFormat::RGBA8Srgb:
 		case PixelFormat::R32F:
 		case PixelFormat::R32_UINT:
 		case PixelFormat::D24S8_UINT:
@@ -69,7 +70,7 @@ namespace flaw {
 		const uint32_t dstSize = pixelCount * dstSizePerPixel;
 		
 		dst.resize(dstSize);
-		if (srcFormat == PixelFormat::RGB8 && dstFormat == PixelFormat::RGBA8) {
+		if (srcFormat == PixelFormat::RGB8 && dstFormat == PixelFormat::RGBA8Unorm) {
 			for (uint32_t i = 0; i < pixelCount; ++i) {
 				dst[i * 4 + 0] = src[i * 3 + 0];
 				dst[i * 4 + 1] = src[i * 3 + 1];
@@ -77,7 +78,7 @@ namespace flaw {
 				dst[i * 4 + 3] = 255;
 			}
 		}
-		else if (srcFormat == PixelFormat::RG8 && dstFormat == PixelFormat::RGBA8) {
+		else if (srcFormat == PixelFormat::RG8 && dstFormat == PixelFormat::RGBA8Unorm) {
 			for (uint32_t i = 0; i < pixelCount; ++i) {
 				uint8_t alpha = src[i * 2 + 1];
 				uint8_t gray = alpha ? src[i * 2 + 0] : 0;

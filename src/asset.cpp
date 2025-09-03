@@ -17,7 +17,7 @@ void Asset_Init() {
     textureDesc.height = 1;
     textureDesc.memProperty = MemoryProperty::Static;
     textureDesc.texUsages = TextureUsage::ShaderResource;
-    textureDesc.format = PixelFormat::RGBA8;
+    textureDesc.format = PixelFormat::RGBA8Unorm;
     textureDesc.mipLevels = 1;
     textureDesc.initialLayout = TextureLayout::ShaderReadOnly;
 
@@ -99,7 +99,7 @@ void LoadTexture(const char* filePath, const char* key) {
     textureDesc.data = image.Data().data();
     textureDesc.memProperty = MemoryProperty::Static;
     textureDesc.texUsages = TextureUsage::ShaderResource;
-    textureDesc.format = PixelFormat::RGBA8;
+    textureDesc.format = PixelFormat::RGBA8Srgb;
     textureDesc.mipLevels = GetMaxMipLevels(textureDesc.width, textureDesc.height);
 	textureDesc.initialLayout = TextureLayout::ShaderReadOnly;
 
@@ -122,7 +122,7 @@ void LoadTextureCube(const std::array<const char*, 6>& faceFilePaths, const char
 	textureDesc.width = images[0].Width();
 	textureDesc.height = images[0].Height();
 	textureDesc.data = textureData.data();
-	textureDesc.format = PixelFormat::RGBA8;
+	textureDesc.format = PixelFormat::RGBA8Srgb;
 	textureDesc.memProperty = MemoryProperty::Static;
 	textureDesc.texUsages = TextureUsage::ShaderResource;
 	textureDesc.initialLayout = TextureLayout::ShaderReadOnly;
@@ -191,7 +191,7 @@ void LoadModel(const char* filePath, float scale, const char* key) {
     mesh->indexBuffer = g_graphicsContext->CreateIndexBuffer(indexBufferDesc);
 
     std::unordered_map<Ref<Image>, Ref<Texture2D>> textureCache;
-    std::function<Ref<Texture2D>(const Ref<Image>&)> createTexture = [&](const Ref<Image>& image) {
+    std::function<Ref<Texture2D>(const Ref<Image>&, PixelFormat)> createTexture = [&](const Ref<Image>& image, PixelFormat pixelFormat) {
         auto it = textureCache.find(image);
         if (it != textureCache.end()) {
             return it->second;
@@ -203,7 +203,7 @@ void LoadModel(const char* filePath, float scale, const char* key) {
         textureDesc.data = image->Data().data();
         textureDesc.memProperty = MemoryProperty::Static;
         textureDesc.texUsages = TextureUsage::ShaderResource;
-        textureDesc.format = PixelFormat::RGBA8;
+        textureDesc.format = pixelFormat;
         textureDesc.mipLevels = 1;
 		textureDesc.initialLayout = TextureLayout::ShaderReadOnly;
 
@@ -223,11 +223,11 @@ void LoadModel(const char* filePath, float scale, const char* key) {
         Ref<Material> material = CreateRef<Material>();
         material->diffuseColor = modelMaterial.baseColor;
         if (modelMaterial.diffuse) {
-            material->diffuseTexture = createTexture(modelMaterial.diffuse);
+            material->diffuseTexture = createTexture(modelMaterial.diffuse, PixelFormat::RGBA8Srgb);
         }
         material->specularColor = glm::vec3(1.0f, 1.0f, 1.0f);
         if (modelMaterial.specular) {
-            material->specularTexture = createTexture(modelMaterial.specular);
+            material->specularTexture = createTexture(modelMaterial.specular, PixelFormat::RGBA8Unorm);
         }
         material->shininess = 32.0f;
         materialCache[index] = material;

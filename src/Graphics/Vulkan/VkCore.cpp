@@ -6,8 +6,9 @@
 namespace flaw {
     vk::Format ConvertToVkFormat(PixelFormat format) {
         switch (format) {
-        case PixelFormat::BGRX8: return vk::Format::eB8G8R8A8Unorm;
-        case PixelFormat::RGBA8: return vk::Format::eR8G8B8A8Unorm;
+        case PixelFormat::BGRX8Unorm: return vk::Format::eB8G8R8A8Unorm;
+        case PixelFormat::RGBA8Unorm: return vk::Format::eR8G8B8A8Unorm;
+		case PixelFormat::RGBA8Srgb: return vk::Format::eR8G8B8A8Srgb;
         case PixelFormat::RGBA32F: return vk::Format::eR32G32B32A32Sfloat;
         case PixelFormat::RG8: return vk::Format::eR8G8Unorm;
         case PixelFormat::R8: return vk::Format::eR8Unorm;
@@ -24,8 +25,9 @@ namespace flaw {
 
     PixelFormat ConvertToPixelFormat(vk::Format format) {
         switch (format) {
-        case vk::Format::eB8G8R8A8Unorm: return PixelFormat::BGRX8;
-        case vk::Format::eR8G8B8A8Unorm: return PixelFormat::RGBA8;
+        case vk::Format::eB8G8R8A8Unorm: return PixelFormat::BGRX8Unorm;
+        case vk::Format::eR8G8B8A8Unorm: return PixelFormat::RGBA8Unorm;
+		case vk::Format::eR8G8B8A8Srgb: return PixelFormat::RGBA8Srgb;
         case vk::Format::eR32G32B32A32Sfloat: return PixelFormat::RGBA32F;
         case vk::Format::eR8G8Unorm: return PixelFormat::RG8;
         case vk::Format::eR8Unorm: return PixelFormat::R8;

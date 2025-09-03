@@ -52,10 +52,12 @@ namespace flaw {
 		switch (format) {
 		case PixelFormat::UNDEFINED:
 			return DXGI_FORMAT_UNKNOWN;
-		case PixelFormat::BGRX8:
+		case PixelFormat::BGRX8Unorm:
 			return DXGI_FORMAT_B8G8R8X8_UNORM;
-		case PixelFormat::RGBA8:
+		case PixelFormat::RGBA8Unorm:
 			return DXGI_FORMAT_R8G8B8A8_UNORM;
+		case PixelFormat::RGBA8Srgb:
+			return DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
 		case PixelFormat::RGBA32F:
 			return DXGI_FORMAT_R32G32B32A32_FLOAT;
 		case PixelFormat::RG8:
@@ -84,9 +86,11 @@ namespace flaw {
 		case DXGI_FORMAT_UNKNOWN:
 			return PixelFormat::UNDEFINED;
 		case DXGI_FORMAT_B8G8R8X8_UNORM:
-			return PixelFormat::BGRX8;
+			return PixelFormat::BGRX8Unorm;
 		case DXGI_FORMAT_R8G8B8A8_UNORM:
-			return PixelFormat::RGBA8;
+			return PixelFormat::RGBA8Unorm;
+		case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:
+			return PixelFormat::RGBA8Srgb;
 		case DXGI_FORMAT_R32G32B32A32_FLOAT:
 			return PixelFormat::RGBA32F;
 		case DXGI_FORMAT_R8G8_UNORM:

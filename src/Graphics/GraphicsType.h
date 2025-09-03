@@ -92,10 +92,11 @@ namespace flaw {
 
 	enum class PixelFormat {
 		UNDEFINED,
-		RGBA8,
+		RGBA8Unorm,
+		RGBA8Srgb,
 		RGBA32F,
 		RGB8,
-		BGRX8,
+		BGRX8Unorm,
 		RG8,
 		R8,
 		R8_UINT,
