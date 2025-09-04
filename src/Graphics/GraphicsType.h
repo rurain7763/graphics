@@ -104,6 +104,7 @@ namespace flaw {
 		R32_UINT,
 		D24S8_UINT,
 		D32F_S8UI,
+		D32F,
 		BGRA8,
 	};
 
@@ -164,9 +165,10 @@ namespace flaw {
 		HullShader = 0x4,
 		DomainShader = 0x8,
 		GeometryShader = 0x10,
-		PixelShader = 0x20,
-		ColorAttachmentOutput = 0x40,
-		BottomOfPipe = 0x80,
+		EarlyPixelTests = 0x20,
+		PixelShader = 0x40,
+		ColorAttachmentOutput = 0x80,
+		BottomOfPipe = 0x100,
 	};
 
 	using PipelineStages = Flags<PipelineStage>;

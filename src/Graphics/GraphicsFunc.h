@@ -20,6 +20,7 @@ namespace flaw {
 		case PixelFormat::R32F:
 		case PixelFormat::R32_UINT:
 		case PixelFormat::D24S8_UINT:
+		case PixelFormat::D32F:
 			return 4;
 		case PixelFormat::D32F_S8UI:
 			return 5;
@@ -28,6 +29,17 @@ namespace flaw {
 		}
 
 		throw std::runtime_error("Unknown pixel format");
+	}
+
+	inline bool IsDepthFormat(PixelFormat format) {
+		switch (format) {
+		case PixelFormat::D24S8_UINT:
+		case PixelFormat::D32F_S8UI:
+		case PixelFormat::D32F:
+			return true;
+		default:
+			return false;
+		}
 	}
 
 	inline uint32_t GetElementSize(const ElementType type) {

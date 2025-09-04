@@ -24,7 +24,7 @@ namespace flaw {
 		void SetPipelineBarrier(Ref<Texture> texture, TextureLayout oldLayout, TextureLayout newLayout, AccessTypes srcAccess, AccessTypes dstAccess, PipelineStages srcStage, PipelineStages dstStage) override;
 
         void SetPipeline(const Ref<GraphicsPipeline>& pipeline) override;
-        void SetPipelinePushConstant(uint32_t rangeIndex, const void* data);
+        void SetPushConstants(uint32_t rangeIndex, const void* data);
 
         void SetVertexBuffers(const std::vector<Ref<VertexBuffer>>& vertexBuffers) override;
         void ResetVertexBuffers() override;

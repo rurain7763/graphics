@@ -191,19 +191,7 @@ void Outliner_Render() {
 		commandQueue.SetShaderResources({ g_staticShaderResources, dynamicResources });
 		commandQueue.DrawIndexed(meshComp->mesh->indexBuffer, meshComp->mesh->indexBuffer->IndexCount());
 
-		dynamicResources = GetDynamicShaderResources(frameIndex);
-		objectConstantsCB = GetObjectConstantsCB(frameIndex);
-
-		dynamicResources->BindConstantBuffer(objectConstantsCB, objectConstantsCBBinding);
-
-		objectConstants.model_matrix = ModelMatrix(object.position, object.rotation, object.scale);
-		objectConstants.inv_model_matrix = glm::inverse(objectConstants.model_matrix);
-
-		objectConstantsCB->Update(&objectConstants, sizeof(ObjectConstants));
-
 		commandQueue.SetPipeline(g_outlinePipeline);
-		commandQueue.SetVertexBuffers({ meshComp->mesh->vertexBuffer });
-		commandQueue.SetShaderResources({ g_staticShaderResources, dynamicResources });
 		commandQueue.DrawIndexed(meshComp->mesh->indexBuffer, meshComp->mesh->indexBuffer->IndexCount());
 
 		commandQueue.EndRenderPass();

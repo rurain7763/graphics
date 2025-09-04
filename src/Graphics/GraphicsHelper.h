@@ -36,4 +36,26 @@ namespace flaw {
 		std::vector<std::vector<Ref<T>>> _resourcesPerFrame;
 		uint32_t _used;
 	};
+
+	class FramebufferGroup {
+	public:
+		FramebufferGroup(GraphicsContext& context, const Framebuffer::Descriptor& desc)
+			: _context(context)
+			, _framebuffersPerFrame(context.GetFrameCount())
+		{
+			for (uint32_t i = 0; i < context.GetFrameCount(); i++) {
+				_framebuffersPerFrame[i] = context.CreateFramebuffer(desc);
+			}
+		}
+
+		Ref<Framebuffer> Get() {
+			uint32_t frameIndex = _context.GetCurrentFrameIndex();
+			return _framebuffersPerFrame[frameIndex];
+		}
+
+	private:
+		GraphicsContext& _context;
+
+		std::vector<Ref<Framebuffer>> _framebuffersPerFrame;
+	};
 }

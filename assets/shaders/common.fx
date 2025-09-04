@@ -28,4 +28,9 @@ float linearize_depth(float depth, float near, float far) {
     return near * far / (far + depth * (near - far));
 }
 
+float3 gamma_correct(float3 color, float gamma) {
+    
+    return pow(color, 1.0 / gamma);
+}
+
 #endif

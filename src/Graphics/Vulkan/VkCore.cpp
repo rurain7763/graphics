@@ -17,6 +17,7 @@ namespace flaw {
         case PixelFormat::R32_UINT: return vk::Format::eR32Uint;
         case PixelFormat::D24S8_UINT: return vk::Format::eD24UnormS8Uint;
         case PixelFormat::D32F_S8UI: return vk::Format::eD32SfloatS8Uint;
+        case PixelFormat::D32F: return vk::Format::eD32Sfloat;
         case PixelFormat::BGRA8: return vk::Format::eB8G8R8A8Unorm;
         default:
             throw std::runtime_error("Unknown pixel format");
@@ -36,6 +37,7 @@ namespace flaw {
         case vk::Format::eR32Uint: return PixelFormat::R32_UINT;
         case vk::Format::eD24UnormS8Uint: return PixelFormat::D24S8_UINT;
         case vk::Format::eD32SfloatS8Uint: return PixelFormat::D32F_S8UI;
+		case vk::Format::eD32Sfloat: return PixelFormat::D32F;
         default:
             throw std::runtime_error("Unknown Vulkan format");
         }
@@ -144,6 +146,9 @@ namespace flaw {
         case PixelFormat::D32F_S8UI:
             aspectFlags = vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil;
             break;
+        case PixelFormat::D32F:
+			aspectFlags = vk::ImageAspectFlagBits::eDepth;
+			break;
         default:
             aspectFlags = vk::ImageAspectFlagBits::eColor;
             break;
@@ -330,6 +335,10 @@ namespace flaw {
 
 		if (stages & PipelineStage::GeometryShader) {
 			stageFlags |= vk::PipelineStageFlagBits::eGeometryShader;
+		}
+
+		if (stages & PipelineStage::EarlyPixelTests) {
+			stageFlags |= vk::PipelineStageFlagBits::eEarlyFragmentTests;
 		}
 
         if (stages & PipelineStage::PixelShader) {

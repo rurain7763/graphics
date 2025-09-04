@@ -29,6 +29,7 @@ struct StaticMeshComponent : public ObjectComponent<StaticMeshComponent> {
     bool drawOutline = false;
 	bool drawNormal = false;
     bool excludeFromRendering = false;
+	bool castShadow = true;
     Ref<Mesh> mesh;
 };
 

@@ -210,7 +210,7 @@ namespace flaw {
         }
     }
 
-    void VkCommandQueue::SetPipelinePushConstant(uint32_t rangeIndex, const void* data) {
+    void VkCommandQueue::SetPushConstants(uint32_t rangeIndex, const void* data) {
         if (!_currentPipeline) {
             LOG_ERROR("No pipeline set for the command queue.");
             return;

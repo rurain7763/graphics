@@ -74,6 +74,8 @@ namespace flaw {
 			return DXGI_FORMAT_D24_UNORM_S8_UINT;
 		case PixelFormat::D32F_S8UI:
 			return DXGI_FORMAT_D32_FLOAT_S8X24_UINT;
+		case PixelFormat::D32F:
+			return DXGI_FORMAT_D32_FLOAT;
 		case PixelFormat::BGRA8:
 			return DXGI_FORMAT_B8G8R8A8_UNORM;
 		}
@@ -107,11 +109,37 @@ namespace flaw {
 			return PixelFormat::D24S8_UINT;
 		case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
 			return PixelFormat::D32F_S8UI;
+		case DXGI_FORMAT_D32_FLOAT:
+			return PixelFormat::D32F;
 		case DXGI_FORMAT_B8G8R8A8_UNORM:
 			return PixelFormat::BGRA8;
 		}
 
 		throw std::runtime_error("Unsupported DXGI_FORMAT");
+	}
+
+	static DXGI_FORMAT ConvertDepthFormatToTexFormat(PixelFormat format) {
+		switch (format)
+		{
+		case flaw::PixelFormat::D24S8_UINT:
+			return DXGI_FORMAT_R24G8_TYPELESS;
+		case flaw::PixelFormat::D32F_S8UI:
+			return DXGI_FORMAT_R32G8X24_TYPELESS;
+		case flaw::PixelFormat::D32F:
+			return DXGI_FORMAT_R32_TYPELESS;
+		}
+	}
+
+	static DXGI_FORMAT ConvertDepthFormatToSRVFormat(PixelFormat format) {
+		switch (format)
+		{
+		case flaw::PixelFormat::D24S8_UINT:
+			return DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+		case flaw::PixelFormat::D32F_S8UI:
+			return DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS;
+		case flaw::PixelFormat::D32F:
+			return DXGI_FORMAT_R32_FLOAT;
+		}
 	}
 
 	inline D3D11_INPUT_CLASSIFICATION ConvertToDXInputClassification(VertexInputRate rate) {

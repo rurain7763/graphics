@@ -11,4 +11,5 @@ glslangValidator -V object_pass_through.vert -o object_pass_through.vert.spv
 glslangValidator -V explode.geom -o explode.geom.spv
 glslangValidator -V view_normal.geom -o view_normal.geom.spv
 glslangValidator -V view_normal.frag -o view_normal.frag.spv
+glslangValidator -V shadow.vert -o shadow.vert.spv
 PAUSE

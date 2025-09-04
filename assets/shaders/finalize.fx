@@ -1,6 +1,8 @@
 #ifndef FINALIZE_FX
 #define FINALIZE_FX
 
+#include "common.fx"
+
 Texture2D g_final_texture : register(t0);
 
 SamplerState g_sampler : register(s0);
@@ -20,7 +22,13 @@ PS_OUTPUT PSMain(VS_OUTPUT input)
 {
     PS_OUTPUT output = (PS_OUTPUT) 0;
     
-    output.color = g_final_texture.Sample(g_sampler, input.texcoord);
+    float4 final_color = float4(0.0f, 0.0f, 0.0f, 0.0f);
+    
+    final_color = g_final_texture.Sample(g_sampler, input.texcoord);
+    
+    final_color.rgb = gamma_correct(final_color.rgb, 2.2);
+    
+    output.color = final_color;
     
     return output;
 }

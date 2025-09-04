@@ -153,7 +153,7 @@ namespace flaw {
 		desc.Height = _height;
 		desc.MipLevels = _mipLevels;
 		desc.ArraySize = 1;
-		desc.Format = ConvertToDXFormat(_format);
+		desc.Format = IsDepthFormat(_format) ? ConvertDepthFormatToTexFormat(_format) : ConvertToDXFormat(_format);
 		desc.Usage = ConvertToDXUsage(_memProperty);
 		desc.CPUAccessFlags = ConvertToDXCPUAccessFlags(_memProperty);
 		desc.BindFlags = ConvertToDXTexBindFlags(_usages);
@@ -180,7 +180,7 @@ namespace flaw {
 		}
 
 		if (FAILED(_context.Device()->CreateTexture2D(&desc, nullptr, _nativeTexture.texture.GetAddressOf()))) {
-			LOG_ERROR("Failed to create texture2D without initial data");
+			LOG_ERROR("Failed to create texture2D");
 			return false;
 		}
 
@@ -228,7 +228,7 @@ namespace flaw {
 
 	bool DXTexture2D::CreateShaderResourceView() {
 		D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-		srvDesc.Format = ConvertToDXFormat(_format);
+		srvDesc.Format = IsDepthFormat(_format) ? ConvertDepthFormatToSRVFormat(_format) : ConvertToDXFormat(_format);
 		srvDesc.ViewDimension = _sampleCount == 1 ? D3D11_SRV_DIMENSION_TEXTURE2D : D3D11_SRV_DIMENSION_TEXTURE2DMS;
 		srvDesc.Texture2D.MostDetailedMip = 0;
 		srvDesc.Texture2D.MipLevels = _mipLevels;

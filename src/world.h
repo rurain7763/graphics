@@ -59,6 +59,11 @@ void World_Update();
 void World_Render();
 void World_FinalizeRender();
 
+void Shadow_Init();
+void Shadow_Cleanup();
+void Shadow_Update();
+void Shadow_Render();
+
 void Skybox_Init();
 void Skybox_Cleanup();
 void Skybox_Render();

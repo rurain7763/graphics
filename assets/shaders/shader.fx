@@ -159,7 +159,7 @@ PS_OUTPUT PSMain(VS_OUTPUT input)
         float3 light_direction = light.direction;
 
         float3 ambient, diffuse, specular;
-        calculate_phong_lighting(light.ambient, light.diffuse, light.specular, light_direction, view_direction, input.normal, diffuse_color, specular_color, g_shininess, ambient, diffuse, specular);
+        calculate_blin_phong_lighting(light.ambient, light.diffuse, light.specular, light_direction, view_direction, input.normal, diffuse_color, specular_color, g_shininess, ambient, diffuse, specular);
 
         total_ambient += ambient;
         total_diffuse += diffuse;
@@ -176,7 +176,7 @@ PS_OUTPUT PSMain(VS_OUTPUT input)
         float attenuation = 1.0 / (light.constant_attenuation + light.linear_attenuation * distance + light.quadratic_attenuation * (distance * distance));
 
         float3 ambient, diffuse, specular;
-        calculate_phong_lighting(light.ambient, light.diffuse, light.specular, light_direction, view_direction, input.normal, diffuse_color, specular_color, g_shininess, ambient, diffuse, specular);
+        calculate_blin_phong_lighting(light.ambient, light.diffuse, light.specular, light_direction, view_direction, input.normal, diffuse_color, specular_color, g_shininess, ambient, diffuse, specular);
 
         total_ambient += ambient * attenuation;
         total_diffuse += diffuse * attenuation;
@@ -197,7 +197,7 @@ PS_OUTPUT PSMain(VS_OUTPUT input)
         float intensity = clamp((spot_effect - light.cutoff_outer_cosine) / epsilon, 0.0, 1.0);
 
         float3 ambient, diffuse, specular;
-        calculate_phong_lighting(light.ambient, light.diffuse, light.specular, light_direction, view_direction, input.normal, diffuse_color, specular_color, g_shininess, ambient, diffuse, specular);
+        calculate_blin_phong_lighting(light.ambient, light.diffuse, light.specular, light_direction, view_direction, input.normal, diffuse_color, specular_color, g_shininess, ambient, diffuse, specular);
 
         total_ambient += ambient * attenuation * intensity;
         total_diffuse += diffuse * attenuation * intensity;

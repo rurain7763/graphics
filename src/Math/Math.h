@@ -204,7 +204,11 @@ namespace flaw {
 	}
 
 	inline mat4 Orthographic(float left, float right, float bottom, float top, float nearClip, float farClip) {
-		return ortho(left, right, bottom, top, nearClip, farClip);
+		mat4 result = ortho(left, right, bottom, top, nearClip, farClip);
+		if (MathParams::InvertYAxis) {
+			result[1][1] *= -1.0f; // Y축 반전
+		}
+		return result;
 	}
 
 	inline mat4 Perspective(float fovY, float aspectRatio, float nearClip, float farClip) {
