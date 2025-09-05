@@ -12,6 +12,9 @@ namespace flaw {
 
 	struct DXNativeTexture : public NativeTexture {
 		ComPtr<ID3D11Texture2D> texture;
+	};
+
+	struct DXNativeTextureView : public NativeTextureView {
 		ComPtr<ID3D11ShaderResourceView> srv;
 		ComPtr<ID3D11UnorderedAccessView> uav;
 		ComPtr<ID3D11RenderTargetView> rtv;
@@ -35,6 +38,7 @@ namespace flaw {
 		uint32_t GetSampleCount() const override { return _sampleCount; }
 
 		const NativeTexture& GetNativeTexture() const override { return _nativeTexture; }
+		const NativeTextureView& GetNativeTextureView() const override { return _nativeTextureView; }
 
 	private:
 		bool CreateTexture(const uint8_t* data);
@@ -48,6 +52,7 @@ namespace flaw {
 		DXContext& _context;
 
 		DXNativeTexture _nativeTexture;
+		DXNativeTextureView _nativeTextureView;
 
 		PixelFormat _format;
 		MemoryProperty _memProperty;
@@ -75,6 +80,7 @@ namespace flaw {
 		uint32_t GetArraySize() const override { return _arraySize; }
 
 		const NativeTexture& GetNativeTexture() const override { return _nativeTexture; }
+		const NativeTextureView& GetNativeTextureView() const override { return _nativeTextureView; }
 
 	private:
 		bool CreateTexture(const uint8_t* data);
@@ -88,6 +94,7 @@ namespace flaw {
 		DXContext& _context;
 
 		DXNativeTexture _nativeTexture;
+		DXNativeTextureView _nativeTextureView;
 
 		PixelFormat _format;
 		MemoryProperty _memProperty;
@@ -112,6 +119,7 @@ namespace flaw {
 		uint32_t GetSampleCount() const override { return _sampleCount; }
 
 		const NativeTexture& GetNativeTexture() const override { return _nativeTexture; }
+		const NativeTextureView& GetNativeTextureView() const override { return _nativeTextureView; }
 
 	private:
 		bool CreateTexture(const uint8_t* initRawData);
@@ -124,6 +132,7 @@ namespace flaw {
 		DXContext& _context;
 
 		DXNativeTexture _nativeTexture;
+		DXNativeTextureView _nativeTextureView;
 
 		PixelFormat _format;
 		MemoryProperty _memProperty;

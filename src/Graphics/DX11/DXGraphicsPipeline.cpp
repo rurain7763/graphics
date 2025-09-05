@@ -38,12 +38,9 @@ namespace flaw {
 		_scissorRect.right = 800; // Default width
 		_scissorRect.bottom = 600; // Default height
 
-		SetRenderPassLayout(context.GetMainRenderPassLayout());
 		EnableDepthTest(true);
 		SetDepthTest(CompareOp::Less, true);
 		EnableStencilTest(false);
-		EnableBlendMode(0, true);
-		SetBlendMode(0, BlendMode::Default);
 		SetAlphaToCoverage(false);
 	}
 
@@ -197,18 +194,29 @@ namespace flaw {
 		_dxInputLayout = nullptr;
 	}
 
-	void DXGraphicsPipeline::SetRenderPassLayout(const Ref<RenderPassLayout>& renderPassLayout) {
-		if (_renderPassLayout == renderPassLayout) {
+	void DXGraphicsPipeline::SetRenderPass(const Ref<RenderPass>& renderPass, uint32_t subpass) {
+		if (_renderPass == renderPass) {
 			return;
 		}
 
-		_renderPassLayout = std::static_pointer_cast<DXRenderPassLayout>(renderPassLayout);
+		_renderPass = std::static_pointer_cast<DXRenderPass>(renderPass);
 		FASSERT(_renderPassLayout, "Invalid render pass layout");
 
-		_blendModes.resize(_renderPassLayout->GetColorAttachmentCount());
+		_subpass = subpass;
+
+		_blendModes.resize(renderPass->GetColorAttachmentRefsCount(subpass));
 		_blendState = nullptr;
 
-		_rasterizerDesc.MultisampleEnable = _renderPassLayout->GetSampleCount() > 1;
+		_rasterizerDesc.MultisampleEnable = false;
+		for (uint32_t i = 0; i < renderPass->GetColorAttachmentRefsCount(subpass); i++) {
+			const auto& attachmentRef = renderPass->GetColorAttachmentRef(subpass, i);
+			const auto& attachment = renderPass->GetAttachment(attachmentRef.attachmentIndex);
+			if (attachment.sampleCount > 1) {
+				_rasterizerDesc.MultisampleEnable = true;
+				break;
+			}
+		}
+
 		_rasterizerState = nullptr;
 	}
 

@@ -9,51 +9,54 @@
 
 namespace flaw {
 	class DXContext;
-	class DXTexture2D;
-
-	class DXRenderPassLayout : public RenderPassLayout {
-	public:
-		DXRenderPassLayout(DXContext& context, const Descriptor& desc);
-		~DXRenderPassLayout() = default;
-
-		uint32_t GetColorAttachmentCount() const override;
-		Attachment GetColorAttachment(uint32_t index) const override;
-		bool HasDepthStencilAttachment() const override;
-		Attachment GetDepthStencilAttachment() const override;
-		uint32_t GetResolveAttachmentCount() const override;
-		Attachment GetResolveAttachment(uint32_t index) const override;
-
-		uint32_t GetSampleCount() const override;
-
-	private:
-		DXContext& _context;
-
-		uint32_t _sampleCount;
-		
-		std::vector<Attachment> _colorAttachments;
-		std::optional<Attachment> _depthStencilAttachment;
-		std::vector<Attachment> _resolveAttachments;
-	};
 
 	class DXRenderPass : public RenderPass {
 	public:
 		DXRenderPass(DXContext& context, const Descriptor& desc);
 		~DXRenderPass() = default;
 
-		const ColorAttachmentOperation& GetColorAttachmentOp(uint32_t index) const override;
-		const DepthStencilAttachmentOperation& GetDepthStencilAttachmentOp() const override;
-		const ResolveAttachmentOperation& GetResolveAttachmentOp(uint32_t index) const override;
+		const Attachment& GetAttachment(uint32_t index) const override {
+			return _attachments.at(index);
+		}
 
-		Ref<RenderPassLayout> GetLayout() const override { return _layout; }
+		uint32_t GetInputAttachmentRefCount(uint32_t subpass) const override {
+			return _subpasses.at(subpass).inputAttachmentRefs.size();
+		}
+
+		const AttachmentRef& GetInputAttachmentRef(uint32_t subpass, uint32_t index) const override {
+			return _subpasses.at(subpass).inputAttachmentRefs.at(index);
+		}
+
+		uint32_t GetColorAttachmentRefsCount(uint32_t subpass) const override {
+			return _subpasses.at(subpass).colorAttachmentRefs.size();
+		}
+
+		const AttachmentRef& GetColorAttachmentRef(uint32_t subpass, uint32_t index) const override {
+			return _subpasses.at(subpass).colorAttachmentRefs.at(index);
+		}
+
+		bool HasDepthStencilAttachmentRef(uint32_t subpass) const override {
+			return _subpasses.at(subpass).depthStencilAttachmentRef.has_value();
+		}
+
+		const AttachmentRef& GetDepthStencilAttachmentRef(uint32_t subpass) const override {
+			return _subpasses.at(subpass).depthStencilAttachmentRef.value();
+		}
+
+		uint32_t GetResolveAttachmentRefCount(uint32_t subpass) const override {
+			return _subpasses.at(subpass).resolveAttachmentRefs.size();
+		}
+
+		const AttachmentRef& GetResolveAttachmentRef(uint32_t subpass, uint32_t index) const override {
+			return _subpasses.at(subpass).resolveAttachmentRefs.at(index);
+		}
 
 	private:
 		DXContext& _context;
 
-		Ref<DXRenderPassLayout> _layout;
-
-		std::vector<ColorAttachmentOperation> _colorAttachmentOps;
-		std::optional<DepthStencilAttachmentOperation> _depthStencilAttachmentOp;
-		std::vector<ResolveAttachmentOperation> _resolveAttachmentOps;
+		std::vector<Attachment> _attachments;
+		std::vector<SubPass> _subpasses;
+		std::vector<SubPassDependency> _dependencies;
 	};
 }
 

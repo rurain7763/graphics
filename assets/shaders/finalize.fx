@@ -3,7 +3,7 @@
 
 #include "common.fx"
 
-Texture2D g_final_texture : register(t0);
+Texture2D g_final_texture : register(T_SET0_BINDING0);
 
 SamplerState g_sampler : register(s0);
 

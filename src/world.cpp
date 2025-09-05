@@ -23,7 +23,6 @@ std::vector<uint32_t> g_outlineObjects;
 std::vector<uint32_t> g_viewNormalObjects;
 std::vector<uint32_t> g_spriteObjects;
 
-#if USE_VULKAN
 const uint32_t camersConstantsCBBinding = 0;
 const uint32_t lightConstantsCBBinding = 1;
 const uint32_t materialConstantsCBBinding = 1;
@@ -33,24 +32,11 @@ const uint32_t spotLightSBBinding = 6;
 const uint32_t diffuseTextureBinding = 2;
 const uint32_t specularTextureBinding = 3;
 const uint32_t skyboxTextureBinding = 4;
-#elif USE_DX11
-const uint32_t camersConstantsCBBinding = 0;
-const uint32_t lightConstantsCBBinding = 1;
-const uint32_t materialConstantsCBBinding = 2;
-const uint32_t directionalLightSBBinding = 1;
-const uint32_t pointLightSBBinding = 2;
-const uint32_t spotLightSBBinding = 3;
-const uint32_t diffuseTextureBinding = 4;
-const uint32_t specularTextureBinding = 5;
-const uint32_t skyboxTextureBinding = 6;
-#endif
 
 RenderQueue g_renderQueue;
 
-std::vector<Ref<Framebuffer>> g_sceneFramebuffers;
-Ref<RenderPassLayout> g_sceneRenderPassLayout;
-Ref<RenderPass> g_sceneClearRenderPass;
-Ref<RenderPass> g_sceneLoadRenderPass;
+Ref<FramebufferGroup> g_sceneFramebufferGroup;
+Ref<RenderPass> g_sceneRenderPass;
 
 Ref<VertexInputLayout> g_texturedVertexInputLayout;
 Ref<VertexInputLayout> g_instanceVertexInputLayout;
@@ -66,17 +52,15 @@ Ref<ShaderResourcesLayout> g_objShaderResourcesLayout;
 Ref<ShaderResources> g_objShaderResources;
 Ref<ShaderResourcesLayout> g_objDynamicShaderResourcesLayout;
 
+Ref<ShaderResourcesLayout> g_finalizeShaderResourcesLayout;
+Ref<GraphicsPipeline> g_finalizePipeline;
+
 Ref<GraphicsResourcesPool<VertexBuffer>> g_instanceVBPool;
 Ref<GraphicsResourcesPool<ShaderResources>> g_objDynamicShaderResourcesPool;
 Ref<GraphicsResourcesPool<ConstantBuffer>> g_objMaterialCBPool;
 Ref<GraphicsResourcesPool<ConstantBuffer>> g_objConstantsCBPool;
 
-Ref<GraphicsPipeline> g_finalizePipeline;
-
-Ref<GraphicsResourcesPool<ShaderResources>> g_finalizeShaderResourcesPool;
-
-CameraConstants g_cameraConstants;
-LightConstants g_lightConstants;
+Ref<GraphicsResourcesPool<ShaderResources>> g_finalizeDynamicShaderResourcesPool;
 
 void InitBaseResources();
 
@@ -112,9 +96,6 @@ void World_Init() {
     g_eventDispatcher.Register<MouseReleaseEvent>([](const MouseReleaseEvent& event) { Input::OnMouseRelease(event.button); }, 0);
     g_eventDispatcher.Register<MouseScrollEvent>([](const MouseScrollEvent& event) { Input::OnMouseScroll(event.xOffset, event.yOffset); }, 0);
 
-    g_cameraConstants.view_matrix = ViewMatrix(vec3(0.f, 0.f, -5.f), vec3(0.f));
-    g_cameraConstants.projection_matrix = Perspective(glm::radians(45.0f), static_cast<float>(windowWidth) / windowHeight, 0.1f, 100.0f);
-
     InitBaseResources();
     InitObjectBuffers();
     InitObjectShaderResources();
@@ -122,130 +103,123 @@ void World_Init() {
 }
 
 void InitBaseResources() {
-    int32_t width, height;
-    g_graphicsContext->GetSize(width, height);
-
     // NOTE: Create render passes
-    RenderPassLayout::Descriptor sceneRenderPassLayoutDesc;
-	sceneRenderPassLayoutDesc.sampleCount = g_graphicsContext->GetMSAASampleCount();
-    sceneRenderPassLayoutDesc.colorAttachments = { { g_graphicsContext->GetSurfaceFormat() } };
-    sceneRenderPassLayoutDesc.depthStencilAttachment = { g_graphicsContext->GetDepthStencilFormat() };
-	sceneRenderPassLayoutDesc.resolveAttachments = { { g_graphicsContext->GetSurfaceFormat() } };
+    RenderPass::Attachment gBufferAttachment;
+	gBufferAttachment.format = g_graphicsContext->GetSurfaceFormat();
+	gBufferAttachment.sampleCount = g_graphicsContext->GetMSAASampleCount();
+	gBufferAttachment.loadOp = AttachmentLoadOp::Clear;
+	gBufferAttachment.storeOp = AttachmentStoreOp::DontCare;
+	gBufferAttachment.initialLayout = TextureLayout::Undefined;
+	gBufferAttachment.finalLayout = TextureLayout::ColorAttachment;
 
-    g_sceneRenderPassLayout = g_graphicsContext->CreateRenderPassLayout(sceneRenderPassLayoutDesc);
+	RenderPass::Attachment depthAttachment;
+	depthAttachment.format = g_graphicsContext->GetDepthStencilFormat();
+	depthAttachment.sampleCount = g_graphicsContext->GetMSAASampleCount();
+	depthAttachment.loadOp = AttachmentLoadOp::Clear;
+	depthAttachment.storeOp = AttachmentStoreOp::DontCare;
+	depthAttachment.stencilLoadOp = AttachmentLoadOp::Clear;
+	depthAttachment.stencilStoreOp = AttachmentStoreOp::DontCare;
+	depthAttachment.initialLayout = TextureLayout::Undefined;
+	depthAttachment.finalLayout = TextureLayout::DepthStencilAttachment;
 
-    RenderPass::Descriptor sceneClearRenderPassDesc;
-    sceneClearRenderPassDesc.layout = g_sceneRenderPassLayout;
-    sceneClearRenderPassDesc.colorAttachmentOps = {
-        { TextureLayout::Undefined, TextureLayout::ColorAttachment, AttachmentLoadOp::Clear, AttachmentStoreOp::Store }
-    };
-    sceneClearRenderPassDesc.depthStencilAttachmentOp = {
-        TextureLayout::DepthStencilAttachment, TextureLayout::DepthStencilAttachment, AttachmentLoadOp::Clear, AttachmentStoreOp::Store, AttachmentLoadOp::DontCare, AttachmentStoreOp::DontCare
-    };
-	sceneClearRenderPassDesc.resolveAttachmentOps = {
-        { TextureLayout::Undefined, TextureLayout::ColorAttachment, AttachmentLoadOp::Clear, AttachmentStoreOp::Store }
-	};
+	RenderPass::Attachment resolveAttachment;
+	resolveAttachment.format = g_graphicsContext->GetSurfaceFormat();
+	resolveAttachment.loadOp = AttachmentLoadOp::DontCare;
+	resolveAttachment.storeOp = AttachmentStoreOp::Store;
+	resolveAttachment.initialLayout = TextureLayout::Undefined;
+    resolveAttachment.finalLayout = TextureLayout::ColorAttachment;
 
-    g_sceneClearRenderPass = g_graphicsContext->CreateRenderPass(sceneClearRenderPassDesc);
+	RenderPass::Attachment presentAttachment;
+	presentAttachment.format = g_graphicsContext->GetSurfaceFormat();
+	presentAttachment.loadOp = AttachmentLoadOp::DontCare;
+	presentAttachment.storeOp = AttachmentStoreOp::Store;
+	presentAttachment.initialLayout = TextureLayout::Undefined;
+    presentAttachment.finalLayout = TextureLayout::PresentSource;
 
-    RenderPass::Descriptor sceneLoadRenderPassDesc;
-    sceneLoadRenderPassDesc.layout = g_sceneRenderPassLayout;
-    sceneLoadRenderPassDesc.colorAttachmentOps = {
-        { TextureLayout::ColorAttachment, TextureLayout::ColorAttachment, AttachmentLoadOp::Load, AttachmentStoreOp::Store }
-    };
-    sceneLoadRenderPassDesc.depthStencilAttachmentOp = {
-        TextureLayout::DepthStencilAttachment, TextureLayout::DepthStencilAttachment, AttachmentLoadOp::Load, AttachmentStoreOp::Store, AttachmentLoadOp::DontCare, AttachmentStoreOp::DontCare
-    };
-	sceneLoadRenderPassDesc.resolveAttachmentOps = {
-        { TextureLayout::ColorAttachment, TextureLayout::ColorAttachment, AttachmentLoadOp::Load, AttachmentStoreOp::Store }
-	};
+	RenderPass::SubPass sceneSubPass;
+	sceneSubPass.colorAttachmentRefs = { {0, TextureLayout::ColorAttachment} };
+	sceneSubPass.depthStencilAttachmentRef = { 1, TextureLayout::DepthStencilAttachment };
+	sceneSubPass.resolveAttachmentRefs = { {2, TextureLayout::ColorAttachment} };
+	
+    RenderPass::SubPass finalizeSubPass;
+	finalizeSubPass.inputAttachmentRefs = { {2, TextureLayout::ShaderReadOnly} };
+	finalizeSubPass.colorAttachmentRefs = { {3, TextureLayout::ColorAttachment} };
 
-	g_sceneLoadRenderPass = g_graphicsContext->CreateRenderPass(sceneLoadRenderPassDesc);
+	RenderPass::SubPassDependency dependency;
+	dependency.srcSubPass = 0;
+	dependency.dstSubPass = 1;
+	dependency.srcAccessTypes = AccessType::ColorAttachmentWrite | AccessType::DepthStencilAttachmentWrite;
+	dependency.dstAccessTypes = AccessType::ShaderRead;
+	dependency.srcPipeStages = PipelineStage::ColorAttachmentOutput | PipelineStage::EarlyPixelTests;
+	dependency.dstPipeStages = PipelineStage::PixelShader;
+
+    RenderPass::Descriptor sceneRenderPassDesc;
+    sceneRenderPassDesc.attachments = { gBufferAttachment, depthAttachment, resolveAttachment, presentAttachment };
+	sceneRenderPassDesc.subpasses = { sceneSubPass, finalizeSubPass };
+	sceneRenderPassDesc.dependencies = { dependency };
+
+	g_sceneRenderPass = g_graphicsContext->CreateRenderPass(sceneRenderPassDesc);
 
 	// NOTE: Create framebuffers
-	g_sceneFramebuffers.resize(g_graphicsContext->GetFrameCount());
-	for (uint32_t i = 0; i < g_graphicsContext->GetFrameCount(); i++) {
-	    Texture2D::Descriptor sceneColorAttachmentDesc;
-	    sceneColorAttachmentDesc.width = width;
-	    sceneColorAttachmentDesc.height = height;
-	    sceneColorAttachmentDesc.format = g_graphicsContext->GetSurfaceFormat();
-        sceneColorAttachmentDesc.memProperty = MemoryProperty::Static;
-	    sceneColorAttachmentDesc.texUsages = TextureUsage::ColorAttachment;
-		sceneColorAttachmentDesc.initialLayout = TextureLayout::ColorAttachment;
-        sceneColorAttachmentDesc.sampleCount = g_graphicsContext->GetMSAASampleCount();
+    g_sceneFramebufferGroup = CreateRef<FramebufferGroup>(*g_graphicsContext, [](GraphicsContext& context, uint32_t frameIndex) {
+		int32_t width, height;
+		context.GetSize(width, height);
+		
+		Texture2D::Descriptor gBufferDesc;
+		gBufferDesc.width = width;
+		gBufferDesc.height = height;
+		gBufferDesc.format = context.GetSurfaceFormat();
+		gBufferDesc.memProperty = MemoryProperty::Static;
+		gBufferDesc.texUsages = TextureUsage::ColorAttachment;
+		gBufferDesc.initialLayout = TextureLayout::ColorAttachment;
+		gBufferDesc.sampleCount = context.GetMSAASampleCount();
 
-	    Ref<Texture2D> sceneColorAttachment = g_graphicsContext->CreateTexture2D(sceneColorAttachmentDesc);
+		Ref<Texture2D> gBuffer = context.CreateTexture2D(gBufferDesc);
 
-	    Texture2D::Descriptor sceneDepthStencilAttachmentDesc;
-	    sceneDepthStencilAttachmentDesc.width = width;
-	    sceneDepthStencilAttachmentDesc.height = height;
-	    sceneDepthStencilAttachmentDesc.format = g_graphicsContext->GetDepthStencilFormat();
-	    sceneDepthStencilAttachmentDesc.memProperty = MemoryProperty::Static;
-		sceneDepthStencilAttachmentDesc.initialLayout = TextureLayout::DepthStencilAttachment;
-		sceneDepthStencilAttachmentDesc.texUsages = TextureUsage::DepthStencilAttachment;
-		sceneDepthStencilAttachmentDesc.sampleCount = g_graphicsContext->GetMSAASampleCount();
+		Texture2D::Descriptor depthDesc;
+		depthDesc.width = width;
+		depthDesc.height = height;
+		depthDesc.format = context.GetDepthStencilFormat();
+		depthDesc.memProperty = MemoryProperty::Static;
+		depthDesc.texUsages = TextureUsage::DepthStencilAttachment;
+		depthDesc.initialLayout = TextureLayout::DepthStencilAttachment;
+		depthDesc.sampleCount = context.GetMSAASampleCount();
 
-	    Ref<Texture2D> sceneDepthStencilAttachment = g_graphicsContext->CreateTexture2D(sceneDepthStencilAttachmentDesc);
+		Ref<Texture2D> depth = context.CreateTexture2D(depthDesc);
 
-		Texture2D::Descriptor sceneResolveAttachmentDesc;
-		sceneResolveAttachmentDesc.width = width;
-		sceneResolveAttachmentDesc.height = height;
-		sceneResolveAttachmentDesc.format = g_graphicsContext->GetSurfaceFormat();
-		sceneResolveAttachmentDesc.memProperty = MemoryProperty::Static;
-		sceneResolveAttachmentDesc.texUsages = TextureUsage::ColorAttachment | TextureUsage::ShaderResource;
-		sceneResolveAttachmentDesc.initialLayout = TextureLayout::ColorAttachment;
+		Texture2D::Descriptor resolveDesc;
+		resolveDesc.width = width;
+		resolveDesc.height = height;
+		resolveDesc.format = context.GetSurfaceFormat();
+		resolveDesc.memProperty = MemoryProperty::Static;
+		resolveDesc.texUsages = TextureUsage::ColorAttachment | TextureUsage::InputAttachment;
+		resolveDesc.initialLayout = TextureLayout::ColorAttachment;
 
-		Ref<Texture2D> sceneResolveAttachment = g_graphicsContext->CreateTexture2D(sceneResolveAttachmentDesc);
+		Ref<Texture2D> resolve = context.CreateTexture2D(resolveDesc);
 
-	    Framebuffer::Descriptor sceneFramebufferDesc;
-		sceneFramebufferDesc.renderPassLayout = g_sceneRenderPassLayout;
-	    sceneFramebufferDesc.width = width;
-	    sceneFramebufferDesc.height = height;
-	    sceneFramebufferDesc.colorAttachments = { sceneColorAttachment };
-		sceneFramebufferDesc.colorResizeHandler = [](Ref<Texture>& texture, int32_t width, int32_t height) -> bool {
-			Texture2D::Descriptor desc;
-			desc.width = width;
-			desc.height = height;
-			desc.format = g_graphicsContext->GetSurfaceFormat();
-			desc.memProperty = MemoryProperty::Static;
-			desc.texUsages = TextureUsage::ColorAttachment;
-			desc.initialLayout = TextureLayout::ColorAttachment;
-			desc.sampleCount = g_graphicsContext->GetMSAASampleCount();
-			texture = g_graphicsContext->CreateTexture2D(desc);
+		Framebuffer::Descriptor desc;
+		desc.renderPass = g_sceneRenderPass;
+		desc.width = width;
+		desc.height = height;
+		desc.attachments = { gBuffer, depth, resolve, context.GetFrameColorAttachment(frameIndex) };
+		desc.resizeHandler = [&context, gBufferDesc, depthDesc, resolveDesc, frameIndex](uint32_t width, uint32_t height, std::vector<Ref<Texture>>& attachments) mutable {
+			gBufferDesc.width = width;
+			gBufferDesc.height = height;
 
-            return true;
-		};
-	    sceneFramebufferDesc.depthStencilAttachment = sceneDepthStencilAttachment;
-        sceneFramebufferDesc.depthStencilResizeHandler = [](Ref<Texture>& texture, int32_t width, int32_t height) -> bool {
-            Texture2D::Descriptor desc;
-            desc.width = width;
-            desc.height = height;
-            desc.format = g_graphicsContext->GetDepthStencilFormat();
-            desc.memProperty = MemoryProperty::Static;
-            desc.texUsages = TextureUsage::DepthStencilAttachment;
-			desc.initialLayout = TextureLayout::DepthStencilAttachment;
-			desc.sampleCount = g_graphicsContext->GetMSAASampleCount();
-            texture = g_graphicsContext->CreateTexture2D(desc);
-        
-            return true;
-        };
+			depthDesc.width = width;
+			depthDesc.height = height;
 
-        sceneFramebufferDesc.resolveAttachments = { sceneResolveAttachment };
-		sceneFramebufferDesc.resolveResizeHandler = [](Ref<Texture>& texture, int32_t width, int32_t height) -> bool {
-			Texture2D::Descriptor desc;
-			desc.width = width;
-			desc.height = height;
-			desc.format = g_graphicsContext->GetSurfaceFormat();
-			desc.memProperty = MemoryProperty::Static;
-			desc.texUsages = TextureUsage::ColorAttachment | TextureUsage::ShaderResource;
-			desc.initialLayout = TextureLayout::ColorAttachment;
-			texture = g_graphicsContext->CreateTexture2D(desc);
+			resolveDesc.width = width;
+			resolveDesc.height = height;
 
-			return true;
+			attachments[0] = context.CreateTexture2D(gBufferDesc);
+			attachments[1] = context.CreateTexture2D(depthDesc);
+			attachments[2] = context.CreateTexture2D(resolveDesc);
+			attachments[3] = context.GetFrameColorAttachment(frameIndex);
 		};
 
-	    g_sceneFramebuffers[i] = g_graphicsContext->CreateFramebuffer(sceneFramebufferDesc);
-	}
+		return context.CreateFramebuffer(desc);
+	});
 
 	// NOTE: Vertex input layout
     VertexInputLayout::Descriptor vertexInputLayoutDesc;
@@ -288,14 +262,12 @@ void InitBaseResources() {
     ConstantBuffer::Descriptor cameraConstantsDesc;
 	cameraConstantsDesc.memProperty = MemoryProperty::Dynamic;
 	cameraConstantsDesc.bufferSize = sizeof(CameraConstants);
-    cameraConstantsDesc.initialData = &g_cameraConstants;
     
     g_cameraCB = g_graphicsContext->CreateConstantBuffer(cameraConstantsDesc);
 
 	ConstantBuffer::Descriptor lightConstantsDesc;
 	lightConstantsDesc.memProperty = MemoryProperty::Dynamic;
 	lightConstantsDesc.bufferSize = sizeof(LightConstants);
-    lightConstantsDesc.initialData = &g_lightConstants;
 
     g_lightCB = g_graphicsContext->CreateConstantBuffer(lightConstantsDesc);
 
@@ -330,18 +302,19 @@ void InitBaseResources() {
 	g_spotLightSB = g_graphicsContext->CreateStructuredBuffer(spotLightDesc);
 
 	// NOTE: Create finalize shader resources
-	ShaderResourcesLayout::Descriptor finalizeSRLDesc;
-	finalizeSRLDesc.bindings = {
-		{ 0, ResourceType::Texture2D, ShaderStage::Pixel, 1 },
+	ShaderResourcesLayout::Descriptor finalizeShaderResourceLayoutDesc;
+	finalizeShaderResourceLayoutDesc.bindings = {
+		{ 0, ResourceType::InputAttachment, ShaderStage::Pixel, 1 },
 	};
 
-	auto finalizeSRL = g_graphicsContext->CreateShaderResourcesLayout(finalizeSRLDesc);
+	g_finalizeShaderResourcesLayout = g_graphicsContext->CreateShaderResourcesLayout(finalizeShaderResourceLayoutDesc);
 
-    g_finalizeShaderResourcesPool = CreateRef<GraphicsResourcesPool<ShaderResources>>(*g_graphicsContext, [finalizeSRL](GraphicsContext& context) { 
+	g_finalizeDynamicShaderResourcesPool = CreateRef<GraphicsResourcesPool<ShaderResources>>(*g_graphicsContext, [](GraphicsContext& context) {
 		ShaderResources::Descriptor desc;
-		desc.layout = finalizeSRL;
+		desc.layout = g_finalizeShaderResourcesLayout;
+
 		return context.CreateShaderResources(desc);
-    });
+	});
 
 	// NOTE: Create finalize pipeline
 	GraphicsShader::Descriptor finalizeShaderDesc;
@@ -362,7 +335,10 @@ void InitBaseResources() {
 	g_finalizePipeline = g_graphicsContext->CreateGraphicsPipeline();
 	g_finalizePipeline->SetShader(finalizeShader);
 	g_finalizePipeline->SetVertexInputLayouts({ g_texturedVertexInputLayout });
-	g_finalizePipeline->SetShaderResourcesLayouts({ finalizeSRL });
+	g_finalizePipeline->SetRenderPass(g_sceneRenderPass, 1);
+	g_finalizePipeline->EnableBlendMode(0, true);
+	g_finalizePipeline->SetBlendMode(0, BlendMode::Default);
+	g_finalizePipeline->SetShaderResourcesLayouts({ g_finalizeShaderResourcesLayout });
     g_finalizePipeline->EnableDepthTest(false);
 	g_finalizePipeline->SetBehaviorStates(GraphicsPipeline::Behavior::AutoResizeViewport | GraphicsPipeline::Behavior::AutoResizeScissor);
 }
@@ -445,7 +421,9 @@ void InitObjectGraphicsPipeline() {
     g_objPipeline->SetShader(graphicsShader);
     g_objPipeline->SetPrimitiveTopology(PrimitiveTopology::TriangleList);
     g_objPipeline->SetVertexInputLayouts({ g_texturedVertexInputLayout, g_instanceVertexInputLayout });
-	g_objPipeline->SetRenderPassLayout(g_sceneRenderPassLayout);
+	g_objPipeline->SetRenderPass(g_sceneRenderPass, 0);
+	g_objPipeline->EnableBlendMode(0, true);
+	g_objPipeline->SetBlendMode(0, BlendMode::Default);
     g_objPipeline->SetBehaviorStates(GraphicsPipeline::Behavior::AutoResizeViewport | GraphicsPipeline::Behavior::AutoResizeScissor);
 }
 
@@ -453,8 +431,9 @@ void World_Cleanup() {
 	g_renderQueue.Clear();
     g_objects.clear();
     g_finalizePipeline.reset();
+	g_finalizeDynamicShaderResourcesPool.reset();
+	g_finalizeShaderResourcesLayout.reset();
 	g_instanceVBPool.reset();
-    g_finalizeShaderResourcesPool.reset();
     g_objPipeline.reset();
     g_objShaderResources.reset();
     g_objShaderResourcesLayout.reset();
@@ -472,10 +451,8 @@ void World_Cleanup() {
 	g_globalCB.reset();
 	g_instanceVertexInputLayout.reset();
     g_texturedVertexInputLayout.reset();
-	g_sceneLoadRenderPass.reset();
-	g_sceneClearRenderPass.reset();
-	g_sceneRenderPassLayout.reset();
-	g_sceneFramebuffers.clear();
+	g_sceneRenderPass.reset();
+	g_sceneFramebufferGroup.reset();
     g_graphicsContext.reset();
     g_context.reset();
 
@@ -489,6 +466,7 @@ void World_Update() {
 	g_objMaterialCBPool->Reset();
 	g_instanceVBPool->Reset();
 	g_objConstantsCBPool->Reset();
+	g_finalizeDynamicShaderResourcesPool->Reset();
 
     int32_t width, height;
     g_context->GetFrameBufferSize(width, height);
@@ -533,14 +511,15 @@ void World_Update() {
         spotLights[i].specular = glm::vec3(1.0f);
     }
 
-    g_lightConstants.directional_light_count = 1;
-    g_lightConstants.point_light_count = pointLights.size();
-    g_lightConstants.spot_light_count = spotLights.size();
+	LightConstants lightConstants;
+    lightConstants.directional_light_count = 1;
+    lightConstants.point_light_count = pointLights.size();
+    lightConstants.spot_light_count = spotLights.size();
 
-    g_directionalLightSB->Update(&directionalLight, sizeof(DirectionalLight) * g_lightConstants.directional_light_count);
-    g_pointLightSB->Update(pointLights.data(), sizeof(PointLight) * g_lightConstants.point_light_count);
-    g_spotLightSB->Update(spotLights.data(), sizeof(SpotLight) * g_lightConstants.spot_light_count);
-    g_lightCB->Update(&g_lightConstants, sizeof(LightConstants));
+    g_directionalLightSB->Update(&directionalLight, sizeof(DirectionalLight) * lightConstants.directional_light_count);
+    g_pointLightSB->Update(pointLights.data(), sizeof(PointLight) * lightConstants.point_light_count);
+    g_spotLightSB->Update(spotLights.data(), sizeof(SpotLight) * lightConstants.spot_light_count);
+    g_lightCB->Update(&lightConstants, sizeof(LightConstants));
 
 	// NOTE: Update camera
     const float aspectRatio = static_cast<float>(width) / height;
@@ -548,13 +527,14 @@ void World_Update() {
 
     const vec2 nearFar = g_camera->GetNearFarClip();
 
-    g_cameraConstants.near_plane = nearFar.x;
-    g_cameraConstants.far_plane = nearFar.y;
-    g_cameraConstants.view_matrix = g_camera->GetViewMatrix();
-    g_cameraConstants.projection_matrix = g_camera->GetProjectionMatrix();
-    g_cameraConstants.view_projection_matrix = g_cameraConstants.projection_matrix * g_cameraConstants.view_matrix;
-    g_cameraConstants.world_position = g_camera->GetPosition();
-    g_cameraCB->Update(&g_cameraConstants, sizeof(CameraConstants));
+	CameraConstants cameraConstants;
+    cameraConstants.near_plane = nearFar.x;
+    cameraConstants.far_plane = nearFar.y;
+    cameraConstants.view_matrix = g_camera->GetViewMatrix();
+    cameraConstants.projection_matrix = g_camera->GetProjectionMatrix();
+    cameraConstants.view_projection_matrix = cameraConstants.projection_matrix * cameraConstants.view_matrix;
+    cameraConstants.world_position = g_camera->GetPosition();
+    g_cameraCB->Update(&cameraConstants, sizeof(CameraConstants));
 
 	// NOTE: Update global constants
 	GlobalConstants globalConstants;
@@ -665,23 +645,17 @@ void World_Render() {
 }
 
 void World_FinalizeRender() {
-    g_finalizeShaderResourcesPool->Reset();
-
     auto& commandQueue = g_graphicsContext->GetCommandQueue();
-    auto& framebuffer = g_sceneFramebuffers[commandQueue.GetCurrentFrameIndex()];
 
     auto quad = GetMesh("quad");
-    auto attachment = std::static_pointer_cast<Texture2D>(framebuffer->GetResolveAttachment(0));
-    if (!attachment) {
-        attachment = std::static_pointer_cast<Texture2D>(framebuffer->GetColorAttachment(0));
-    }
+	auto framebuffer = g_sceneFramebufferGroup->Get();
 
-    auto finalizeResources = g_finalizeShaderResourcesPool->Get();
-    finalizeResources->BindTexture2D(attachment, 0);
+	auto finalizeSR = g_finalizeDynamicShaderResourcesPool->Get();
+	finalizeSR->BindInputAttachment(framebuffer->GetAttachment(2), 0);
 
 	commandQueue.SetPipeline(g_finalizePipeline);
 	commandQueue.SetVertexBuffers({ quad->vertexBuffer });
-	commandQueue.SetShaderResources({ finalizeResources });
+	commandQueue.SetShaderResources({ finalizeSR });
 	commandQueue.DrawIndexed(quad->indexBuffer, quad->indexBuffer->IndexCount());
 
 	commandQueue.ResetShaderResources();

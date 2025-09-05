@@ -11,22 +11,15 @@
 namespace flaw {
 	DXFramebuffer::DXFramebuffer(DXContext& context, const Descriptor& descriptor)
 		: _context(context)
+		, _renderPass(std::static_pointer_cast<DXRenderPass>(descriptor.renderPass))
 		, _width(descriptor.width)
 		, _height(descriptor.height)
-		, _colorAttachments(descriptor.colorAttachments)
-		, _colorResizeHandler(descriptor.colorResizeHandler)
-		, _resolveAttachments(descriptor.resolveAttachments)
-		, _resolveResizeHandler(descriptor.resolveResizeHandler)
-		, _renderPassLayout(std::static_pointer_cast<DXRenderPassLayout>(descriptor.renderPassLayout))
+		, _attachments(descriptor.attachments)
+		, _resizeHandler(descriptor.resizeHandler)
 	{
-		if (!_renderPassLayout) {
+		if (!_renderPass) {
 			LOG_FATAL("DXFramebuffer: Render pass layout is null.");
 			return;
-		}
-
-		if (descriptor.depthStencilAttachment) {
-			_depthStencilAttachment = descriptor.depthStencilAttachment.value();
-			_depthStencilResizeHandler = descriptor.depthStencilResizeHandler;
 		}
 
 		_context.AddOnResizeHandler(PID(this), std::bind(&DXFramebuffer::Resize, this, std::placeholders::_1, std::placeholders::_2));
@@ -41,33 +34,22 @@ namespace flaw {
 			return;
 		}
 
-		bool needRecreate = false;
-		if (_colorResizeHandler) {
-			for (uint32_t i = 0; i < _colorAttachments.size(); ++i) {
-				needRecreate |= _colorResizeHandler(_colorAttachments[i], width, height);
-			}
-		}
-
-		if (_depthStencilResizeHandler && _depthStencilAttachment) {
-			needRecreate |= _depthStencilResizeHandler(_depthStencilAttachment, width, height);
-		}
-
-		if (_resolveResizeHandler) {
-			for (uint32_t i = 0; i < _resolveAttachments.size(); ++i) {
-				needRecreate |= _resolveResizeHandler(_resolveAttachments[i], width, height);
-			}
-		}
-
-		if (!needRecreate) {
+		if (!_resizeHandler) {
 			return;
 		}
 
 		_width = width;
 		_height = height;
-	}
 
-	Ref<RenderPassLayout> DXFramebuffer::GetRenderPassLayout() const {
-		return _renderPassLayout;
+		_resizeHandler(width, height, _attachments);
+
+		for (auto& attachment : _attachments) {
+			if (attachment->GetWidth() != _width || attachment->GetHeight() != _height) {
+				LOG_FATAL("DXFramebuffer: Attachment size does not match framebuffer size after resize.");
+				_attachments.clear();
+				return;
+			}
+		}
 	}
 }
 

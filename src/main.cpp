@@ -34,11 +34,13 @@ int main() {
     LoadModel("assets/models/planet/planet.obj", 1.0f, "planet");
 	LoadModel("assets/models/rock/rock.obj", 1.0f, "rock");
 
-    Shadow_Init();
+    //Shadow_Init();
     Skybox_Init();
     Outliner_Init();
     Sprite_Init();
-    //Geometry_Init();
+#if USE_VULKAN
+    Geometry_Init();
+#endif
 
     struct ObjectCreateInfo {
         vec3 position;
@@ -137,43 +139,30 @@ int main() {
         g_camera->OnUpdate();
 
 		World_Update();
-        Shadow_Update();
+        //Shadow_Update();
 
 		if (g_context->GetWindowSizeState() == WindowSizeState::Minimized) {
 			continue; // Skip rendering if the window is minimized
 		}
 
         if (g_graphicsContext->Prepare()) {
-			uint32_t frameIndex = commandQueue.GetCurrentFrameIndex();
-			auto sceneFramebuffer = g_sceneFramebuffers[frameIndex];
+			auto sceneFramebuffer = g_sceneFramebufferGroup->Get();
 
-            Shadow_Render();
-
-            commandQueue.BeginRenderPass(g_sceneClearRenderPass, g_sceneLoadRenderPass, sceneFramebuffer);
-			Outliner_Render();
+            //Shadow_Render();
+            
+            commandQueue.BeginRenderPass(g_sceneRenderPass, sceneFramebuffer);
             World_Render();
-			//Geometry_Render();
+#if USE_VULKAN
+			Geometry_Render();
+#endif
+            Outliner_Render();
             Skybox_Render();
             Sprite_Render();
-            commandQueue.EndRenderPass();
 
-            auto attachment = std::static_pointer_cast<Texture2D>(sceneFramebuffer->GetResolveAttachment(0));
-            if (!attachment) {
-				attachment = std::static_pointer_cast<Texture2D>(sceneFramebuffer->GetColorAttachment(0));
-            }
+			commandQueue.NextSubpass();
 
-            commandQueue.SetPipelineBarrier(
-                attachment,
-                TextureLayout::ColorAttachment,
-                TextureLayout::ShaderReadOnly,
-                AccessType::ColorAttachmentWrite,
-                AccessType::ShaderRead,
-                PipelineStage::ColorAttachmentOutput,
-                PipelineStage::PixelShader
-            );
-            
-            commandQueue.BeginRenderPass();
             World_FinalizeRender();
+
             commandQueue.EndRenderPass();
 
             commandQueue.Submit();
@@ -182,11 +171,13 @@ int main() {
         }
     }
 
-    //Geometry_Cleanup();
+#if USE_VULKAN
+    Geometry_Cleanup();
+#endif
     Sprite_Cleanup();
     Outliner_Cleanup();
 	Skybox_Cleanup();
-	Shadow_Cleanup();
+	//Shadow_Cleanup();
     Asset_Cleanup();
     World_Cleanup();
 

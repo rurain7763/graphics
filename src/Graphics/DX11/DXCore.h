@@ -18,6 +18,10 @@ using namespace DirectX;
 using namespace DirectX::PackedVector;
 
 namespace flaw {
+	constexpr uint32_t ShaderResourceSetInterval = 10;
+	constexpr uint32_t MaxShaderResourceSets = 8;
+	constexpr uint32_t MaxShaderResourceSetBindings = 16;
+
 	inline DXGI_FORMAT ConvertToDXFormat(ElementType type, uint32_t count) {
 		switch (type) {
 		case ElementType::Float:
@@ -50,7 +54,7 @@ namespace flaw {
 
 	static DXGI_FORMAT ConvertToDXFormat(PixelFormat format) {
 		switch (format) {
-		case PixelFormat::UNDEFINED:
+		case PixelFormat::Undefined:
 			return DXGI_FORMAT_UNKNOWN;
 		case PixelFormat::BGRX8Unorm:
 			return DXGI_FORMAT_B8G8R8X8_UNORM;
@@ -86,7 +90,7 @@ namespace flaw {
 	static PixelFormat ConvertToPixelFormat(DXGI_FORMAT format) {
 		switch (format) {
 		case DXGI_FORMAT_UNKNOWN:
-			return PixelFormat::UNDEFINED;
+			return PixelFormat::Undefined;
 		case DXGI_FORMAT_B8G8R8X8_UNORM:
 			return PixelFormat::BGRX8Unorm;
 		case DXGI_FORMAT_R8G8B8A8_UNORM:
@@ -307,7 +311,7 @@ namespace flaw {
 	static uint32_t ConvertToDXTexBindFlags(TextureUsages texUsages) {
 		uint32_t bindFlags = 0;
 
-		if (texUsages & TextureUsage::ShaderResource) {
+		if (texUsages & (TextureUsage::ShaderResource | TextureUsage::InputAttachment)) {
 			bindFlags |= D3D11_BIND_SHADER_RESOURCE;
 		}
 

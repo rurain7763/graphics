@@ -9,7 +9,6 @@
 #include "Graphics/GraphicsCommandQueue.h"
 
 namespace flaw {
-	class DXRenderPassLayout;
 	class DXRenderPass;
 	class DXFramebuffer;
 
@@ -37,22 +36,18 @@ namespace flaw {
 		Ref<Texture2DArray> CreateTexture2DArray(const Texture2DArray::Descriptor& descriptor) override;
 		Ref<TextureCube> CreateTextureCube(const TextureCube::Descriptor& descriptor) override;
 
-		Ref<RenderPassLayout> CreateRenderPassLayout(const RenderPassLayout::Descriptor& desc) override;
 		Ref<RenderPass> CreateRenderPass(const RenderPass::Descriptor& desc) override;
 		Ref<Framebuffer> CreateFramebuffer(const Framebuffer::Descriptor& desc) override;
-
-		Ref<RenderPassLayout> GetMainRenderPassLayout() override;
 
 		uint32_t GetFrameCount() const override;
 		uint32_t GetCurrentFrameIndex() const override;
 
-		Ref<Framebuffer> GetMainFramebuffer(uint32_t index) override;
+		Ref<Texture2D> GetFrameColorAttachment(uint32_t frameIndex) const override;
 
 		GraphicsCommandQueue& GetCommandQueue() override;
 
 		void Resize(int32_t width, int32_t height) override;
 		void GetSize(int32_t& width, int32_t& height) override;
-		bool GetMSAAState() const override;
 		uint32_t GetMSAASampleCount() const override;
 
 		PixelFormat GetSurfaceFormat() const override;
@@ -66,16 +61,10 @@ namespace flaw {
 
 		inline ComPtr<ID3D11Device> Device() const { return _device; }
 		inline ComPtr<ID3D11DeviceContext> DeviceContext() const { return _deviceContext; }
-		inline Ref<DXRenderPass> MainClearDXRenderPass() const { return _mainClearRenderPass; }
-		inline Ref<DXRenderPass> MainLoadDXRenderPass() const { return _mainLoadRenderPass; }
-		inline Ref<DXFramebuffer> MainDXFramebuffer() const { return _mainFramebuffer; }
 		inline ComPtr<IDXGISwapChain> DXSwapChain() const { return _swapChain; }
 
 	private:
-		int32_t CreateMainRenderPassLayout();
-		int32_t CreateMainRenderPass();
 		int32_t CreateSwapChain();
-		int32_t CreateMainFramebuffer();
 
 		ID3D11SamplerState* CreateSamplerState(D3D11_FILTER filter, D3D11_TEXTURE_ADDRESS_MODE u, D3D11_TEXTURE_ADDRESS_MODE v, D3D11_TEXTURE_ADDRESS_MODE w);
 
@@ -90,13 +79,8 @@ namespace flaw {
 		ComPtr<ID3D11Device> _device;
 		ComPtr<ID3D11DeviceContext> _deviceContext;
 
-		Ref<DXRenderPassLayout> _mainRenderPassLayout;
-		Ref<DXRenderPass> _mainClearRenderPass;
-		Ref<DXRenderPass> _mainLoadRenderPass;
 		ComPtr<IDXGISwapChain> _swapChain;
-		Ref<DXFramebuffer> _mainFramebuffer;
-
-		Ref<Texture2D> _depthStencil;
+		Ref<Texture2D> _colorAttachment;
 
 		std::array<ID3D11SamplerState*, 2> _samplerStates;
 

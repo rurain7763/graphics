@@ -41,7 +41,7 @@ struct SpotLight
     float quadratic_attenuation;
 };
 
-cbuffer CameraConstants : register(b0)
+cbuffer CameraConstants : register(B_SET0_BINDING0)
 {
     row_major float4x4 g_view_matrix;
     row_major float4x4 g_projection_matrix;
@@ -54,7 +54,7 @@ cbuffer CameraConstants : register(b0)
     float g_camera_padding2;
 };
 
-cbuffer LightingConstants : register(b1)
+cbuffer LightingConstants : register(B_SET0_BINDING1)
 {
     uint g_directional_light_count;
     uint g_point_light_count;
@@ -62,7 +62,7 @@ cbuffer LightingConstants : register(b1)
     uint g_lighting_padding;
 };
 
-cbuffer MaterialConstants : register(b2)
+cbuffer MaterialConstants : register(B_SET1_BINDING1)
 {
     float3 g_diffuse_color;
     float g_shininess;
@@ -70,12 +70,13 @@ cbuffer MaterialConstants : register(b2)
     uint g_texture_binding_flags;
 };
 
-StructuredBuffer<DirectionalLight> g_directional_lights : register(t1);
-StructuredBuffer<PointLight> g_point_lights : register(t2);
-StructuredBuffer<SpotLight> g_spot_lights : register(t3);
+StructuredBuffer<DirectionalLight> g_directional_lights : register(T_SET0_BINDING4);
+StructuredBuffer<PointLight> g_point_lights : register(T_SET0_BINDING5);
+StructuredBuffer<SpotLight> g_spot_lights : register(T_SET0_BINDING6);
 
-Texture2D g_diffuse_texture : register(t4);
-Texture2D g_specular_texture : register(t5);
+Texture2D g_diffuse_texture : register(T_SET1_BINDING2);
+Texture2D g_specular_texture : register(T_SET1_BINDING3);
+TextureCube g_skybox_texture : register(T_SET1_BINDING4);
 
 SamplerState g_sampler : register(s0);
 

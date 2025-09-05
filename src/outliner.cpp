@@ -2,7 +2,6 @@
 #include "outliner.h"
 #include "world.h"
 
-static Ref<RenderPass> g_renderPass;
 static std::vector<std::vector<Ref<ConstantBuffer>>> g_objectConstantsCBsPerFrame;
 static uint32_t g_objectConstantsCBUsed = 0;
 static Ref<ShaderResourcesLayout> g_staticShaderResourcesLayout;
@@ -12,31 +11,12 @@ static std::vector<std::vector<Ref<ShaderResources>>> g_dynamicShaderResourcesPe
 static uint32_t g_dynamicShaderResourcesUsed = 0;
 static Ref<GraphicsPipeline> g_writeStencilPipeline;
 static Ref<GraphicsPipeline> g_outlinePipeline;
+static Ref<GraphicsPipeline> g_cleareStencilPipeline;
 
-#if USE_VULKAN
 const uint32_t cameraConstantsCBBinding = 0;
 const uint32_t objectConstantsCBBinding = 0;
-#elif USE_DX11
-const uint32_t cameraConstantsCBBinding = 0;
-const uint32_t objectConstantsCBBinding = 1;
-#endif
 
 void Outliner_Init() {
-	// NOTE: Create render pass
-	RenderPass::Descriptor renderPassDesc;
-	renderPassDesc.layout = g_sceneRenderPassLayout;
-	renderPassDesc.colorAttachmentOps = {
-		{ TextureLayout::ColorAttachment, TextureLayout::ColorAttachment, AttachmentLoadOp::Load, AttachmentStoreOp::Store }
-	};
-	renderPassDesc.depthStencilAttachmentOp = {
-		TextureLayout::DepthStencilAttachment, TextureLayout::DepthStencilAttachment, AttachmentLoadOp::Load, AttachmentStoreOp::Store, AttachmentLoadOp::Clear, AttachmentStoreOp::Store
-	};
-	renderPassDesc.resolveAttachmentOps = {
-		{ TextureLayout::ColorAttachment, TextureLayout::ColorAttachment, AttachmentLoadOp::Load, AttachmentStoreOp::Store }
-	};
-
-	g_renderPass = g_graphicsContext->CreateRenderPass(renderPassDesc);
-
 	// NOTE: Create buffers
 	g_objectConstantsCBsPerFrame.resize(g_graphicsContext->GetFrameCount());
 
@@ -84,12 +64,12 @@ void Outliner_Init() {
 
 	g_writeStencilPipeline = g_graphicsContext->CreateGraphicsPipeline();
 	g_writeStencilPipeline->SetShader(objectShader);
+	g_writeStencilPipeline->SetRenderPass(g_sceneRenderPass, 0);
 	g_writeStencilPipeline->EnableDepthTest(false);
 	g_writeStencilPipeline->EnableStencilTest(true);
 	g_writeStencilPipeline->SetStencilTest(stencilOp, stencilOp);
 	g_writeStencilPipeline->EnableBlendMode(0, false);
 	g_writeStencilPipeline->SetShaderResourcesLayouts({ g_staticShaderResourcesLayout, g_dynamicShaderResourcesLayout });
-	g_writeStencilPipeline->SetRenderPassLayout(g_sceneRenderPassLayout);
 	g_writeStencilPipeline->SetVertexInputLayouts({ g_texturedVertexInputLayout });
 	g_writeStencilPipeline->SetBehaviorStates(GraphicsPipeline::Behavior::AutoResizeViewport | GraphicsPipeline::Behavior::AutoResizeScissor);
 
@@ -108,21 +88,39 @@ void Outliner_Init() {
 
 	auto outlineShader = g_graphicsContext->CreateGraphicsShader(outlineShaderDesc);
 
-	GraphicsPipeline::StencilOperation outlineStencilOp;
-	outlineStencilOp.failOp = StencilOp::Keep;
-	outlineStencilOp.depthFailOp = StencilOp::Keep;
-	outlineStencilOp.passOp = StencilOp::Keep;
-	outlineStencilOp.compareOp = CompareOp::NotEqual;
-	outlineStencilOp.reference = 1;
+	stencilOp.failOp = StencilOp::Keep;
+	stencilOp.depthFailOp = StencilOp::Keep;
+	stencilOp.passOp = StencilOp::Keep;
+	stencilOp.compareOp = CompareOp::NotEqual;
+	stencilOp.reference = 1;
 
 	g_outlinePipeline = g_graphicsContext->CreateGraphicsPipeline();
 	g_outlinePipeline->SetShader(outlineShader);
+	g_outlinePipeline->SetRenderPass(g_sceneRenderPass, 0);
+	g_outlinePipeline->EnableBlendMode(0, true);
+	g_outlinePipeline->SetBlendMode(0, BlendMode::Default);
 	g_outlinePipeline->EnableStencilTest(true);
-	g_outlinePipeline->SetStencilTest(outlineStencilOp, outlineStencilOp);
+	g_outlinePipeline->SetStencilTest(stencilOp, stencilOp);
 	g_outlinePipeline->SetShaderResourcesLayouts({ g_staticShaderResourcesLayout, g_dynamicShaderResourcesLayout });
-	g_outlinePipeline->SetRenderPassLayout(g_sceneRenderPassLayout);
 	g_outlinePipeline->SetVertexInputLayouts({ g_texturedVertexInputLayout });
 	g_outlinePipeline->SetBehaviorStates(GraphicsPipeline::Behavior::AutoResizeViewport | GraphicsPipeline::Behavior::AutoResizeScissor);
+
+	stencilOp.failOp = StencilOp::Keep;
+	stencilOp.depthFailOp = StencilOp::Keep;
+	stencilOp.passOp = StencilOp::Replace;
+	stencilOp.compareOp = CompareOp::Always;
+	stencilOp.reference = 0;
+
+	g_cleareStencilPipeline = g_graphicsContext->CreateGraphicsPipeline();
+	g_cleareStencilPipeline->SetShader(objectShader);
+	g_cleareStencilPipeline->SetRenderPass(g_sceneRenderPass, 0);
+	g_cleareStencilPipeline->EnableDepthTest(false);
+	g_cleareStencilPipeline->EnableStencilTest(true);
+	g_cleareStencilPipeline->SetStencilTest(stencilOp, stencilOp);
+	g_cleareStencilPipeline->EnableBlendMode(0, false);
+	g_cleareStencilPipeline->SetShaderResourcesLayouts({ g_staticShaderResourcesLayout, g_dynamicShaderResourcesLayout });
+	g_cleareStencilPipeline->SetVertexInputLayouts({ g_texturedVertexInputLayout });
+	g_cleareStencilPipeline->SetBehaviorStates(GraphicsPipeline::Behavior::AutoResizeViewport | GraphicsPipeline::Behavior::AutoResizeScissor);
 }
 
 void Outliner_Cleanup() {
@@ -133,7 +131,7 @@ void Outliner_Cleanup() {
 	g_dynamicShaderResourcesPerFrame.clear();
 	g_writeStencilPipeline.reset();
 	g_outlinePipeline.reset();
-	g_renderPass.reset();
+	g_cleareStencilPipeline.reset();
 }
 
 static Ref<ShaderResources> GetDynamicShaderResources(uint32_t frameIndex) {
@@ -184,8 +182,6 @@ void Outliner_Render() {
 
 		objectConstantsCB->Update(&objectConstants, sizeof(ObjectConstants));
 
-		commandQueue.BeginRenderPass(g_renderPass, g_renderPass, g_sceneFramebuffers[frameIndex]);
-
 		commandQueue.SetPipeline(g_writeStencilPipeline);
 		commandQueue.SetVertexBuffers({ meshComp->mesh->vertexBuffer });
 		commandQueue.SetShaderResources({ g_staticShaderResources, dynamicResources });
@@ -194,7 +190,9 @@ void Outliner_Render() {
 		commandQueue.SetPipeline(g_outlinePipeline);
 		commandQueue.DrawIndexed(meshComp->mesh->indexBuffer, meshComp->mesh->indexBuffer->IndexCount());
 
-		commandQueue.EndRenderPass();
+		commandQueue.SetPipeline(g_cleareStencilPipeline);
+		commandQueue.DrawIndexed(meshComp->mesh->indexBuffer, meshComp->mesh->indexBuffer->IndexCount());
 	}
 }
+
 

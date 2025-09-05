@@ -4,13 +4,15 @@
 #include "GraphicsType.h"
 
 namespace flaw {
-	struct NativeTexture { };
+	struct NativeTexture {};
+	struct NativeTextureView {};
 
 	class Texture {
 	public:
 		virtual ~Texture() = default;
 
 		virtual const NativeTexture& GetNativeTexture() const = 0;
+		virtual const NativeTextureView& GetNativeTextureView() const = 0;
 
 		virtual uint32_t GetWidth() const = 0;
 		virtual uint32_t GetHeight() const = 0;
@@ -23,7 +25,7 @@ namespace flaw {
 	public:
 		struct Descriptor {
 			const uint8_t* data = nullptr;
-			PixelFormat format = PixelFormat::UNDEFINED;
+			PixelFormat format = PixelFormat::Undefined;
 			uint32_t width = 0, height = 0;
 			MemoryProperty memProperty = MemoryProperty::Static;
 			TextureUsages texUsages = 0;
@@ -45,7 +47,7 @@ namespace flaw {
 	public:
 		struct Descriptor {
 			const uint8_t* data = nullptr;
-			PixelFormat format = PixelFormat::UNDEFINED;
+			PixelFormat format = PixelFormat::Undefined;
 			uint32_t width = 0, height = 0;
 			MemoryProperty memProperty = MemoryProperty::Static;
 			TextureUsages texUsages = 0;
@@ -69,7 +71,7 @@ namespace flaw {
 	public:
 		struct Descriptor {
 			const uint8_t* data = nullptr;
-			PixelFormat format = PixelFormat::UNDEFINED;
+			PixelFormat format = PixelFormat::Undefined;
 			uint32_t width = 0, height = 0;
 			MemoryProperty memProperty = MemoryProperty::Static;
 			TextureUsages texUsages = 0;

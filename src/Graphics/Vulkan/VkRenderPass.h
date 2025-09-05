@@ -10,66 +10,57 @@
 namespace flaw {
     class VkContext;
 
-    class VkRenderPassLayout : public RenderPassLayout {
-    public:
-        VkRenderPassLayout(VkContext& context, const Descriptor& descriptor);
-        ~VkRenderPassLayout() = default;
-
-        virtual uint32_t GetColorAttachmentCount() const override;
-		virtual Attachment GetColorAttachment(uint32_t index) const override;
-
-        virtual bool HasDepthStencilAttachment() const override;
-		virtual Attachment GetDepthStencilAttachment() const override;
-
-        virtual uint32_t GetResolveAttachmentCount() const override;
-        virtual Attachment GetResolveAttachment(uint32_t index) const override;
-
-        virtual uint32_t GetSampleCount() const override;
-
-        inline vk::PipelineBindPoint GetVkPipelineBindPoint() const { return _pipelineBindPoint; }
-        inline std::vector<vk::AttachmentDescription> GetVkAttachments() { return _vkAttachments; }
-        inline std::vector<vk::AttachmentReference> GetVkColorAttachmentRefs() { return _colorAttachmentRefs; }
-        inline vk::AttachmentReference GetVkDepthAttachmentRef() { return _depthAttachmentRef.value(); }
-        inline std::vector<vk::AttachmentReference> GetVkResolveAttachmentRefs() { return _resolveAttachmentRefs; }
-
-    private:
-        VkContext& _context;
-
-        vk::PipelineBindPoint _pipelineBindPoint;
-
-        uint32_t _sampleCount;
-
-        std::vector<vk::AttachmentDescription> _vkAttachments;
-        std::vector<vk::AttachmentReference> _colorAttachmentRefs;
-        std::optional<vk::AttachmentReference> _depthAttachmentRef;
-        std::vector<vk::AttachmentReference> _resolveAttachmentRefs;
-    };
-    
     class VkRenderPass : public RenderPass {
-    public:
-        VkRenderPass(VkContext& context, const Descriptor& descriptor);
-        ~VkRenderPass();
+	public:
+		VkRenderPass(VkContext& context, const Descriptor& descriptor);
+		~VkRenderPass();
 
-        virtual const ColorAttachmentOperation& GetColorAttachmentOp(uint32_t index) const override;
-        virtual const DepthStencilAttachmentOperation& GetDepthStencilAttachmentOp() const override;
-        virtual const ResolveAttachmentOperation& GetResolveAttachmentOp(uint32_t index) const override;
+		const Attachment& GetAttachment(uint32_t index) const override { return _attachments.at(index); }
 
-		virtual Ref<RenderPassLayout> GetLayout() const override { return _layout; }
+        uint32_t GetInputAttachmentRefCount(uint32_t subpass) const override {
+			return _subpasses.at(subpass).inputAttachmentRefs.size();
+        }
 
-        inline vk::RenderPass& GetNativeVkRenderPass() { return _renderPass; }
+        const AttachmentRef& GetInputAttachmentRef(uint32_t subpass, uint32_t index) const override {
+			return _subpasses.at(subpass).inputAttachmentRefs.at(index);
+        }
 
-    private:
-        bool CreateRenderPass(const Descriptor& descriptor);
+        uint32_t GetColorAttachmentRefsCount(uint32_t subpass) const override {
+			return _subpasses.at(subpass).colorAttachmentRefs.size();
+        }
+
+        const AttachmentRef& GetColorAttachmentRef(uint32_t subpass, uint32_t index) const override {
+			return _subpasses.at(subpass).colorAttachmentRefs.at(index);
+        }
+
+        bool HasDepthStencilAttachmentRef(uint32_t subpass) const override {
+			return _subpasses.at(subpass).depthStencilAttachmentRef.has_value();
+        }
+
+        const AttachmentRef& GetDepthStencilAttachmentRef(uint32_t subpass) const override {
+			return _subpasses.at(subpass).depthStencilAttachmentRef.value();
+        }
+
+        uint32_t GetResolveAttachmentRefCount(uint32_t subpass) const override {
+			return _subpasses.at(subpass).resolveAttachmentRefs.size();
+        }
+
+        const AttachmentRef& GetResolveAttachmentRef(uint32_t subpass, uint32_t index) const override {
+			return _subpasses.at(subpass).resolveAttachmentRefs.at(index);
+        }
+
+		inline vk::RenderPass GetNativeVkRenderPass() const { return _renderPass; }
+		inline const std::vector<vk::ClearValue>& GetClearValues() const { return _clearValues; }
 
     private:
         VkContext& _context;
-
-		Ref<VkRenderPassLayout> _layout;
 
         vk::RenderPass _renderPass;
-        std::vector<ColorAttachmentOperation> _colorAttachmentOps;
-        std::optional<DepthStencilAttachmentOperation> _depthStencilOp;
-        std::vector<ResolveAttachmentOperation> _resolveAttachmentOps;
+
+        std::vector<Attachment> _attachments;
+		std::vector<vk::ClearValue> _clearValues;
+        std::vector<SubPass> _subpasses;
+		std::vector<SubPassDependency> _dependencies;
     };
 }
 

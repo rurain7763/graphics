@@ -32,28 +32,8 @@ namespace flaw {
             return -1;
         }
 
-        if (!CreateRenderTextures()) {
+        if (!CreateColorAttachments()) {
             Log::Error("Failed to create Vulkan swapchain render textures.");
-            return -1;
-        }
-
-        if (!CreateDepthStencilTextures()) {
-            Log::Error("Failed to create Vulkan swapchain depth stencil textures.");
-            return -1;
-        }
-
-        if (!CreateMSAAColorTextures()) {
-            Log::Error("Failed to create Vulkan swapchain MSAA color textures.");
-            return -1;
-        }
-
-        if (!CreateRenderPasses()) {
-            Log::Error("Failed to create Vulkan swapchain render pass.");
-            return -1;
-        }
-
-        if (!CreateFramebuffers()) {
-            Log::Error("Failed to create Vulkan swapchain framebuffer.");
             return -1;
         }
 
@@ -64,10 +44,7 @@ namespace flaw {
 
     int32_t VkSwapchain::Resize(uint32_t width, uint32_t height) {
         if(_swapchain) {
-            _frameBuffers.clear();
-            _renderTextures.clear();
-            _depthStencilTextures.clear();
-			_msaaColorTextures.clear();
+            _colorAttachments.clear();
             _context.GetVkDevice().destroySwapchainKHR(_swapchain, nullptr);
         }
 
@@ -77,27 +54,12 @@ namespace flaw {
         _transform = surfaceDetails.capabilities.currentTransform;
 
         if (!CreateSwapchain()) {
-            Log::Error("Failed to create Vulkan swapchain.");
+            LOG_ERROR("Failed to create Vulkan swapchain.");
             return -1;
         }
 
-        if (!CreateRenderTextures()) {
-            Log::Error("Failed to create Vulkan swapchain render textures.");
-            return -1;
-        }
-
-        if (!CreateDepthStencilTextures()) {
-            Log::Error("Failed to create Vulkan swapchain depth stencil textures.");
-            return -1;
-        }
-
-        if (!CreateMSAAColorTextures()) {
-            Log::Error("Failed to create Vulkan swapchain MSAA color textures.");
-            return -1;
-        }
-
-        if (!CreateFramebuffers()) {
-            Log::Error("Failed to create Vulkan swapchain framebuffer.");
+        if (!CreateColorAttachments()) {
+            LOG_ERROR("Failed to create Vulkan swapchain render textures.");
             return -1;
         }
 
@@ -191,148 +153,24 @@ namespace flaw {
         throw std::runtime_error("No suitable depth format found");
     }
 
-    bool VkSwapchain::CreateRenderTextures() {
+    bool VkSwapchain::CreateColorAttachments() {
         auto images = _context.GetVkDevice().getSwapchainImagesKHR(_swapchain).value;
 
-        _renderTextures.resize(images.size());
+        _colorAttachments.resize(images.size());
         for (uint32_t i = 0; i < images.size(); ++i) {
             vk::Image image = images[i];
 
             uint32_t bindFlags = TextureUsage::ColorAttachment | TextureUsage::ShaderResource;
 
-            _renderTextures[i] = CreateRef<VkTexture2D>(
+            _colorAttachments[i] = CreateRef<VkTexture2D>(
                 _context, 
                 image, 
                 _extent.width, _extent.height, GetSurfaceFormat(), 
                 MemoryProperty::Static,
                 TextureUsage::ColorAttachment | TextureUsage::ShaderResource,
-                _context.GetMSAAState() ? _context.GetMSAASampleCount() : 1,
+                1,
                 1
             );
-        }
-
-        return true;
-    }
-
-    bool VkSwapchain::CreateDepthStencilTextures() {
-        Texture2D::Descriptor desc;
-        desc.width = _extent.width;
-        desc.height = _extent.height;
-        desc.format = _depthStencilFormat;
-        desc.memProperty = MemoryProperty::Static;
-        desc.texUsages = TextureUsage::DepthStencilAttachment;
-		desc.initialLayout = TextureLayout::DepthStencilAttachment;
-        desc.sampleCount = _context.GetMSAAState() ? _context.GetMSAASampleCount() : 1;
-
-        _depthStencilTextures.reserve(_renderTextures.size());
-        for (size_t i = 0; i < _renderTextures.size(); ++i) {
-            _depthStencilTextures.push_back(CreateRef<VkTexture2D>(_context, desc));
-        }
-
-        return true;
-    }
-
-    bool VkSwapchain::CreateMSAAColorTextures() {
-        if (!_context.GetMSAAState()) {
-            return true;
-        }
-
-        _msaaColorTextures.reserve(_renderTextures.size());
-        for (uint32_t i = 0; i < _renderTextures.size(); ++i) {
-            Texture2D::Descriptor desc;
-            desc.width = _extent.width;
-            desc.height = _extent.height;
-            desc.format = GetSurfaceFormat();
-            desc.memProperty = MemoryProperty::Static;
-            desc.texUsages = TextureUsage::ColorAttachment;
-			desc.initialLayout = TextureLayout::ColorAttachment;
-
-            _msaaColorTextures.push_back(CreateRef<VkTexture2D>(_context, desc));
-        }
-
-        return true;
-    }
-
-    bool VkSwapchain::CreateRenderPasses() {
-        RenderPassLayout::Descriptor renderPassLayoutDesc;
-        if (!_context.GetMSAAState()) {
-            renderPassLayoutDesc.sampleCount = 1;
-            renderPassLayoutDesc.colorAttachments = { { _context.GetSurfaceFormat() } };
-            renderPassLayoutDesc.depthStencilAttachment = { _depthStencilFormat };
-        } else {
-            renderPassLayoutDesc.sampleCount = _context.GetMSAASampleCount();
-            renderPassLayoutDesc.colorAttachments = { { _context.GetSurfaceFormat() } };
-            renderPassLayoutDesc.depthStencilAttachment = { _depthStencilFormat };
-            renderPassLayoutDesc.resolveAttachments = { { _context.GetSurfaceFormat() } };
-        }
-
-        _renderPassLayout = CreateRef<VkRenderPassLayout>(_context, renderPassLayoutDesc);
-
-        RenderPass::Descriptor renderPassDesc;
-        renderPassDesc.layout = _renderPassLayout;
-
-        renderPassDesc.depthStencilAttachmentOp = {
-            { TextureLayout::Undefined, TextureLayout::DepthStencilAttachment, AttachmentLoadOp::Clear, AttachmentStoreOp::Store, AttachmentLoadOp::DontCare, AttachmentStoreOp::DontCare }
-        };
-
-        if (_context.GetMSAAState()) {
-            renderPassDesc.colorAttachmentOps = {
-                { TextureLayout::Undefined, TextureLayout::ColorAttachment, AttachmentLoadOp::Clear, AttachmentStoreOp::Store }
-            };
-            renderPassDesc.resolveAttachmentOps = {
-                { TextureLayout::Undefined, TextureLayout::PresentSource, AttachmentLoadOp::Clear, AttachmentStoreOp::Store }
-            };
-        } else {
-            renderPassDesc.colorAttachmentOps = {
-                { TextureLayout::Undefined, TextureLayout::PresentSource, AttachmentLoadOp::Clear, AttachmentStoreOp::Store }
-            };
-        }
-
-        _clearOpRenderPass = CreateRef<VkRenderPass>(_context, renderPassDesc);
-
-        renderPassDesc.depthStencilAttachmentOp = {
-            { TextureLayout::DepthStencilAttachment, TextureLayout::DepthStencilAttachment, AttachmentLoadOp::Load, AttachmentStoreOp::Store, AttachmentLoadOp::DontCare, AttachmentStoreOp::DontCare }
-        };
-
-        if (_context.GetMSAAState()) {
-            renderPassDesc.colorAttachmentOps = {
-                { TextureLayout::ColorAttachment, TextureLayout::ColorAttachment, AttachmentLoadOp::Load, AttachmentStoreOp::Store }
-            };
-            renderPassDesc.resolveAttachmentOps = {
-                { TextureLayout::PresentSource, TextureLayout::PresentSource, AttachmentLoadOp::Load, AttachmentStoreOp::Store }
-            };
-        } else {
-            renderPassDesc.colorAttachmentOps = {
-                { TextureLayout::PresentSource, TextureLayout::PresentSource, AttachmentLoadOp::Load, AttachmentStoreOp::Store }
-            };
-        }
-
-        _loadOpRenderPass = CreateRef<VkRenderPass>(_context, renderPassDesc);
-
-        return true;
-    }
-
-    bool VkSwapchain::CreateFramebuffers() {
-        _frameBuffers.reserve(_renderTextures.size());
-        for (uint32_t i = 0; i < _renderTextures.size(); ++i) {
-            auto renderTexture = _renderTextures[i];
-            auto depthTexture = _depthStencilTextures[i];
-            
-            Framebuffer::Descriptor desc;
-            desc.width = _extent.width;
-            desc.height = _extent.height;
-            desc.renderPassLayout = _renderPassLayout;
-
-            desc.depthStencilAttachment = depthTexture;
-
-            if (_context.GetMSAAState()) {
-                desc.colorAttachments.push_back(_msaaColorTextures[i]);
-                desc.resolveAttachments.push_back(renderTexture);
-            } else {
-                desc.colorAttachments.push_back(renderTexture);
-            }
-
-            _frameBuffers.push_back(CreateRef<VkFramebuffer>(_context, desc));
         }
 
         return true;
@@ -343,13 +181,7 @@ namespace flaw {
             return;
         }
 
-        _clearOpRenderPass.reset();
-        _loadOpRenderPass.reset();
-        _renderPassLayout.reset();
-        _frameBuffers.clear();
-        _renderTextures.clear();
-        _depthStencilTextures.clear();
-        _msaaColorTextures.clear();
+        _colorAttachments.clear();
         _context.GetVkDevice().destroySwapchainKHR(_swapchain, nullptr);
         _swapchain = VK_NULL_HANDLE;
     }

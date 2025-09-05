@@ -73,9 +73,11 @@ namespace flaw {
         auto vkTexture = std::dynamic_pointer_cast<VkTexture2D>(texture);
         FASSERT(vkTexture, "Invalid texture type for Vulkan shader resources");
 
+		const auto& vkNativeTexView = static_cast<const VkNativeTextureView&>(texture->GetNativeTextureView());
+
 		vk::DescriptorImageInfo imageInfo;
 		imageInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-		imageInfo.imageView = vkTexture->GetVkImageView();
+		imageInfo.imageView = vkNativeTexView.imageView;
 		imageInfo.sampler = vkTexture->GetVkSampler();
 
         vk::WriteDescriptorSet writeDescSet;
@@ -93,9 +95,11 @@ namespace flaw {
         auto vkTexture = std::dynamic_pointer_cast<VkTextureCube>(texture);
         FASSERT(vkTexture, "Invalid texture cube type for Vulkan shader resources");
 
+        const auto& vkNativeTexView = static_cast<const VkNativeTextureView&>(texture->GetNativeTextureView());
+
         vk::DescriptorImageInfo imageInfo;
 		imageInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-		imageInfo.imageView = vkTexture->GetVkImageView();
+		imageInfo.imageView = vkNativeTexView.imageView;
 		imageInfo.sampler = vkTexture->GetVkSampler();
 
         vk::WriteDescriptorSet writeDescSet;
@@ -149,6 +153,28 @@ namespace flaw {
         writeDescSet.descriptorType = vk::DescriptorType::eStorageBuffer;
         writeDescSet.descriptorCount = 1;
         writeDescSet.pBufferInfo = &bufferInfo;
+
+        _context.GetVkDevice().updateDescriptorSets(1, &writeDescSet, 0, nullptr);
+    }
+
+    void VkShaderResources::BindInputAttachment(const Ref<Texture>& texture, uint32_t binding) {
+        auto vkTexture = std::dynamic_pointer_cast<VkTexture2D>(texture);
+        FASSERT(vkTexture, "Invalid texture type for Vulkan shader resources");
+
+        const auto& vkNativeTexView = static_cast<const VkNativeTextureView&>(texture->GetNativeTextureView());
+
+        vk::DescriptorImageInfo imageInfo;
+        imageInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+		imageInfo.imageView = vkNativeTexView.imageView;
+        imageInfo.sampler = nullptr;
+
+        vk::WriteDescriptorSet writeDescSet;
+        writeDescSet.dstSet = _descriptorSet;
+        writeDescSet.dstBinding = binding;
+        writeDescSet.dstArrayElement = 0;
+        writeDescSet.descriptorType = vk::DescriptorType::eInputAttachment;
+        writeDescSet.descriptorCount = 1;
+        writeDescSet.pImageInfo = &imageInfo;
 
         _context.GetVkDevice().updateDescriptorSets(1, &writeDescSet, 0, nullptr);
     }

@@ -35,8 +35,8 @@ namespace flaw {
 		void DrawIndexed(const Ref<IndexBuffer>& indexBuffer, uint32_t indexCount, uint32_t indexOffset = 0, uint32_t vertexOffset = 0) override;
 		void DrawIndexedInstanced(const Ref<IndexBuffer>& indexBuffer, uint32_t indexCount, uint32_t instanceCount, uint32_t indexOffset = 0, uint32_t vertexOffset = 0, uint32_t instanceOffset = 0) override;
 		
-		void BeginRenderPass() override;
-		void BeginRenderPass(const Ref<RenderPass>& beginRenderPass, const Ref<RenderPass>& resumeRenderPass, const Ref<Framebuffer>& framebuffer) override;
+		void BeginRenderPass(const Ref<RenderPass>& renderpass, const Ref<Framebuffer>& framebuffer) override;
+		void NextSubpass() override;
 		void EndRenderPass() override;
 
 		void Submit() override;
@@ -55,8 +55,6 @@ namespace flaw {
 		void Dispatch(uint32_t x, uint32_t y, uint32_t z) override;
 
 	private:
-		void BeginRenderPassImpl(const Ref<DXRenderPass>& beginRenderPass, const Ref<DXFramebuffer>& framebuffer);
-
 		void BindComputeResources();
 
 	private:
@@ -71,12 +69,9 @@ namespace flaw {
 
 		std::vector<Ref<DXShaderResources>> _currentShaderResourcesVec;
 
-		struct BeginInfo {
-			Ref<DXFramebuffer> framebuffer;
-			Ref<DXRenderPass> beginRenderPass;
-			Ref<DXRenderPass> resumeRenderPass;
-		};
-		std::vector<BeginInfo> _currentBeginInfoStack;
+		Ref<DXRenderPass> _currentBeginRenderPass;
+		uint32_t _currentBeginSubpass;
+		Ref<DXFramebuffer> _currentBeginFramebuffer;
 
 		D3D11_VIEWPORT _currentViewport;
 		D3D11_RECT _currentScissor;

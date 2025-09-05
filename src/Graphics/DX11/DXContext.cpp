@@ -45,19 +45,7 @@ namespace flaw {
 
 		_msaaSampleCount = GetDXMaxMSAASampleCount(_device, ConvertToDXFormat(GetSurfaceFormat()));
 
-		if (CreateMainRenderPassLayout()) {
-			return;
-		}
-
-		if (CreateMainRenderPass()) {
-			return;
-		}
-
 		if (CreateSwapChain()) {
-			return;
-		}
-
-		if (CreateMainFramebuffer()) {
 			return;
 		}
 
@@ -74,67 +62,6 @@ namespace flaw {
 		_commandQueue = CreateRef<DXCommandQueue>(*this);
 
 		Log::Info("DirectX 11 Initialized");
-	}
-
-	int32_t DXContext::CreateMainRenderPassLayout() {
-		RenderPassLayout::Descriptor renderPassLayoutDesc;
-		renderPassLayoutDesc.sampleCount = GetMSAAState() ? _msaaSampleCount : 1;
-		renderPassLayoutDesc.colorAttachments = { { GetSurfaceFormat() } };
-		renderPassLayoutDesc.depthStencilAttachment = { GetDepthStencilFormat() };
-		if (GetMSAAState()) {
-			renderPassLayoutDesc.resolveAttachments = { { GetSurfaceFormat() } };
-		}
-
-		_mainRenderPassLayout = CreateRef<DXRenderPassLayout>(*this, renderPassLayoutDesc);
-
-		return 0;
-	}
-
-	int32_t DXContext::CreateMainRenderPass() {
-		RenderPass::Descriptor mainRenderPassDesc;
-		mainRenderPassDesc.layout = _mainRenderPassLayout;
-		mainRenderPassDesc.depthStencilAttachmentOp = {
-			TextureLayout::DepthStencilAttachment, TextureLayout::DepthStencilAttachment, AttachmentLoadOp::Clear, AttachmentStoreOp::Store, AttachmentLoadOp::Clear, AttachmentStoreOp::Store
-		};
-
-		if (GetMSAAState()) {
-			mainRenderPassDesc.colorAttachmentOps = {
-				{ TextureLayout::Undefined, TextureLayout::ColorAttachment, AttachmentLoadOp::Clear, AttachmentStoreOp::Store }
-			};
-
-			mainRenderPassDesc.resolveAttachmentOps = {
-				{ TextureLayout::Undefined, TextureLayout::PresentSource, AttachmentLoadOp::Clear, AttachmentStoreOp::Store }
-			};
-		}
-		else {
-			mainRenderPassDesc.colorAttachmentOps = { 
-				{ TextureLayout::Undefined, TextureLayout::PresentSource, AttachmentLoadOp::Clear, AttachmentStoreOp::Store }
-			};
-		}
-
-		_mainClearRenderPass = CreateRef<DXRenderPass>(*this, mainRenderPassDesc);
-
-		mainRenderPassDesc.depthStencilAttachmentOp = {
-			TextureLayout::DepthStencilAttachment, TextureLayout::DepthStencilAttachment, AttachmentLoadOp::Load, AttachmentStoreOp::Store, AttachmentLoadOp::Load, AttachmentStoreOp::Store
-		};
-
-		if (GetMSAAState()) {
-			mainRenderPassDesc.colorAttachmentOps = {
-				{ TextureLayout::ColorAttachment, TextureLayout::ColorAttachment, AttachmentLoadOp::Load, AttachmentStoreOp::Store }
-			};
-			mainRenderPassDesc.resolveAttachmentOps = {
-				{ TextureLayout::PresentSource, TextureLayout::PresentSource, AttachmentLoadOp::Load, AttachmentStoreOp::Store }
-			};
-		}
-		else {
-			mainRenderPassDesc.colorAttachmentOps = { 
-				{ TextureLayout::PresentSource, TextureLayout::PresentSource, AttachmentLoadOp::Load, AttachmentStoreOp::Store}
-			};
-		}
-
-		_mainLoadRenderPass = CreateRef<DXRenderPass>(*this, mainRenderPassDesc);
-
-		return 0;
 	}
 
 	int32_t DXContext::CreateSwapChain() {
@@ -159,141 +86,20 @@ namespace flaw {
 		swapchainDesc.BufferDesc.RefreshRate.Numerator = 60;
 		swapchainDesc.BufferDesc.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;
 		swapchainDesc.BufferDesc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
-		if (GetMSAAState()) {
-			swapchainDesc.SampleDesc.Count = _msaaSampleCount;
-			
-			UINT qualityLevels = 0;
-			if (FAILED(_device->CheckMultisampleQualityLevels(swapchainDesc.BufferDesc.Format, _msaaSampleCount, &qualityLevels)) || qualityLevels == 0) {
-				LOG_ERROR("CheckMultisampleQualityLevels failed");
-				return -1;
-			}
-
-			swapchainDesc.SampleDesc.Quality = qualityLevels - 1;
-		}
-		else {
-			swapchainDesc.SampleDesc.Count = 1;
-			swapchainDesc.SampleDesc.Quality = 0;
-		}
+		swapchainDesc.SampleDesc.Count = 1;
+		swapchainDesc.SampleDesc.Quality = 0;
 
 		if (FAILED(dxgiFactory->CreateSwapChain(_device.Get(), &swapchainDesc, _swapChain.GetAddressOf()))) {
 			LOG_ERROR("CreateSwapChain failed");
 			return -1;
 		}
 
-		return 0;
-	}
-
-	int32_t DXContext::CreateMainFramebuffer() {
 		ComPtr<ID3D11Texture2D> backBuffer;
 		if (FAILED(_swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)backBuffer.GetAddressOf()))) {
-			LOG_ERROR("GetBuffer failed");
-			return -1;
+			throw std::runtime_error("GetBuffer failed");
 		}
 
-		Texture2D::Descriptor descDepth = {};
-		descDepth.format = GetDepthStencilFormat();
-		descDepth.width = _renderWidth;
-		descDepth.height = _renderHeight;
-		descDepth.memProperty = MemoryProperty::Static;
-		descDepth.texUsages = TextureUsage::DepthStencilAttachment;
-		descDepth.initialLayout = TextureLayout::DepthStencilAttachment;
-		descDepth.sampleCount = GetMSAAState() ? _msaaSampleCount : 1;
-
-		auto depthStencilTex = CreateRef<DXTexture2D>(*this, descDepth);
-
-		Framebuffer::Descriptor framebufferDesc;
-		framebufferDesc.width = _renderWidth;
-		framebufferDesc.height = _renderHeight;
-		framebufferDesc.renderPassLayout = _mainRenderPassLayout;
-		framebufferDesc.depthStencilAttachment = depthStencilTex;
-		framebufferDesc.depthStencilResizeHandler = [this](Ref<Texture>& tex, uint32_t width, uint32_t height) -> bool {
-			tex.reset();
-
-			Texture2D::Descriptor desc = {};
-			desc.format = GetDepthStencilFormat();
-			desc.width = width;
-			desc.height = height;
-			desc.memProperty = MemoryProperty::Static;
-			desc.texUsages = TextureUsage::DepthStencilAttachment;
-			desc.initialLayout = TextureLayout::DepthStencilAttachment;
-
-			tex = CreateRef<DXTexture2D>(*this, desc);
-
-			return true;
-		};
-
-		if (GetMSAAState()) {
-			Texture2D::Descriptor colorDesc;
-			colorDesc.format = GetSurfaceFormat();
-			colorDesc.width = _renderWidth;
-			colorDesc.height = _renderHeight;
-			colorDesc.memProperty = MemoryProperty::Static;
-			colorDesc.texUsages = TextureUsage::ColorAttachment;
-			colorDesc.initialLayout = TextureLayout::ColorAttachment;
-			colorDesc.sampleCount = _msaaSampleCount;
-			framebufferDesc.colorAttachments = {
-				{ CreateRef<DXTexture2D>(*this, colorDesc) }
-			};
-			framebufferDesc.colorResizeHandler = [this](Ref<Texture>& tex, uint32_t width, uint32_t height) -> bool {
-				tex.reset();
-
-				Texture2D::Descriptor desc = {};
-				desc.format = GetSurfaceFormat();
-				desc.width = width;
-				desc.height = height;
-				desc.memProperty = MemoryProperty::Static;
-				desc.texUsages = TextureUsage::ColorAttachment;
-				desc.initialLayout = TextureLayout::ColorAttachment;
-				desc.sampleCount = _msaaSampleCount;
-
-				tex = CreateRef<DXTexture2D>(*this, desc);
-
-				return true;
-			};
-			framebufferDesc.resolveAttachments = {
-				{ CreateRef<DXTexture2D>(*this, backBuffer, GetSurfaceFormat(), 0) }
-			};
-			framebufferDesc.resolveResizeHandler = [this](Ref<Texture>& tex, uint32_t width, uint32_t height) -> bool {
-				tex.reset();
-
-				if (FAILED(_swapChain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0))) {
-					throw std::runtime_error("ResizeBuffers failed");
-				}
-
-				ComPtr<ID3D11Texture2D> backBuffer;
-				if (FAILED(_swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)backBuffer.GetAddressOf()))) {
-					throw std::runtime_error("GetBuffer failed");
-				}
-
-				tex = CreateRef<DXTexture2D>(*this, backBuffer, GetSurfaceFormat(), 0);
-
-				return true;
-			};
-		}
-		else {
-			framebufferDesc.colorAttachments = {
-				{ CreateRef<DXTexture2D>(*this, backBuffer, GetSurfaceFormat(), 0) }
-			};
-
-			framebufferDesc.colorResizeHandler = [this](Ref<Texture>& tex, uint32_t width, uint32_t height) -> bool {
-				tex.reset();
-
-				if (FAILED(_swapChain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0))) {
-					throw std::runtime_error("ResizeBuffers failed");
-				}
-
-				ComPtr<ID3D11Texture2D> backBuffer;
-				if (FAILED(_swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)backBuffer.GetAddressOf()))) {
-					throw std::runtime_error("GetBuffer failed");
-				}
-
-				tex = CreateRef<DXTexture2D>(*this, backBuffer, GetSurfaceFormat(), 0);
-
-				return true;
-			};
-		}
-
-		_mainFramebuffer = CreateRef<DXFramebuffer>(*this, framebufferDesc);
+		_colorAttachment = CreateRef<DXTexture2D>(*this, backBuffer, GetSurfaceFormat(), 0);
 
 		return 0;
 	}
@@ -323,11 +129,6 @@ namespace flaw {
 		for (auto samplerState : _samplerStates) {
 			samplerState->Release();
 		}
-
-		_mainFramebuffer.reset();
-		_mainLoadRenderPass.reset();
-		_mainClearRenderPass.reset();
-		_mainRenderPassLayout.reset();
 	}
 
 	bool DXContext::Prepare() {
@@ -383,20 +184,12 @@ namespace flaw {
 		return CreateRef<DXTextureCube>(*this, descriptor);
 	}
 
-	Ref<RenderPassLayout> DXContext::CreateRenderPassLayout(const RenderPassLayout::Descriptor& desc) {
-		return CreateRef<DXRenderPassLayout>(*this, desc);
-	}
-
 	Ref<RenderPass> DXContext::CreateRenderPass(const RenderPass::Descriptor& desc) {
 		return CreateRef<DXRenderPass>(*this, desc);
 	}
 
 	Ref<Framebuffer> DXContext::CreateFramebuffer(const Framebuffer::Descriptor& desc) {
 		return CreateRef<DXFramebuffer>(*this, desc);
-	}
-
-	Ref<RenderPassLayout> DXContext::GetMainRenderPassLayout() {
-		return _mainRenderPassLayout;
 	}
 
 	uint32_t DXContext::GetFrameCount() const {
@@ -407,13 +200,8 @@ namespace flaw {
 		return 0;
 	}
 
-	Ref<Framebuffer> DXContext::GetMainFramebuffer(uint32_t index) {
-		if (index != 0) {
-			LOG_ERROR("Invalid framebuffer index: %d", index);
-			return nullptr;
-		}
-
-		return _mainFramebuffer;
+	Ref<Texture2D> DXContext::GetFrameColorAttachment(uint32_t frameIndex) const {
+		return _colorAttachment;
 	}
 
 	GraphicsCommandQueue& DXContext::GetCommandQueue() {
@@ -431,6 +219,7 @@ namespace flaw {
 
 		_renderWidth = width;
 		_renderHeight = height;
+		_colorAttachment.reset();
 
 		_swapChain.Reset();
 		if (CreateSwapChain()) {
@@ -445,10 +234,6 @@ namespace flaw {
 	void DXContext::GetSize(int32_t& width, int32_t& height) {
 		width = _renderWidth;
 		height = _renderHeight;
-	}
-
-	bool DXContext::GetMSAAState() const {
-		return _enableMSAA;
 	}
 
 	uint32_t DXContext::GetMSAASampleCount() const {

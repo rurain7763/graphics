@@ -24,14 +24,9 @@ namespace flaw {
 
         explicit operator bool() const { return _swapchain; }
 
-        inline uint32_t GetRenderTextureCount() const { return _renderTextures.size(); }
-        inline Ref<VkTexture2D> GetRenderTexture(uint32_t index) const { return _renderTextures[index]; }
+        inline uint32_t GetColorAttachmentCount() const { return _colorAttachments.size(); }
+        inline Ref<VkTexture2D> GetColorAttachment(uint32_t index) const { return _colorAttachments[index]; }
         inline vk::SwapchainKHR& GetNativeVkSwapchain() { return _swapchain; }
-        inline const std::vector<Ref<VkFramebuffer>>& GetFramebuffers() const { return _frameBuffers; }
-        inline Ref<VkFramebuffer> GetFramebuffer(uint32_t index) const { return _frameBuffers[index]; }
-        inline Ref<VkRenderPassLayout> GetRenderPassLayout() const { return _renderPassLayout; }
-        inline Ref<VkRenderPass> GetLoadOpRenderPass() const { return _loadOpRenderPass; }
-        inline Ref<VkRenderPass> GetClearOpRenderPass() const { return _clearOpRenderPass; }
         inline PixelFormat GetSurfaceFormat() const { return ConvertToPixelFormat(_surfaceFormat.format); }
         inline PixelFormat GetDepthStencilFormat() const { return _depthStencilFormat; }
 
@@ -42,15 +37,7 @@ namespace flaw {
         vk::Extent2D ChooseExtent(const vk::SurfaceCapabilitiesKHR& capabilities, uint32_t width, uint32_t height) const;
         vk::Format ChooseDepthFormat(const std::vector<vk::Format>& candidates) const;
 
-        bool CreateRenderTextures();
-
-        bool CreateDepthStencilTextures();
-
-        bool CreateMSAAColorTextures();
-
-        bool CreateRenderPasses();
-
-        bool CreateFramebuffers();
+        bool CreateColorAttachments();
 
     private:  
         VkContext& _context;
@@ -63,13 +50,7 @@ namespace flaw {
         PixelFormat _depthStencilFormat;
 
         vk::SwapchainKHR _swapchain;
-        std::vector<Ref<VkTexture2D>> _renderTextures;
-        std::vector<Ref<VkTexture2D>> _depthStencilTextures;
-        std::vector<Ref<VkTexture2D>> _msaaColorTextures;
-        std::vector<Ref<VkFramebuffer>> _frameBuffers;
-        Ref<VkRenderPassLayout> _renderPassLayout;
-        Ref<VkRenderPass> _clearOpRenderPass;
-        Ref<VkRenderPass> _loadOpRenderPass;
+        std::vector<Ref<VkTexture2D>> _colorAttachments;
     };
 }
 

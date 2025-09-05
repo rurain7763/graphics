@@ -1,7 +1,7 @@
 #ifndef OBJECT_FX
 #define OBJECT_FX
 
-cbuffer CameraConstants : register(b0)
+cbuffer CameraConstants : register(B_SET0_BINDING0)
 {
     row_major float4x4 g_view_matrix;
     row_major float4x4 g_projection_matrix;
@@ -14,7 +14,7 @@ cbuffer CameraConstants : register(b0)
     float g_camera_padding2;
 };
 
-cbuffer ObjectConstants : register(b1)
+cbuffer ObjectConstants : register(B_SET1_BINDING0)
 {
     row_major float4x4 g_model_matrix;
     row_major float4x4 g_inv_model_matrix;

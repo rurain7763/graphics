@@ -22,6 +22,7 @@
 	#define FAPI
 #endif
 
+#define sprintf(buff, size, format, ...) sprintf_s(buff, size, format, __VA_ARGS__)
 #define vsprintf(buff, size, format, args) vsprintf_s(buff, size, format, args)
 
 #elif __APPLE__
@@ -38,6 +39,7 @@
 	#define FAPI
 #endif
 
+#define sprintf(buff, size, format, ...) snprintf(buff, size, format, __VA_ARGS__)
 #define vsprintf(buff, size, format, args) vsnprintf(buff, size, format, args)
 
 #endif

@@ -12,7 +12,7 @@ namespace flaw {
 	class DXVertexInputLayout;
 	class DXShaderResourcesLayout;
 	class DXGraphicsShader;
-	class DXRenderPassLayout;
+	class DXRenderPass;
 	class DXComputeShader;
 
 	class DXGraphicsPipeline : public GraphicsPipeline {
@@ -38,7 +38,7 @@ namespace flaw {
 		void SetShaderResourcesLayouts(const std::vector<Ref<ShaderResourcesLayout>>& shaderResourceLayouts) override;
 		void SetShader(const Ref<GraphicsShader>& shader) override;
 
-		void SetRenderPassLayout(const Ref<RenderPassLayout>& renderPassLayout) override;
+		void SetRenderPass(const Ref<RenderPass>& renderPass, uint32_t subpass) override;
 		void EnableBlendMode(uint32_t attachmentIndex, bool enable) override;
 		void SetBlendMode(uint32_t attachmentIndex, BlendMode blendMode) override;
 		void SetAlphaToCoverage(bool enable) override;
@@ -79,7 +79,8 @@ namespace flaw {
 
 		Ref<DXGraphicsShader> _shader;
 
-		Ref<DXRenderPassLayout> _renderPassLayout;
+		Ref<DXRenderPass> _renderPass;
+		uint32_t _subpass;
 
 		std::vector<std::optional<BlendMode>> _blendModes;
 		bool _alphaToCoverage = false;

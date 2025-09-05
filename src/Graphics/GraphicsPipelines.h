@@ -45,7 +45,7 @@ namespace flaw {
 		virtual void SetShaderResourcesLayouts(const std::vector<Ref<ShaderResourcesLayout>>& shaderResourceLayouts) = 0;
 		virtual void SetShader(const Ref<GraphicsShader>& shader) = 0;
 
-		virtual void SetRenderPassLayout(const Ref<RenderPassLayout>& renderPassLayout) = 0;
+		virtual void SetRenderPass(const Ref<RenderPass>& renderPass, uint32_t subpass) = 0;
 		virtual void EnableBlendMode(uint32_t attachmentIndex, bool enable) = 0;
 		virtual void SetBlendMode(uint32_t attachmentIndex, BlendMode blendMode) = 0;
 		virtual void SetAlphaToCoverage(bool enable) = 0;

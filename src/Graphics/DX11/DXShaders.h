@@ -42,6 +42,8 @@ namespace flaw {
 		void BindStructuredBuffer(const Ref<StructuredBuffer>& structuredBuffer, uint32_t binding) override;
 		void BindStructuredBufferUA(const Ref<StructuredBuffer>& structuredBuffer, uint32_t binding) override;
 
+		void BindInputAttachment(const Ref<Texture>& texture, uint32_t binding) override;
+
 		inline Ref<DXShaderResourcesLayout> GetLayout() const { return _layout; }
 		inline std::unordered_map<uint32_t, ComPtr<ID3D11ShaderResourceView>>& GetTRegistryResources() { return _tRegistryResources; }
 		inline std::unordered_map<uint32_t, ComPtr<ID3D11UnorderedAccessView>>& GetURegistryResources() { return _uRegistryResources; }

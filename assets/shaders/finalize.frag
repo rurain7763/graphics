@@ -3,14 +3,14 @@
 
 #include "common.glsl"
 
-layout(set = 0, binding = 0) uniform sampler2D final_texture;
+layout(input_attachment_index = 0, set = 0, binding = 0) uniform subpassInput final_texture;
 
 layout(location = 0) in vec2 in_tex_coord;
 
 layout(location = 0) out vec4 fragColor;
 
 void main() {
-    vec4 tex_color = texture(final_texture, in_tex_coord);
+    vec4 tex_color = subpassLoad(final_texture);
     vec4 final_color = vec4(0.0);
 
     final_color = tex_color;

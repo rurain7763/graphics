@@ -35,14 +35,14 @@ namespace flaw {
 			}
 		}
 
-		if (_usages & TextureUsage::ShaderResource) {
+		if (_usages & (TextureUsage::ShaderResource | TextureUsage::InputAttachment)) {
 			if (!CreateShaderResourceView()) {
 				Log::Error("CreateShaderResourceView failed");
 				return;
 			}
 
 			if (_mipLevels > 1) {
-				_context.DeviceContext()->GenerateMips(_nativeTexture.srv.Get());
+				_context.DeviceContext()->GenerateMips(_nativeTextureView.srv.Get());
 			}
 		}
 
@@ -85,13 +85,13 @@ namespace flaw {
 			}
 		}
 
-		if (_usages & TextureUsage::ShaderResource) {
+		if (_usages & (TextureUsage::ShaderResource | TextureUsage::InputAttachment)) {
 			if (!CreateShaderResourceView()) {
 				return;
 			}
 
 			if (_mipLevels > 1) {
-				_context.DeviceContext()->GenerateMips(_nativeTexture.srv.Get());
+				_context.DeviceContext()->GenerateMips(_nativeTextureView.srv.Get());
 			}
 		}
 
@@ -204,7 +204,7 @@ namespace flaw {
 		rtvDesc.ViewDimension = _sampleCount == 1 ? D3D11_RTV_DIMENSION_TEXTURE2D : D3D11_RTV_DIMENSION_TEXTURE2DMS;
 		rtvDesc.Texture2D.MipSlice = 0;
 
-		if (FAILED(_context.Device()->CreateRenderTargetView(_nativeTexture.texture.Get(), &rtvDesc, _nativeTexture.rtv.GetAddressOf()))) {
+		if (FAILED(_context.Device()->CreateRenderTargetView(_nativeTexture.texture.Get(), &rtvDesc, _nativeTextureView.rtv.GetAddressOf()))) {
 			LOG_ERROR("CreateRenderTargetView failed");
 			return false;
 		}
@@ -218,7 +218,7 @@ namespace flaw {
 		dsvDesc.ViewDimension = _sampleCount == 1 ? D3D11_DSV_DIMENSION_TEXTURE2D : D3D11_DSV_DIMENSION_TEXTURE2DMS;
 		dsvDesc.Texture2D.MipSlice = 0;
 
-		if (FAILED(_context.Device()->CreateDepthStencilView(_nativeTexture.texture.Get(), &dsvDesc, _nativeTexture.dsv.GetAddressOf()))) {
+		if (FAILED(_context.Device()->CreateDepthStencilView(_nativeTexture.texture.Get(), &dsvDesc, _nativeTextureView.dsv.GetAddressOf()))) {
 			LOG_ERROR("CreateDepthStencilView failed");
 			return false;
 		}
@@ -233,7 +233,7 @@ namespace flaw {
 		srvDesc.Texture2D.MostDetailedMip = 0;
 		srvDesc.Texture2D.MipLevels = _mipLevels;
 
-		if (FAILED(_context.Device()->CreateShaderResourceView(_nativeTexture.texture.Get(), &srvDesc, _nativeTexture.srv.GetAddressOf()))) {
+		if (FAILED(_context.Device()->CreateShaderResourceView(_nativeTexture.texture.Get(), &srvDesc, _nativeTextureView.srv.GetAddressOf()))) {
 			LOG_ERROR("CreateShaderResourceView failed");
 			return false;
 		}
@@ -246,7 +246,7 @@ namespace flaw {
 		uavDesc.Format = ConvertToDXFormat(_format);
 		uavDesc.ViewDimension = D3D11_UAV_DIMENSION_TEXTURE2D;
 
-		if (FAILED(_context.Device()->CreateUnorderedAccessView(_nativeTexture.texture.Get(), &uavDesc, _nativeTexture.uav.GetAddressOf()))) {
+		if (FAILED(_context.Device()->CreateUnorderedAccessView(_nativeTexture.texture.Get(), &uavDesc, _nativeTextureView.uav.GetAddressOf()))) {
 			LOG_ERROR("CreateUnorderedAccessView failed");
 			return false;
 		}

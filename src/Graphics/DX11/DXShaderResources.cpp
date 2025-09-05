@@ -19,6 +19,7 @@ namespace flaw {
 			case ResourceType::Texture2D:
 			case ResourceType::TextureCube:
 			case ResourceType::StructuredBuffer:
+			case ResourceType::InputAttachment:
 				_tRegistryBindings[binding.binding] = binding;
 				break;
 			case ResourceType::ConstantBuffer:
@@ -50,9 +51,9 @@ namespace flaw {
 			return;
 		}
 
-		const auto& dxNativeTex = static_cast<const DXNativeTexture&>(texture->GetNativeTexture());
+		const auto& dxNativeTexView = static_cast<const DXNativeTextureView&>(texture->GetNativeTextureView());
 
-		_tRegistryResources[binding] = dxNativeTex.srv;
+		_tRegistryResources[binding] = dxNativeTexView.srv;
 	}
 
 	void DXShaderResources::BindTexture2DUA(const Ref<Texture2D>& texture, uint32_t binding) {
@@ -67,9 +68,9 @@ namespace flaw {
 			return;
 		}
 
-		const auto& dxNativeTex = static_cast<const DXNativeTexture&>(texture->GetNativeTexture());
+		const auto& dxNativeTexView = static_cast<const DXNativeTextureView&>(texture->GetNativeTextureView());
 
-		_uRegistryResources[binding] = dxNativeTex.uav;
+		_uRegistryResources[binding] = dxNativeTexView.uav;
 	}
 
 	void DXShaderResources::BindTextureCube(const Ref<TextureCube>& texture, uint32_t binding) {
@@ -84,9 +85,9 @@ namespace flaw {
 			return;
 		}
 
-		const auto& dxNativeTex = static_cast<const DXNativeTexture&>(texture->GetNativeTexture());
+		const auto& dxNativeTexView = static_cast<const DXNativeTextureView&>(texture->GetNativeTextureView());
 
-		_tRegistryResources[binding] = dxNativeTex.srv;
+		_tRegistryResources[binding] = dxNativeTexView.srv;
 	}
 
 	void DXShaderResources::BindConstantBuffer(const Ref<ConstantBuffer>& constantBuffer, uint32_t binding) {
@@ -133,8 +134,23 @@ namespace flaw {
 		}
 
 		const auto& dxNativeBuff = static_cast<const DXNativeBuffer&>(dxBuffer->GetNativeBuffer());
-
 		_uRegistryResources[binding] = dxNativeBuff.uav;
+	}
+
+	void DXShaderResources::BindInputAttachment(const Ref<Texture>& texture, uint32_t binding) {
+		auto dxTexture = std::static_pointer_cast<DXTexture2D>(texture);
+		FASSERT(dxTexture, "Invalid Texture2D provided");
+
+		const auto& tRegistryBindings = _layout->GetTRegistryBindings();
+
+		auto resBindingIt = tRegistryBindings.find(binding);
+		if (resBindingIt == tRegistryBindings.end()) {
+			LOG_ERROR("Binding %d not found in shader resources", binding);
+			return;
+		}
+
+		const auto& dxNativeTexView = static_cast<const DXNativeTextureView&>(dxTexture->GetNativeTextureView());
+		_tRegistryResources[binding] = dxNativeTexView.srv;
 	}
 }
 

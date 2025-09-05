@@ -6,6 +6,7 @@
 #include <vector>
 
 namespace flaw {
+	class Texture;
 	class Texture2D;
 	class TextureCube;
 	class ConstantBuffer;
@@ -44,6 +45,8 @@ namespace flaw {
 
 		virtual void BindStructuredBuffer(const Ref<StructuredBuffer>& structuredBuffer, uint32_t binding) = 0;
 		virtual void BindStructuredBufferUA(const Ref<StructuredBuffer>& structuredBuffer, uint32_t binding) = 0;
+
+		virtual void BindInputAttachment(const Ref<Texture>& texture, uint32_t binding) = 0;
 	};
 
 	class GraphicsShader {

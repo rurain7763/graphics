@@ -21,6 +21,7 @@ namespace flaw {
 		UnorderedAccess = 0x2,
 		ColorAttachment = 0x4,
 		DepthStencilAttachment = 0x8,
+		InputAttachment = 0x10,
 	};
 
 	using TextureUsages = Flags<TextureUsage>;
@@ -91,7 +92,7 @@ namespace flaw {
 	};
 
 	enum class PixelFormat {
-		UNDEFINED,
+		Undefined,
 		RGBA8Unorm,
 		RGBA8Srgb,
 		RGBA32F,
@@ -196,6 +197,7 @@ namespace flaw {
 		StructuredBuffer,
 		Texture2D,
 		TextureCube,
+		InputAttachment,
 	};
 
 	enum class AttachmentLoadOp {

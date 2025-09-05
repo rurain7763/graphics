@@ -33,10 +33,9 @@ namespace flaw {
         return VK_FALSE; // Returning false indicates that the message should not be aborted
     }
 
-	VkContext::VkContext(PlatformContext& context, int32_t width, int32_t height, bool msaa) 
+	VkContext::VkContext(PlatformContext& context, int32_t width, int32_t height) 
         : _renderWidth(width)
         , _renderHeight(height)
-        , _msaaEnabled(msaa)
         , _currentDeletionCounter(0)
     {
         VULKAN_HPP_DEFAULT_DISPATCHER.init();
@@ -293,6 +292,7 @@ namespace flaw {
             { vk::DescriptorType::eUniformBuffer, MaxConstantBufferBindingCount },
             { vk::DescriptorType::eStorageBuffer, MaxStructuredBufferBindingCount },
             { vk::DescriptorType::eCombinedImageSampler, MaxTextureBindingCount },
+			{ vk::DescriptorType::eInputAttachment, MaxInputAttachmentBindingCount }
         };
 
         vk::DescriptorPoolCreateInfo poolInfo;
@@ -406,10 +406,6 @@ namespace flaw {
 		return CreateRef<VkTextureCube>(*this, descriptor);
 	}
 
-    Ref<RenderPassLayout> VkContext::GetMainRenderPassLayout() {
-        return _swapchain->GetRenderPassLayout();
-    }
-
     uint32_t VkContext::GetFrameCount() const {
         return _frameCount;
     }
@@ -418,17 +414,13 @@ namespace flaw {
 		return _commandQueue->GetCurrentFrameIndex();
 	}
 
-    Ref<Framebuffer> VkContext::GetMainFramebuffer(uint32_t index) {
-        return _swapchain->GetFramebuffer(index);
-    }
+	Ref<Texture2D> VkContext::GetFrameColorAttachment(uint32_t frameIndex) const {
+		return _swapchain->GetColorAttachment(frameIndex);
+	}
 
 	GraphicsCommandQueue& VkContext::GetCommandQueue() {
 		return *_commandQueue;
 	}
-
-    Ref<RenderPassLayout> VkContext::CreateRenderPassLayout(const RenderPassLayout::Descriptor& desc) {
-        return CreateRef<VkRenderPassLayout>(*this, desc);
-    }
 
 	Ref<RenderPass> VkContext::CreateRenderPass(const RenderPass::Descriptor& desc) {
         return CreateRef<VkRenderPass>(*this, desc);
@@ -464,10 +456,6 @@ namespace flaw {
 		width = _renderWidth;
 		height = _renderHeight;
 	}
-
-    bool VkContext::GetMSAAState() const {
-        return _msaaEnabled;
-    }
 
 	uint32_t VkContext::GetMSAASampleCount() const {
 		return _msaaSampleCount;

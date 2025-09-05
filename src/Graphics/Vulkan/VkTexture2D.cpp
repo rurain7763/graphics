@@ -96,12 +96,12 @@ namespace flaw {
     }
 
     VkTexture2D::~VkTexture2D() {
-        _context.AddDelayedDeletionTasks([&context = _context, nativeTex = _nativeTexture, view = _view, sampler = _sampler, isExternalImage = _isExternalImage]() {
+        _context.AddDelayedDeletionTasks([&context = _context, nativeTex = _nativeTexture, nativeTexView = _nativeTextureView, sampler = _sampler, isExternalImage = _isExternalImage]() {
             if (!isExternalImage) {
                 context.GetVkDevice().destroyImage(nativeTex.image);
                 context.GetVkDevice().freeMemory(nativeTex.memory);
             }
-            context.GetVkDevice().destroyImageView(view);
+            context.GetVkDevice().destroyImageView(nativeTexView.imageView);
             context.GetVkDevice().destroySampler(sampler);
         });
     }
@@ -254,7 +254,7 @@ namespace flaw {
             return false;
         }
 
-        _view = imageViewWrapper.value;
+        _nativeTextureView.imageView = imageViewWrapper.value;
 
         return true;
     }

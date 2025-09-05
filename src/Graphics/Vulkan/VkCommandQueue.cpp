@@ -176,18 +176,16 @@ namespace flaw {
         const uint32_t behaviorStates = vkPipeline->GetBehaviorStates();
 
         if (behaviorStates & GraphicsPipeline::Behavior::AutoResizeViewport) {
-			if (_currentBeginInfoStack.empty()) {
+			if (!_currentBeginFramebuffer) {
 				LOG_ERROR("No framebuffer bound for the command queue.");
 				return;
 			}
 
-			const auto& beginInfo = _currentBeginInfoStack.back();
-
 			vk::Viewport newViewport;
 			newViewport.x = 0.0f;
 			newViewport.y = 0.0f;
-			newViewport.width = static_cast<float>(beginInfo.framebuffer->GetWidth());
-			newViewport.height = static_cast<float>(beginInfo.framebuffer->GetHeight());
+			newViewport.width = static_cast<float>(_currentBeginFramebuffer->GetWidth());
+			newViewport.height = static_cast<float>(_currentBeginFramebuffer->GetHeight());
 			newViewport.minDepth = 0.0f;
 			newViewport.maxDepth = 1.0f;
 
@@ -195,16 +193,14 @@ namespace flaw {
         }
 
         if (behaviorStates & GraphicsPipeline::Behavior::AutoResizeScissor) {
-            if (_currentBeginInfoStack.empty()) {
+            if (!_currentBeginFramebuffer) {
                 LOG_ERROR("No framebuffer bound for the command queue.");
                 return;
             }
 
-			const auto& beginInfo = _currentBeginInfoStack.back();
-
 			vk::Rect2D newScissor;
 			newScissor.offset = vk::Offset2D{ 0, 0 };
-			newScissor.extent = vk::Extent2D{ beginInfo.framebuffer->GetWidth(), beginInfo.framebuffer->GetHeight() };
+			newScissor.extent = vk::Extent2D{ _currentBeginFramebuffer->GetWidth(), _currentBeginFramebuffer->GetHeight() };
 
 			commandBuffer.setScissor(0, 1, &newScissor);
         }
@@ -299,82 +295,58 @@ namespace flaw {
         commandBuffer.drawIndexed(indexCount, instanceCount, indexOffset, vertexOffset, instanceOffset);
     }
 
-    void VkCommandQueue::BeginRenderPassImpl(const Ref<VkRenderPass>& renderPass, const Ref<VkFramebuffer>& framebuffer) {
+    void VkCommandQueue::BeginRenderPass(const Ref<RenderPass>& renderpass, const Ref<Framebuffer>& framebuffer) {
+        auto vkRenderPass = std::static_pointer_cast<VkRenderPass>(renderpass);
+        FASSERT(vkRenderPass, "Invalid render pass type for Vulkan command queue");
+
+        auto vkFramebuffer = std::static_pointer_cast<VkFramebuffer>(framebuffer);
+        FASSERT(vkFramebuffer, "Invalid framebuffer type for Vulkan command queue");
+
+        if (_currentBeginRenderPass) {
+			LOG_ERROR("A render pass is already active. Nested render passes are not supported in this implementation.");
+			return;
+        }
+
+		_currentBeginRenderPass = vkRenderPass;
+		_currentBeginFramebuffer = vkFramebuffer;
+       
         auto& commandBuffer = _graphicsFrameCommandBuffers[_currentCommandBufferIndex];
 
-		auto layout = renderPass->GetLayout();
-
-        std::vector<vk::ClearValue> clearValues;
-        for(uint32_t i = 0; i < layout->GetColorAttachmentCount(); ++i) {
-            clearValues.push_back(vk::ClearColorValue(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f}));
-        }
-
-        if (layout->HasDepthStencilAttachment()) {
-			clearValues.push_back(vk::ClearDepthStencilValue{ 1.0f, 0 });
-        }
-
-        for (uint32_t i = 0; i < layout->GetResolveAttachmentCount(); ++i) {
-            clearValues.push_back(vk::ClearColorValue(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f}));
-        }
+        const auto& clearValues = vkRenderPass->GetClearValues();
 
         vk::RenderPassBeginInfo renderPassInfo;
-        renderPassInfo.renderPass = renderPass->GetNativeVkRenderPass();
-        renderPassInfo.framebuffer = framebuffer->GetNativeVkFramebuffer();
+        renderPassInfo.renderPass = vkRenderPass->GetNativeVkRenderPass();
+        renderPassInfo.framebuffer = vkFramebuffer->GetNativeVkFramebuffer();
         renderPassInfo.renderArea.offset = vk::Offset2D{ 0, 0 };
-        renderPassInfo.renderArea.extent = vk::Extent2D{ framebuffer->GetWidth(), framebuffer->GetHeight() };
+        renderPassInfo.renderArea.extent = vk::Extent2D{ vkFramebuffer->GetWidth(), vkFramebuffer->GetHeight() };
         renderPassInfo.clearValueCount = clearValues.size();
         renderPassInfo.pClearValues = clearValues.data();
 
         commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
     }
 
-    void VkCommandQueue::BeginRenderPass() {        
-        auto& swapchain = _context.GetVkSwapchain();
-        auto vkFramebuffer = swapchain.GetFramebuffer(_currentFrameIndex); 
-
-        BeginRenderPass(swapchain.GetClearOpRenderPass(), swapchain.GetLoadOpRenderPass(), vkFramebuffer);
-    }
-
-    void VkCommandQueue::BeginRenderPass(const Ref<RenderPass>& beginRenderPass, const Ref<RenderPass>& resumeRenderPass, const Ref<Framebuffer>& framebuffer) {
-        auto vkBeginRenderPass = std::static_pointer_cast<VkRenderPass>(beginRenderPass);
-        FASSERT(vkBeginRenderPass, "Invalid render pass type for Vulkan command queue");
-
-        auto vkResumeRenderPass = std::static_pointer_cast<VkRenderPass>(resumeRenderPass);
-        FASSERT(vkResumeRenderPass, "Invalid render pass type for Vulkan command queue");
-
-        auto vkFramebuffer = std::static_pointer_cast<VkFramebuffer>(framebuffer);
-        FASSERT(vkFramebuffer, "Invalid framebuffer type for Vulkan command queue");
-
-        if (!_currentBeginInfoStack.empty()) {
-            auto& commandBuffer = _graphicsFrameCommandBuffers[_currentCommandBufferIndex];
-            commandBuffer.endRenderPass();
+    void VkCommandQueue::NextSubpass() {
+        if (!_currentBeginRenderPass) {
+			LOG_WARN("No active render pass to advance to the next subpass.");
+			return;
         }
-        
-        _currentBeginInfoStack.push_back({ vkFramebuffer, vkBeginRenderPass, vkResumeRenderPass });
 
-        BeginRenderPassImpl(vkBeginRenderPass, vkFramebuffer);
+		auto& commandBuffer = _graphicsFrameCommandBuffers[_currentCommandBufferIndex];
+
+		commandBuffer.nextSubpass(vk::SubpassContents::eInline);
     }
 
     void VkCommandQueue::EndRenderPass() {
-        if (_currentBeginInfoStack.empty()) {
-            Log::Error("No render pass is currently active.");
-            return;
+        if (!_currentBeginRenderPass) {
+			LOG_WARN("No active render pass to end.");
+			return;
         }
+
+		_currentBeginRenderPass = nullptr;
+		_currentBeginFramebuffer = nullptr;
 
         auto& commandBuffer = _graphicsFrameCommandBuffers[_currentCommandBufferIndex];
-
         commandBuffer.endRenderPass();
-
-        _currentBeginInfoStack.pop_back();
-        if (_currentBeginInfoStack.empty()) {
-            return;
-        }
-
-        auto& currentBeginInfo = _currentBeginInfoStack.back();
-        auto vkFramebuffer = currentBeginInfo.framebuffer;
-        auto vkRenderPass = currentBeginInfo.resumeRenderPass;
-
-        BeginRenderPassImpl(vkRenderPass, vkFramebuffer);
     }
 
     void VkCommandQueue::Submit() {

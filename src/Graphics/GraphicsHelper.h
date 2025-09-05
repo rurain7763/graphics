@@ -39,12 +39,12 @@ namespace flaw {
 
 	class FramebufferGroup {
 	public:
-		FramebufferGroup(GraphicsContext& context, const Framebuffer::Descriptor& desc)
+		FramebufferGroup(GraphicsContext& context, const std::function<Ref<Framebuffer>(GraphicsContext&, uint32_t)>& desc)
 			: _context(context)
 			, _framebuffersPerFrame(context.GetFrameCount())
 		{
 			for (uint32_t i = 0; i < context.GetFrameCount(); i++) {
-				_framebuffersPerFrame[i] = context.CreateFramebuffer(desc);
+				_framebuffersPerFrame[i] = desc(context, i);
 			}
 		}
 

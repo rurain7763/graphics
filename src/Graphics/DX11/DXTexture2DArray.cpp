@@ -34,7 +34,7 @@ namespace flaw {
 			}
 		}
 
-		if (_usages & TextureUsage::ShaderResource) {
+		if (_usages & (TextureUsage::ShaderResource | TextureUsage::InputAttachment)) {
 			if (!CreateShaderResourceView()) {
 				return;
 			}
@@ -93,7 +93,7 @@ namespace flaw {
 		rtvDesc.Texture2DArray.FirstArraySlice = 0;
 		rtvDesc.Texture2DArray.MipSlice = 0;
 
-		if (FAILED(_context.Device()->CreateRenderTargetView(_nativeTexture.texture.Get(), &rtvDesc, _nativeTexture.rtv.GetAddressOf()))) {
+		if (FAILED(_context.Device()->CreateRenderTargetView(_nativeTexture.texture.Get(), &rtvDesc, _nativeTextureView.rtv.GetAddressOf()))) {
 			return false;
 		}
 
@@ -108,7 +108,7 @@ namespace flaw {
 		dsvDesc.Texture2DArray.FirstArraySlice = 0;
 		dsvDesc.Texture2DArray.MipSlice = 0;
 
-		if (FAILED(_context.Device()->CreateDepthStencilView(_nativeTexture.texture.Get(), &dsvDesc, _nativeTexture.dsv.GetAddressOf()))) {
+		if (FAILED(_context.Device()->CreateDepthStencilView(_nativeTexture.texture.Get(), &dsvDesc, _nativeTextureView.dsv.GetAddressOf()))) {
 			return false;
 		}
 
@@ -124,7 +124,7 @@ namespace flaw {
 		srvDesc.Texture2DArray.MostDetailedMip = 0;
 		srvDesc.Texture2DArray.MipLevels = 1;
 
-		if (FAILED(_context.Device()->CreateShaderResourceView(_nativeTexture.texture.Get(), &srvDesc, _nativeTexture.srv.GetAddressOf()))) {
+		if (FAILED(_context.Device()->CreateShaderResourceView(_nativeTexture.texture.Get(), &srvDesc, _nativeTextureView.srv.GetAddressOf()))) {
 			return false;
 		}
 
@@ -139,7 +139,7 @@ namespace flaw {
 		uavDesc.Texture2DArray.FirstArraySlice = 0;
 		uavDesc.Texture2DArray.MipSlice = 0;
 
-		if (FAILED(_context.Device()->CreateUnorderedAccessView(_nativeTexture.texture.Get(), &uavDesc, _nativeTexture.uav.GetAddressOf()))) {
+		if (FAILED(_context.Device()->CreateUnorderedAccessView(_nativeTexture.texture.Get(), &uavDesc, _nativeTextureView.uav.GetAddressOf()))) {
 			return false;
 		}
 

@@ -55,18 +55,16 @@ namespace flaw {
 
 		const uint32_t behaviorStates = dxPipeline->GetBehaviorStates();
 		if (behaviorStates & GraphicsPipeline::Behavior::AutoResizeViewport) {
-			if (_currentBeginInfoStack.empty()) {
+			if (!_currentBeginFramebuffer) {
 				LOG_ERROR("No framebuffer bound for the command queue.");
 				return;
 			}
 			
-			const auto& beginInfo = _currentBeginInfoStack.back();
-
 			D3D11_VIEWPORT newViewport;
 			newViewport.TopLeftX = 0.0f;
 			newViewport.TopLeftY = 0.0f;
-			newViewport.Width = static_cast<float>(beginInfo.framebuffer->GetWidth());
-			newViewport.Height = static_cast<float>(beginInfo.framebuffer->GetHeight());
+			newViewport.Width = static_cast<float>(_currentBeginFramebuffer->GetWidth());
+			newViewport.Height = static_cast<float>(_currentBeginFramebuffer->GetHeight());
 			newViewport.MinDepth = 0.0f;
 			newViewport.MaxDepth = 1.0f;
 
@@ -81,18 +79,16 @@ namespace flaw {
 		}
 
 		if (behaviorStates & GraphicsPipeline::Behavior::AutoResizeScissor) {
-			if (_currentBeginInfoStack.empty()) {
+			if (!_currentBeginFramebuffer) {
 				LOG_ERROR("No framebuffer bound for the command queue.");
 				return;
 			}
 
-			const auto& beginInfo = _currentBeginInfoStack.back();
-
 			D3D11_RECT newScissor;
 			newScissor.left = 0;
 			newScissor.top = 0;
-			newScissor.right = beginInfo.framebuffer->GetWidth();
-			newScissor.bottom = beginInfo.framebuffer->GetHeight();
+			newScissor.right = _currentBeginFramebuffer->GetWidth();
+			newScissor.bottom = _currentBeginFramebuffer->GetHeight();
 
 			needBindScissor = newScissor != _currentScissor;
 			_currentScissor = newScissor;
@@ -146,7 +142,9 @@ namespace flaw {
 		ResetShaderResources();
 
 		_currentShaderResourcesVec.reserve(shaderResources.size());
-		for (const auto& resource : shaderResources) {
+		for (uint32_t i = 0; i < shaderResources.size(); ++i) {
+			const auto& resource = shaderResources[i];
+
 			auto dxShaderResources = std::static_pointer_cast<DXShaderResources>(resource);
 			FASSERT(dxShaderResources, "ShaderResources is not a DXShaderResources");
 
@@ -158,20 +156,22 @@ namespace flaw {
 			for (const auto& [slot, resource] : tRegistryResources) {
 				const auto& binding = tRegistryBindings.at(slot);
 
+				uint32_t absoluteSlot = i * ShaderResourceSetInterval + slot;
+
 				if (binding.shaderStages & ShaderStage::Vertex) {
-					_context.DeviceContext()->VSSetShaderResources(slot, 1, resource.GetAddressOf());
+					_context.DeviceContext()->VSSetShaderResources(absoluteSlot, 1, resource.GetAddressOf());
 				}
 				if (binding.shaderStages & ShaderStage::Pixel) {
-					_context.DeviceContext()->PSSetShaderResources(slot, 1, resource.GetAddressOf());
+					_context.DeviceContext()->PSSetShaderResources(absoluteSlot, 1, resource.GetAddressOf());
 				}
 				if (binding.shaderStages & ShaderStage::Geometry) {
-					_context.DeviceContext()->GSSetShaderResources(slot, 1, resource.GetAddressOf());
+					_context.DeviceContext()->GSSetShaderResources(absoluteSlot, 1, resource.GetAddressOf());
 				}
 				if (binding.shaderStages & ShaderStage::Hull) {
-					_context.DeviceContext()->HSSetShaderResources(slot, 1, resource.GetAddressOf());
+					_context.DeviceContext()->HSSetShaderResources(absoluteSlot, 1, resource.GetAddressOf());
 				}
 				if (binding.shaderStages & ShaderStage::Domain) {
-					_context.DeviceContext()->DSSetShaderResources(slot, 1, resource.GetAddressOf());
+					_context.DeviceContext()->DSSetShaderResources(absoluteSlot, 1, resource.GetAddressOf());
 				}
 			}
 
@@ -181,20 +181,22 @@ namespace flaw {
 			for (const auto& [slot, resource] : cRegistryResources) {
 				const auto& binding = cRegistryBindings.at(slot);
 
+				uint32_t absoluteSlot = i * ShaderResourceSetInterval + slot;
+
 				if (binding.shaderStages & ShaderStage::Vertex) {
-					_context.DeviceContext()->VSSetConstantBuffers(slot, 1, resource.GetAddressOf());
+					_context.DeviceContext()->VSSetConstantBuffers(absoluteSlot, 1, resource.GetAddressOf());
 				}
 				if (binding.shaderStages & ShaderStage::Pixel) {
-					_context.DeviceContext()->PSSetConstantBuffers(slot, 1, resource.GetAddressOf());
+					_context.DeviceContext()->PSSetConstantBuffers(absoluteSlot, 1, resource.GetAddressOf());
 				}
 				if (binding.shaderStages & ShaderStage::Geometry) {
-					_context.DeviceContext()->GSSetConstantBuffers(slot, 1, resource.GetAddressOf());
+					_context.DeviceContext()->GSSetConstantBuffers(absoluteSlot, 1, resource.GetAddressOf());
 				}
 				if (binding.shaderStages & ShaderStage::Hull) {
-					_context.DeviceContext()->HSSetConstantBuffers(slot, 1, resource.GetAddressOf());
+					_context.DeviceContext()->HSSetConstantBuffers(absoluteSlot, 1, resource.GetAddressOf());
 				}
 				if (binding.shaderStages & ShaderStage::Domain) {
-					_context.DeviceContext()->DSSetConstantBuffers(slot, 1, resource.GetAddressOf());
+					_context.DeviceContext()->DSSetConstantBuffers(absoluteSlot, 1, resource.GetAddressOf());
 				}
 			}
 
@@ -281,35 +283,50 @@ namespace flaw {
 		_context.DeviceContext()->DrawIndexedInstanced(indexCount, instanceCount, indexOffset, vertexOffset, instanceOffset);
 	}
 
-	void DXCommandQueue::BeginRenderPassImpl(const Ref<DXRenderPass>& beginRenderPass, const Ref<DXFramebuffer>& framebuffer) {
-		auto layout = beginRenderPass->GetLayout();
-		
-		std::vector<ID3D11RenderTargetView*> rtvs(layout->GetColorAttachmentCount());
-		for (uint32_t i = 0; i < layout->GetColorAttachmentCount(); i++) {
-			auto& op = beginRenderPass->GetColorAttachmentOp(i);
-			auto& renderTargetTex = std::static_pointer_cast<DXTexture2D>(framebuffer->GetColorAttachment(i));
-			const auto& dxNativeTex = static_cast<const DXNativeTexture&>(renderTargetTex->GetNativeTexture());
+	void DXCommandQueue::BeginRenderPass(const Ref<RenderPass>& renderpass, const Ref<Framebuffer>& framebuffer) {
+		auto dxRenderPass = std::static_pointer_cast<DXRenderPass>(renderpass);
+		FASSERT(dxRenderPass, "Invalid render pass type for DXCommandQueue");
 
-			rtvs[i] = dxNativeTex.rtv.Get();
-			if (op.loadOp == AttachmentLoadOp::Clear) {
+		auto dxFramebuffer = std::static_pointer_cast<DXFramebuffer>(framebuffer);
+		FASSERT(dxFramebuffer, "Invalid framebuffer type for DXCommandQueue");
+
+		if (_currentBeginRenderPass) {
+			LOG_ERROR("A render pass is already active. Nested render passes are not supported in this implementation.");
+			return;
+		}
+
+		_currentBeginRenderPass = dxRenderPass;
+		_currentBeginSubpass = 0;
+		_currentBeginFramebuffer = dxFramebuffer;
+
+		std::vector<ID3D11RenderTargetView*> rtvs(_currentBeginRenderPass->GetColorAttachmentRefsCount(_currentBeginSubpass));
+		for (uint32_t i = 0; i < _currentBeginRenderPass->GetColorAttachmentRefsCount(_currentBeginSubpass); i++) {
+			auto& attachmentRef = _currentBeginRenderPass->GetColorAttachmentRef(_currentBeginSubpass, i);
+			auto& attachment = _currentBeginRenderPass->GetAttachment(attachmentRef.attachmentIndex);
+			auto& renderTargetTex = std::static_pointer_cast<DXTexture2D>(_currentBeginFramebuffer->GetAttachment(attachmentRef.attachmentIndex));
+			const auto& dxNativeTexView = static_cast<const DXNativeTextureView&>(renderTargetTex->GetNativeTextureView());
+
+			rtvs[i] = dxNativeTexView.rtv.Get();
+			if (attachment.loadOp == AttachmentLoadOp::Clear) {
 				std::array<float, 4> clearColor = { 0.0f, 0.0f, 0.0f, 1.0f };
 				_context.DeviceContext()->ClearRenderTargetView(rtvs[i], clearColor.data());
 			}
 		}
 
 		ID3D11DepthStencilView* dsv = nullptr;
-		if (layout->HasDepthStencilAttachment()) {
-			auto& depthStencilOp = beginRenderPass->GetDepthStencilAttachmentOp();
-			auto& depthStencilTex = std::static_pointer_cast<DXTexture2D>(framebuffer->GetDepthStencilAttachment());
-			const auto& dxNativeTex = static_cast<const DXNativeTexture&>(depthStencilTex->GetNativeTexture());
+		if (_currentBeginRenderPass->HasDepthStencilAttachmentRef(_currentBeginSubpass)) {
+			auto& attachmentRef = _currentBeginRenderPass->GetDepthStencilAttachmentRef(_currentBeginSubpass);
+			auto& attachment = _currentBeginRenderPass->GetAttachment(attachmentRef.attachmentIndex);
+			auto& depthStencilTex = std::static_pointer_cast<DXTexture2D>(_currentBeginFramebuffer->GetAttachment(attachmentRef.attachmentIndex));
+			const auto& dxNativeTexView = static_cast<const DXNativeTextureView&>(depthStencilTex->GetNativeTextureView());
 
-			dsv = dxNativeTex.dsv.Get();
+			dsv = dxNativeTexView.dsv.Get();
 
 			uint32_t clearFlags = 0;
-			if (depthStencilOp.loadOp == AttachmentLoadOp::Clear) {
+			if (attachment.loadOp == AttachmentLoadOp::Clear) {
 				clearFlags |= D3D11_CLEAR_DEPTH;
 			}
-			if (depthStencilOp.stencilLoadOp == AttachmentLoadOp::Clear) {
+			if (attachment.stencilLoadOp == AttachmentLoadOp::Clear) {
 				clearFlags |= D3D11_CLEAR_STENCIL;
 			}
 
@@ -319,69 +336,86 @@ namespace flaw {
 		_context.DeviceContext()->OMSetRenderTargets(rtvs.size(), rtvs.data(), dsv);
 	}
 
-	void DXCommandQueue::BeginRenderPass() {
-		auto framebuffer = std::static_pointer_cast<Framebuffer>(_context.MainDXFramebuffer());
-		auto beginRenderPass = std::static_pointer_cast<RenderPass>(_context.MainClearDXRenderPass());
-		auto resumeRenderPass = std::static_pointer_cast<RenderPass>(_context.MainLoadDXRenderPass());
-
-		BeginRenderPass(beginRenderPass, resumeRenderPass, framebuffer);
-	}
-
-	void DXCommandQueue::BeginRenderPass(const Ref<RenderPass>& beginRenderPass, const Ref<RenderPass>& resumeRenderPass, const Ref<Framebuffer>& framebuffer) {
-		auto dxBeginRenderPass = std::static_pointer_cast<DXRenderPass>(beginRenderPass);
-		FASSERT(dxBeginRenderPass, "Invalid render pass type for DXCommandQueue");
-
-		auto dxResumeRenderPass = std::static_pointer_cast<DXRenderPass>(resumeRenderPass);
-		FASSERT(dxResumeRenderPass, "Invalid render pass type for DXCommandQueue");
-
-		auto dxFramebuffer = std::static_pointer_cast<DXFramebuffer>(framebuffer);
-		FASSERT(dxFramebuffer, "Invalid framebuffer type for DXCommandQueue");
-
-		if (!_currentBeginInfoStack.empty()) {
-			const auto& endedBeginInfo = _currentBeginInfoStack.back();
-			const auto layout = endedBeginInfo.framebuffer->GetRenderPassLayout();
-
-			for (uint32_t i = 0; i < layout->GetResolveAttachmentCount(); i++) {
-				auto& resolveTex = endedBeginInfo.framebuffer->GetResolveAttachment(i);
-				const auto& dxNativeResolveTex = static_cast<const DXNativeTexture&>(resolveTex->GetNativeTexture());
-				auto& colorTex = endedBeginInfo.framebuffer->GetColorAttachment(i);
-				const auto& dxNativeColorTex = static_cast<const DXNativeTexture&>(colorTex->GetNativeTexture());
-
-				_context.DeviceContext()->ResolveSubresource(dxNativeResolveTex.texture.Get(), 0, dxNativeColorTex.texture.Get(), 0, ConvertToDXFormat(resolveTex->GetPixelFormat()));
-			}
-		}
-
-		_currentBeginInfoStack.push_back({ dxFramebuffer, dxBeginRenderPass, dxResumeRenderPass });
-
-		BeginRenderPassImpl(dxBeginRenderPass, dxFramebuffer);
-	}
-
-	void DXCommandQueue::EndRenderPass() {
-		if (!_currentBeginInfoStack.empty()) {
-			const auto& endedBeginInfo = _currentBeginInfoStack.back();
-			const auto layout = endedBeginInfo.framebuffer->GetRenderPassLayout();
-
-			for (uint32_t i = 0; i < layout->GetResolveAttachmentCount(); i++) {
-				auto& resolveTex = endedBeginInfo.framebuffer->GetResolveAttachment(i);
-				const auto& dxNativeResolveTex = static_cast<const DXNativeTexture&>(resolveTex->GetNativeTexture());
-				auto& colorTex = endedBeginInfo.framebuffer->GetColorAttachment(i);
-				const auto& dxNativeColorTex = static_cast<const DXNativeTexture&>(colorTex->GetNativeTexture());
-
-				_context.DeviceContext()->ResolveSubresource(dxNativeResolveTex.texture.Get(), 0, dxNativeColorTex.texture.Get(), 0, ConvertToDXFormat(resolveTex->GetPixelFormat()));
-			}
-		}
-
-		_currentBeginInfoStack.pop_back();
-		if (_currentBeginInfoStack.empty()) {
-			_context.DeviceContext()->OMSetRenderTargets(0, nullptr, nullptr);
+	void DXCommandQueue::NextSubpass() {
+		if (!_currentBeginRenderPass) {
+			LOG_WARN("No active render pass to advance subpass.");
 			return;
 		}
 
-		auto& currentBeginInfo = _currentBeginInfoStack.back();
-		auto dxFramebuffer = currentBeginInfo.framebuffer;
-		auto dxResumeRenderPass = currentBeginInfo.resumeRenderPass;
+		for (uint32_t i = 0; i < _currentBeginRenderPass->GetResolveAttachmentRefCount(_currentBeginSubpass); i++) {
+			auto& resolveAttachmentRef = _currentBeginRenderPass->GetResolveAttachmentRef(_currentBeginSubpass, i);
+			auto& colorAttachmentRef = _currentBeginRenderPass->GetColorAttachmentRef(_currentBeginSubpass, i);
 
-		BeginRenderPassImpl(dxResumeRenderPass, dxFramebuffer);
+			auto& renderTargetTex = std::static_pointer_cast<DXTexture2D>(_currentBeginFramebuffer->GetAttachment(colorAttachmentRef.attachmentIndex));
+			const auto& dxNativeRTTex = static_cast<const DXNativeTexture&>(renderTargetTex->GetNativeTexture());
+			auto& resolveTex = std::static_pointer_cast<DXTexture2D>(_currentBeginFramebuffer->GetAttachment(resolveAttachmentRef.attachmentIndex));
+			const auto& dxNativeResolveTex = static_cast<const DXNativeTexture&>(resolveTex->GetNativeTexture());
+
+			_context.DeviceContext()->ResolveSubresource(dxNativeResolveTex.texture.Get(), 0, dxNativeRTTex.texture.Get(), 0, ConvertToDXFormat(resolveTex->GetPixelFormat()));
+		}
+
+		_currentBeginSubpass++;
+
+		std::vector<ID3D11RenderTargetView*> rtvs(_currentBeginRenderPass->GetColorAttachmentRefsCount(_currentBeginSubpass));
+		for (uint32_t i = 0; i < _currentBeginRenderPass->GetColorAttachmentRefsCount(_currentBeginSubpass); i++) {
+			auto& attachmentRef = _currentBeginRenderPass->GetColorAttachmentRef(_currentBeginSubpass, i);
+			auto& attachment = _currentBeginRenderPass->GetAttachment(attachmentRef.attachmentIndex);
+			auto& renderTargetTex = std::static_pointer_cast<DXTexture2D>(_currentBeginFramebuffer->GetAttachment(attachmentRef.attachmentIndex));
+			const auto& dxNativeTexView = static_cast<const DXNativeTextureView&>(renderTargetTex->GetNativeTextureView());
+
+			rtvs[i] = dxNativeTexView.rtv.Get();
+			if (attachment.loadOp == AttachmentLoadOp::Clear) {
+				std::array<float, 4> clearColor = { 0.0f, 0.0f, 0.0f, 1.0f };
+				_context.DeviceContext()->ClearRenderTargetView(rtvs[i], clearColor.data());
+			}
+		}
+
+		ID3D11DepthStencilView* dsv = nullptr;
+		if (_currentBeginRenderPass->HasDepthStencilAttachmentRef(_currentBeginSubpass)) {
+			auto& attachmentRef = _currentBeginRenderPass->GetDepthStencilAttachmentRef(_currentBeginSubpass);
+			auto& attachment = _currentBeginRenderPass->GetAttachment(attachmentRef.attachmentIndex);
+			auto& depthStencilTex = std::static_pointer_cast<DXTexture2D>(_currentBeginFramebuffer->GetAttachment(attachmentRef.attachmentIndex));
+			const auto& dxNativeTexView = static_cast<const DXNativeTextureView&>(depthStencilTex->GetNativeTextureView());
+
+			dsv = dxNativeTexView.dsv.Get();
+
+			uint32_t clearFlags = 0;
+			if (attachment.loadOp == AttachmentLoadOp::Clear) {
+				clearFlags |= D3D11_CLEAR_DEPTH;
+			}
+			if (attachment.stencilLoadOp == AttachmentLoadOp::Clear) {
+				clearFlags |= D3D11_CLEAR_STENCIL;
+			}
+
+			_context.DeviceContext()->ClearDepthStencilView(dsv, clearFlags, 1.0f, 0);
+		}
+
+		_context.DeviceContext()->OMSetRenderTargets(rtvs.size(), rtvs.data(), dsv);
+	}
+
+	void DXCommandQueue::EndRenderPass() {
+		if (!_currentBeginRenderPass) {
+			LOG_WARN("No active render pass to end.");
+			return;
+		}
+
+		for (uint32_t i = 0; i < _currentBeginRenderPass->GetResolveAttachmentRefCount(_currentBeginSubpass); i++) {
+			auto& resolveAttachmentRef = _currentBeginRenderPass->GetResolveAttachmentRef(_currentBeginSubpass, i);
+			auto& colorAttachmentRef = _currentBeginRenderPass->GetColorAttachmentRef(_currentBeginSubpass, i);
+
+			auto& renderTargetTex = std::static_pointer_cast<DXTexture2D>(_currentBeginFramebuffer->GetAttachment(colorAttachmentRef.attachmentIndex));
+			const auto& dxNativeRTTex = static_cast<const DXNativeTexture&>(renderTargetTex->GetNativeTexture());
+			auto& resolveTex = std::static_pointer_cast<DXTexture2D>(_currentBeginFramebuffer->GetAttachment(resolveAttachmentRef.attachmentIndex));
+			const auto& dxNativeResolveTex = static_cast<const DXNativeTexture&>(resolveTex->GetNativeTexture());
+
+			_context.DeviceContext()->ResolveSubresource(dxNativeResolveTex.texture.Get(), 0, dxNativeRTTex.texture.Get(), 0, ConvertToDXFormat(resolveTex->GetPixelFormat()));
+		}
+
+		_currentBeginRenderPass = nullptr;
+		_currentBeginSubpass = 0;
+		_currentBeginFramebuffer = nullptr;
+
+		_context.DeviceContext()->OMSetRenderTargets(0, nullptr, nullptr);
 	}
 
 	void DXCommandQueue::Submit() {

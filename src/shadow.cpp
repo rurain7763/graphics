@@ -14,7 +14,6 @@ struct ShadowMap {
 	Ref<FramebufferGroup> framebufferGroup;
 };
 
-static Ref<RenderPassLayout> g_shadowRenderPassLayout;
 static Ref<RenderPass> g_shadowRenderPass;
 static Ref<ShaderResourcesLayout> g_shadowShaderResourcesLayout;
 static Ref<GraphicsPipeline> g_shadowPipeline;
@@ -23,6 +22,8 @@ static Ref<GraphicsResourcesPool<ShaderResources>> g_shadowShaderResourcesPool;
 static Ref<GraphicsResourcesPool<ConstantBuffer>> g_shadowConstantsCBPool;
 
 static ShadowMap g_globalShadowMap;
+
+#if false
 
 void Shadow_Init() {
 	// NOTE: Create shadow render pass
@@ -78,7 +79,7 @@ void Shadow_Init() {
 	g_shadowPipeline = g_graphicsContext->CreateGraphicsPipeline();
 	g_shadowPipeline->SetShader(shadowShader);
 	g_shadowPipeline->SetVertexInputLayouts({ g_texturedVertexInputLayout, g_instanceVertexInputLayout });
-	g_shadowPipeline->SetRenderPassLayout(g_shadowRenderPassLayout);
+	g_shadowPipeline->SetRenderPass(g_shadowRenderPass);
 	g_shadowPipeline->SetShaderResourcesLayouts({ g_shadowShaderResourcesLayout });
 	g_shadowPipeline->SetViewport(0, 0, ShadowMapSize, ShadowMapSize);
 	g_shadowPipeline->SetScissor(0, 0, ShadowMapSize, ShadowMapSize);
@@ -98,7 +99,7 @@ void Shadow_Init() {
 	Ref<Texture2D> depthAttachment = g_graphicsContext->CreateTexture2D(depthDesc);
 
 	Framebuffer::Descriptor desc;
-	desc.renderPassLayout = g_shadowRenderPassLayout;
+	desc.renderPass = g_shadowRenderPass;
 	desc.width = ShadowMapSize;
 	desc.height = ShadowMapSize;
 	desc.depthStencilAttachment = depthAttachment;
@@ -186,3 +187,5 @@ void Shadow_Render() {
 		PipelineStage::PixelShader
 	);
 }
+
+#endif

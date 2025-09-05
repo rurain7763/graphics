@@ -43,6 +43,8 @@ namespace flaw {
 		void BindStructuredBuffer(const Ref<StructuredBuffer>& structuredBuffer, uint32_t binding) override;
 		void BindStructuredBufferUA(const Ref<StructuredBuffer>& structuredBuffer, uint32_t binding) override {}
 
+		void BindInputAttachment(const Ref<Texture>& texture, uint32_t binding) override;
+
 		inline const vk::DescriptorSet& GetVkDescriptorSet() const {
 			return _descriptorSet;
 		}

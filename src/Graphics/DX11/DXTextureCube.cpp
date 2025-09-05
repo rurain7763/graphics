@@ -29,12 +29,12 @@ namespace flaw {
 			return;
 		}
 
-		if (_usages & TextureUsage::ShaderResource && !CreateShaderResourceView()) {
+		if (_usages & (TextureUsage::ShaderResource | TextureUsage::InputAttachment)&& !CreateShaderResourceView()) {
 			return;
 		}
 
-		if (_mipLevels > 1 && _nativeTexture.srv) {
-			_context.DeviceContext()->GenerateMips(_nativeTexture.srv.Get());
+		if (_mipLevels > 1 && _nativeTextureView.srv) {
+			_context.DeviceContext()->GenerateMips(_nativeTextureView.srv.Get());
 		}
 	}
 
@@ -164,7 +164,7 @@ namespace flaw {
 		rtvDesc.Texture2DArray.FirstArraySlice = 0;
 		rtvDesc.Texture2DArray.ArraySize = 6;
 
-		if (FAILED(_context.Device()->CreateRenderTargetView(_nativeTexture.texture.Get(), &rtvDesc, _nativeTexture.rtv.GetAddressOf()))) {
+		if (FAILED(_context.Device()->CreateRenderTargetView(_nativeTexture.texture.Get(), &rtvDesc, _nativeTextureView.rtv.GetAddressOf()))) {
 			LOG_ERROR("CreateRenderTargetView failed");
 			return false;
 		}
@@ -199,7 +199,7 @@ namespace flaw {
 		dsvDesc.Texture2DArray.FirstArraySlice = 0;
 		dsvDesc.Texture2DArray.ArraySize = 6;
 
-		if (FAILED(_context.Device()->CreateDepthStencilView(_nativeTexture.texture.Get(), &dsvDesc, _nativeTexture.dsv.GetAddressOf()))) {
+		if (FAILED(_context.Device()->CreateDepthStencilView(_nativeTexture.texture.Get(), &dsvDesc, _nativeTextureView.dsv.GetAddressOf()))) {
 			LOG_ERROR("CreateDepthStencilView failed");
 			return false;
 		}
@@ -215,7 +215,7 @@ namespace flaw {
 		srvDesc.TextureCube.MipLevels = _mipLevels;
 		srvDesc.TextureCube.MostDetailedMip = 0;
 
-		if (FAILED(_context.Device()->CreateShaderResourceView(_nativeTexture.texture.Get(), &srvDesc, _nativeTexture.srv.GetAddressOf()))) {
+		if (FAILED(_context.Device()->CreateShaderResourceView(_nativeTexture.texture.Get(), &srvDesc, _nativeTextureView.srv.GetAddressOf()))) {
 			LOG_ERROR("CreateShaderResourceView failed");
 			return false;
 		}

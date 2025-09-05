@@ -8,6 +8,7 @@
 #include "VkShaders.h"
 #include "VkBuffers.h"
 #include "VkRenderPass.h"
+#include "VkSwapchain.h"
 
 namespace flaw {
     VkGraphicsPipeline::VkGraphicsPipeline(VkContext& context)
@@ -61,9 +62,6 @@ namespace flaw {
         EnableStencilTest(false);
         SetCullMode(CullMode::Back);
         SetFillMode(FillMode::Solid);
-        SetRenderPassLayout(_context.GetMainRenderPassLayout());
-		EnableBlendMode(0, true);
-		SetBlendMode(0, BlendMode::Default);
 		SetAlphaToCoverage(false);
     }
 
@@ -271,54 +269,33 @@ namespace flaw {
         _vertexInputState.pVertexAttributeDescriptions = _attributeDescriptions.data();
     }
 
-    void VkGraphicsPipeline::SetRenderPassLayout(const Ref<RenderPassLayout>& renderPassLayout) {
-        if (_renderPassLayout == renderPassLayout) {
+    void VkGraphicsPipeline::SetRenderPass(const Ref<RenderPass>& renderPass, uint32_t subpass) {
+        if (_renderPass == renderPass) {
             return; // No change needed
         }
 
-        auto vkRenderPassLayout = std::static_pointer_cast<VkRenderPassLayout>(renderPassLayout);
+        auto vkRenderPassLayout = std::static_pointer_cast<VkRenderPass>(renderPass);
         FASSERT(vkRenderPassLayout, "Invalid render pass type for Vulkan pipeline");
 
         _needRecreatePipeline = true;
 
-        RenderPass::Descriptor renderPassDesc;
-        renderPassDesc.layout = vkRenderPassLayout;
-        renderPassDesc.colorAttachmentOps.resize(vkRenderPassLayout->GetColorAttachmentCount());
-        for (uint32_t i = 0; i < renderPassDesc.colorAttachmentOps.size(); ++i) {
-            auto& op = renderPassDesc.colorAttachmentOps[i];
-            op.initialLayout = TextureLayout::Undefined;
-            op.finalLayout = TextureLayout::ColorAttachment;
-            op.loadOp = AttachmentLoadOp::Clear;
-            op.storeOp = AttachmentStoreOp::Store;
-        }
+        _renderPass = vkRenderPassLayout;
+		_subpass = subpass;
 
-        if (vkRenderPassLayout->HasDepthStencilAttachment()) {
-            renderPassDesc.depthStencilAttachmentOp = {
-                TextureLayout::Undefined,
-                TextureLayout::DepthStencilAttachment,
-                AttachmentLoadOp::Clear,
-                AttachmentStoreOp::Store,
-                AttachmentLoadOp::DontCare,
-                AttachmentStoreOp::DontCare
-            };
-        }
-
-		renderPassDesc.resolveAttachmentOps.resize(vkRenderPassLayout->GetResolveAttachmentCount());
-		for (uint32_t i = 0; i < renderPassDesc.resolveAttachmentOps.size(); ++i) {
-			auto& op = renderPassDesc.resolveAttachmentOps[i];
-			op.initialLayout = TextureLayout::Undefined;
-			op.finalLayout = TextureLayout::ColorAttachment;
-			op.loadOp = AttachmentLoadOp::Clear;
-			op.storeOp = AttachmentStoreOp::Store;
-		}
-
-        _renderPass = CreateRef<VkRenderPass>(_context, renderPassDesc);
-
-		_colorBlendAttachments.resize(vkRenderPassLayout->GetColorAttachmentCount());
+		_colorBlendAttachments.resize(renderPass->GetColorAttachmentRefsCount(subpass));
         _colorBlendStateInfo.attachmentCount = _colorBlendAttachments.size();
         _colorBlendStateInfo.pAttachments = _colorBlendAttachments.data();
 
-        _multisampleInfo.rasterizationSamples = ConvertToVkSampleCount(vkRenderPassLayout->GetSampleCount());
+		uint32_t maxSamples = 1;
+		for (uint32_t i = 0; i < renderPass->GetColorAttachmentRefsCount(subpass); i++) {
+			const auto& attachmentRef = renderPass->GetColorAttachmentRef(subpass, i);
+			const auto& attachment = renderPass->GetAttachment(attachmentRef.attachmentIndex);
+			if (attachment.sampleCount > maxSamples) {
+				maxSamples = attachment.sampleCount;
+			}
+		}
+
+		_multisampleInfo.rasterizationSamples = ConvertToVkSampleCount(maxSamples);
     }
 
 	void VkGraphicsPipeline::EnableBlendMode(uint32_t attachmentIndex, bool enable) {
@@ -482,7 +459,7 @@ namespace flaw {
         pipelineInfo.pDynamicState = &_dynamicStateInfo;
         pipelineInfo.layout = _pipelineLayout;
         pipelineInfo.renderPass = _renderPass->GetNativeVkRenderPass(); 
-        pipelineInfo.subpass = 0; // Assuming single subpass for now
+		pipelineInfo.subpass = _subpass;
         pipelineInfo.basePipelineHandle = nullptr;
 
         auto pipelineWrapper = _context.GetVkDevice().createGraphicsPipeline(nullptr, pipelineInfo, nullptr);

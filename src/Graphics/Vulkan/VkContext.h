@@ -15,7 +15,7 @@ namespace flaw {
 
 	class FAPI VkContext : public GraphicsContext {
 	public:
-		VkContext(PlatformContext& context, int32_t width, int32_t height, bool msaa = false);
+		VkContext(PlatformContext& context, int32_t width, int32_t height);
 		~VkContext();
 
 		bool Prepare() override;
@@ -37,22 +37,18 @@ namespace flaw {
 		Ref<Texture2DArray> CreateTexture2DArray(const Texture2DArray::Descriptor& descriptor) override;
 		Ref<TextureCube> CreateTextureCube(const TextureCube::Descriptor& descriptor) override;
 
-		Ref<RenderPassLayout> CreateRenderPassLayout(const RenderPassLayout::Descriptor& desc) override;
 		Ref<RenderPass> CreateRenderPass(const RenderPass::Descriptor& desc) override;
 		Ref<Framebuffer> CreateFramebuffer(const Framebuffer::Descriptor& desc) override;
 		
-		Ref<RenderPassLayout> GetMainRenderPassLayout() override;
-
 		uint32_t GetFrameCount() const override;
 		uint32_t GetCurrentFrameIndex() const override;
 
-		Ref<Framebuffer> GetMainFramebuffer(uint32_t index) override;
+		Ref<Texture2D> GetFrameColorAttachment(uint32_t frameIndex) const override;
 
 		GraphicsCommandQueue& GetCommandQueue() override;
 
 		void Resize(int32_t width, int32_t height) override;
 		void GetSize(int32_t& width, int32_t& height) override;
-		bool GetMSAAState() const override;
 		uint32_t GetMSAASampleCount() const override;
 
 		PixelFormat GetSurfaceFormat() const override;
@@ -98,6 +94,7 @@ namespace flaw {
 		constexpr static uint32_t MaxConstantBufferBindingCount = 16;
 		constexpr static uint32_t MaxStructuredBufferBindingCount = 16;
 		constexpr static uint32_t MaxTextureBindingCount = 64;
+		constexpr static uint32_t MaxInputAttachmentBindingCount = 8;
 		
 		constexpr static uint32_t MaxDeletionCounter = 1000;
 
@@ -125,7 +122,6 @@ namespace flaw {
 
 		int32_t _renderWidth, _renderHeight;
 		uint32_t _frameCount;
-		bool _msaaEnabled;
 
 		std::unordered_map<uint32_t, std::function<void(int32_t, int32_t)>> _onResizeHandlers;
 

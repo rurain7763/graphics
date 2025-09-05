@@ -53,18 +53,29 @@ void Geometry_Init() {
 
 	// NOTE: Create pipeline
 	GraphicsShader::Descriptor explodeShaderDesc;
+#if USE_VULKAN
 	explodeShaderDesc.vertexShaderFile = "assets/shaders/object_pass_through.vert.spv";
 	explodeShaderDesc.vertexShaderEntry = "main";
 	explodeShaderDesc.geometryShaderFile = "assets/shaders/explode.geom.spv";
 	explodeShaderDesc.geometryShaderEntry = "main";
 	explodeShaderDesc.pixelShaderFile = "assets/shaders/shader.frag.spv";
 	explodeShaderDesc.pixelShaderEntry = "main";
+#elif USE_DX11
+	explodeShaderDesc.vertexShaderFile = "assets/shaders/object_pass_through.fx";
+	explodeShaderDesc.vertexShaderEntry = "VSMain";
+	explodeShaderDesc.geometryShaderFile = "assets/shaders/explode.geom.spv";
+	explodeShaderDesc.geometryShaderEntry = "main";
+	explodeShaderDesc.pixelShaderFile = "assets/shaders/shader.frag.spv";
+	explodeShaderDesc.pixelShaderEntry = "main";
+#endif
 
 	auto explodeShader = g_graphicsContext->CreateGraphicsShader(explodeShaderDesc);
 
 	g_explodePipeline = g_graphicsContext->CreateGraphicsPipeline();
 	g_explodePipeline->SetShader(explodeShader);
-	g_explodePipeline->SetRenderPassLayout(g_sceneRenderPassLayout);
+	g_explodePipeline->SetRenderPass(g_sceneRenderPass, 0);
+	g_explodePipeline->EnableBlendMode(0, true);
+	g_explodePipeline->SetBlendMode(0, BlendMode::Default);
 	g_explodePipeline->SetShaderResourcesLayouts({ g_staticShaderResourcesLayout, g_dynamicShaderResourcesLayout });
 	g_explodePipeline->SetVertexInputLayouts({ g_texturedVertexInputLayout });
 	g_explodePipeline->SetBehaviorStates(GraphicsPipeline::Behavior::AutoResizeViewport | GraphicsPipeline::Behavior::AutoResizeScissor);
@@ -81,7 +92,9 @@ void Geometry_Init() {
 
 	g_viewNormalPipeline = g_graphicsContext->CreateGraphicsPipeline();
 	g_viewNormalPipeline->SetShader(viewNormalShader);
-	g_viewNormalPipeline->SetRenderPassLayout(g_sceneRenderPassLayout);
+	g_viewNormalPipeline->SetRenderPass(g_sceneRenderPass, 0);
+	g_viewNormalPipeline->EnableBlendMode(0, true);
+	g_viewNormalPipeline->SetBlendMode(0, BlendMode::Default);
 	g_viewNormalPipeline->SetShaderResourcesLayouts({ g_staticShaderResourcesLayout, g_dynamicShaderResourcesLayout });
 	g_viewNormalPipeline->SetVertexInputLayouts({ g_texturedVertexInputLayout });
 	g_viewNormalPipeline->SetBehaviorStates(GraphicsPipeline::Behavior::AutoResizeViewport | GraphicsPipeline::Behavior::AutoResizeScissor);
@@ -201,3 +214,4 @@ void Geometry_Render() {
 		}
 	}
 }
+

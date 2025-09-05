@@ -184,6 +184,10 @@ namespace flaw {
             usageFlags |= vk::ImageUsageFlagBits::eDepthStencilAttachment;
         }
 
+		if (texUsages & TextureUsage::InputAttachment) {
+			usageFlags |= vk::ImageUsageFlagBits::eInputAttachment;
+		}
+
         if (texUsages & TextureUsage::ShaderResource) {
             usageFlags |= vk::ImageUsageFlagBits::eSampled;
         }
@@ -227,6 +231,7 @@ namespace flaw {
         case ResourceType::StructuredBuffer: return vk::DescriptorType::eStorageBuffer;
         case ResourceType::Texture2D: return vk::DescriptorType::eCombinedImageSampler;
         case ResourceType::TextureCube: return vk::DescriptorType::eCombinedImageSampler;
+		case ResourceType::InputAttachment: return vk::DescriptorType::eInputAttachment;
         default:
             throw std::runtime_error("Unknown resource type");
         }

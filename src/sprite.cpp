@@ -14,15 +14,9 @@ static std::vector<std::vector<Ref<ShaderResources>>> g_dynamicShaderResourcesPe
 static uint32_t g_dynamicShaderResourcesUsed = 0;
 static Ref<GraphicsPipeline> g_spritePipeline;
 
-#if USE_VULKAN
 const uint32_t cameraConstantsCBBinding = 0;
 const uint32_t objectConstantsCBBinding = 0;
 const uint32_t diffuseTextureBinding = 1;
-#elif USE_DX11
-const uint32_t cameraConstantsCBBinding = 0;
-const uint32_t objectConstantsCBBinding = 1;
-const uint32_t diffuseTextureBinding = 0;
-#endif
 
 void Sprite_Init() {
     // NOTE: Create buffers
@@ -71,10 +65,10 @@ void Sprite_Init() {
 	g_spritePipeline = g_graphicsContext->CreateGraphicsPipeline();
 	g_spritePipeline->SetShader(spriteShader);
     g_spritePipeline->SetCullMode(CullMode::None);
+	g_spritePipeline->SetRenderPass(g_sceneRenderPass, 0);
     g_spritePipeline->EnableBlendMode(0, true);
     g_spritePipeline->SetBlendMode(0, BlendMode::Alpha);
 	g_spritePipeline->SetShaderResourcesLayouts({ g_staticShaderResourcesLayout, g_dynamicShaderResourcesLayout });
-	g_spritePipeline->SetRenderPassLayout(g_sceneRenderPassLayout);
 	g_spritePipeline->SetVertexInputLayouts({ g_texturedVertexInputLayout });
 	g_spritePipeline->SetBehaviorStates(GraphicsPipeline::Behavior::AutoResizeViewport | GraphicsPipeline::Behavior::AutoResizeScissor);
 }
@@ -158,3 +152,4 @@ void Sprite_Render() {
         commandQueue.DrawIndexed(quadMesh->indexBuffer, quadMesh->indexBuffer->IndexCount());
     }
 }
+

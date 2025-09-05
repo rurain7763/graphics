@@ -11,22 +11,14 @@
 namespace flaw {
     VkFramebuffer::VkFramebuffer(VkContext& context, const Descriptor& descriptor)
         : _context(context)
-        , _extent{ descriptor.width, descriptor.height }
-        , _colorAttachments(descriptor.colorAttachments)
-        , _depthStencilAttachment(descriptor.depthStencilAttachment.has_value() ? descriptor.depthStencilAttachment.value() : nullptr)
-        , _resolveAttachments(descriptor.resolveAttachments)
-        , _renderPassLayout(std::static_pointer_cast<VkRenderPassLayout>(descriptor.renderPassLayout))
-        , _colorResizeHandler(descriptor.colorResizeHandler ? descriptor.colorResizeHandler : nullptr)
-        , _depthStencilResizeHandler(descriptor.depthStencilResizeHandler ? descriptor.depthStencilResizeHandler : nullptr)
-        , _resolveResizeHandler(descriptor.resolveResizeHandler ? descriptor.resolveResizeHandler : nullptr)
+		, _width(descriptor.width)
+		, _height(descriptor.height)
+        , _renderPass(std::static_pointer_cast<VkRenderPass>(descriptor.renderPass))
+		, _attachments(descriptor.attachments)
+		, _resizeHandler(descriptor.resizeHandler)
     {
-        if (_renderPassLayout == nullptr) {
+        if (_renderPass == nullptr) {
             Log::Fatal("Render pass layout cannot be null for VkFramebuffer.");
-            return;
-        }
-
-        if (!CreateRenderPass()) {
-            Log::Fatal("Failed to create Vulkan render pass for framebuffer.");
             return;
         }
 
@@ -47,140 +39,49 @@ namespace flaw {
     }
 
     void VkFramebuffer::Resize(uint32_t width, uint32_t height) {
-        if (width == _extent.width && height == _extent.height) {
+        if (width == _width && height == _height) {
             return;
         }
 
-        bool needRecreate = false;
-
-        if (_colorResizeHandler) {
-            for (uint32_t i = 0; i < _colorAttachments.size(); ++i) {
-				needRecreate |= _colorResizeHandler(_colorAttachments[i], width, height);
-            }
-        }
-        
-        if (_depthStencilResizeHandler && _depthStencilAttachment) {
-			needRecreate |= _depthStencilResizeHandler(_depthStencilAttachment, width, height);
-        }
-
-        if (_resolveResizeHandler) {
-            for (uint32_t i = 0; i < _resolveAttachments.size(); ++i) {
-                needRecreate |= _resolveResizeHandler(_resolveAttachments[i], width, height);
-            }
-        }
-
-        if (!needRecreate) {
+        if (!_resizeHandler) {
             return;
         }
 
-        _extent.width = width;
-        _extent.height = height;
+        _width = width;
+        _height = height;
+
+		_resizeHandler(width, height, _attachments);
 
         _context.AddDelayedDeletionTasks([&context = _context, framebuffer = _framebuffer]() {
             context.GetVkDevice().destroyFramebuffer(framebuffer, nullptr);
         });
 
         if (!CreateFramebuffer()) {
-            Log::Fatal("Failed to resize Vulkan framebuffer.");
+            LOG_FATAL("Failed to resize Vulkan framebuffer.");
         }
-    }
-
-	Ref<RenderPassLayout> VkFramebuffer::GetRenderPassLayout() const {
-		return _renderPassLayout;
-	}
-
-    bool VkFramebuffer::CreateRenderPass() {
-        RenderPass::Descriptor renderPassDesc;
-        renderPassDesc.layout = _renderPassLayout;
-
-        renderPassDesc.colorAttachmentOps.resize(_renderPassLayout->GetColorAttachmentCount());
-        for (uint32_t i = 0; i < renderPassDesc.colorAttachmentOps.size(); ++i) {
-            auto& op = renderPassDesc.colorAttachmentOps[i];
-            op.initialLayout = TextureLayout::Undefined;
-            op.finalLayout = TextureLayout::ColorAttachment;
-            op.loadOp = AttachmentLoadOp::Clear;
-            op.storeOp = AttachmentStoreOp::Store;
-        }
-
-        if (_renderPassLayout->HasDepthStencilAttachment()) {
-            renderPassDesc.depthStencilAttachmentOp = {
-                TextureLayout::Undefined,
-                TextureLayout::DepthStencilAttachment,
-                AttachmentLoadOp::Clear,
-                AttachmentStoreOp::Store,
-                AttachmentLoadOp::DontCare,
-                AttachmentStoreOp::DontCare
-            };
-        }
-
-		renderPassDesc.resolveAttachmentOps.resize(_renderPassLayout->GetResolveAttachmentCount());
-        for (uint32_t i = 0; i < renderPassDesc.resolveAttachmentOps.size(); ++i) {
-			auto& op = renderPassDesc.resolveAttachmentOps[i];
-			op.initialLayout = TextureLayout::Undefined;
-			op.finalLayout = TextureLayout::ColorAttachment;
-			op.loadOp = AttachmentLoadOp::Clear;
-			op.storeOp = AttachmentStoreOp::Store;
-        }
-
-        _renderpass = CreateRef<VkRenderPass>(_context, renderPassDesc);
-
-        return true;
     }
 
     bool VkFramebuffer::CreateFramebuffer() {
         std::vector<vk::ImageView> attachmentViews;
-        for (size_t i = 0; i < _colorAttachments.size(); ++i) {
-            auto& colorAttachment = _colorAttachments[i];
-
-            if (colorAttachment->GetSampleCount() != _renderPassLayout->GetSampleCount()) {
-                LOG_ERROR("Color attachment sample count does not match render pass layout sample count.");
-                return false;
-            }
-
-			vk::ImageView view = GetViewFromAttachment(colorAttachment);
-			if (!view) {
-                LOG_ERROR("Failed to get image view from color attachment.");
+		for (auto& attachment : _attachments) {
+			if (attachment->GetWidth() != _width || attachment->GetHeight() != _height) {
+				LOG_ERROR("Attachment size does not match framebuffer size.");
 				return false;
 			}
 
-			attachmentViews.push_back(view);
-        }
+			const auto& vkNativeTexView = static_cast<const VkNativeTextureView&>(attachment->GetNativeTextureView());
 
-        if (_depthStencilAttachment) {
-            if (_depthStencilAttachment->GetSampleCount() != _renderPassLayout->GetSampleCount()) {
-                LOG_ERROR("Depth stencil attachment sample count does not match render pass layout sample count.");
-                return false;
-            }
-
-			vk::ImageView view = GetViewFromAttachment(_depthStencilAttachment);
-            if (!view) {
-                LOG_ERROR("Failed to get image view from depth stencil attachment.");
-                return false;
-            }
-
-			attachmentViews.push_back(view);
-        }
-
-        for (size_t i = 0; i < _resolveAttachments.size(); ++i) {
-			auto& resolveAttachment = _resolveAttachments[i];
-
-            vk::ImageView view = GetViewFromAttachment(resolveAttachment);
-			if (!view) {
-				LOG_ERROR("Failed to get image view from resolve attachment.");
-				return false;
-			}
-
-            attachmentViews.push_back(view);
-        }
+			attachmentViews.push_back(vkNativeTexView.imageView);
+		}
 
         vk::FramebufferCreateInfo createInfo;
-        createInfo.renderPass = _renderpass->GetNativeVkRenderPass();
+        createInfo.renderPass = _renderPass->GetNativeVkRenderPass();
         createInfo.attachmentCount = attachmentViews.size();
         createInfo.pAttachments = attachmentViews.data();
-        createInfo.width = _extent.width;
-        createInfo.height = _extent.height;
+        createInfo.width = _width;
+        createInfo.height = _height;
         createInfo.layers = 1;
-
+        
         auto result = _context.GetVkDevice().createFramebuffer(createInfo, nullptr);
         if (result.result != vk::Result::eSuccess) {
             Log::Fatal("Failed to create Vulkan framebuffer: %s", vk::to_string(result.result).c_str());
@@ -191,27 +92,6 @@ namespace flaw {
 
         return true;
     }
-
-	vk::ImageView VkFramebuffer::GetViewFromAttachment(Ref<Texture> attachment) {
-		if (attachment == nullptr) {
-			return nullptr;
-		}
-
-		auto vkTexture2D = std::dynamic_pointer_cast<VkTexture2D>(attachment);
-		if (vkTexture2D) {
-			return vkTexture2D->GetVkImageView();
-		}
-		auto vkTextureCube = std::dynamic_pointer_cast<VkTextureCube>(attachment);
-		if (vkTextureCube) {
-			return vkTextureCube->GetVkImageView();
-		}
-		auto vkTexture2DArray = std::dynamic_pointer_cast<VkTexture2DArray>(attachment);
-		if (vkTexture2DArray) {
-			return vkTexture2DArray->GetVkImageView();
-		}
-
-		return nullptr;
-	}
 }
 
 #endif

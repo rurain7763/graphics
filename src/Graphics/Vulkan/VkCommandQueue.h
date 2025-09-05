@@ -36,8 +36,8 @@ namespace flaw {
         void DrawIndexed(const Ref<IndexBuffer>& indexBuffer, uint32_t indexCount, uint32_t indexOffset = 0, uint32_t vertexOffset = 0) override;
         void DrawIndexedInstanced(const Ref<IndexBuffer>& indexBuffer, uint32_t indexCount, uint32_t instanceCount, uint32_t indexOffset = 0, uint32_t vertexOffset = 0, uint32_t instanceOffset = 0) override;
 
-        void BeginRenderPass() override;
-        void BeginRenderPass(const Ref<RenderPass>& beginRenderPass, const Ref<RenderPass>& resumeRenderPass, const Ref<Framebuffer>& framebuffer) override;
+        void BeginRenderPass(const Ref<RenderPass>& renderpass, const Ref<Framebuffer>& framebuffer) override;
+		void NextSubpass() override;
         void EndRenderPass() override;
         void Submit() override;
 
@@ -59,8 +59,6 @@ namespace flaw {
         bool CreateFences();
         bool CreateSemaphores();
 
-        void BeginRenderPassImpl(const Ref<VkRenderPass>& renderPass, const Ref<VkFramebuffer>& framebuffer);
-
     private:
         VkContext& _context;
 
@@ -69,15 +67,10 @@ namespace flaw {
         std::vector<vk::Semaphore> _presentCompleteSemaphores;
         std::vector<vk::Semaphore> _renderCompleteSemaphores;
 
-        struct BeginInfo {
-            Ref<VkFramebuffer> framebuffer;
-            Ref<VkRenderPass> beginRenderPass;
-            Ref<VkRenderPass> resumeRenderPass;
-        };
-
         uint32_t _currentCommandBufferIndex;
         uint32_t _currentFrameIndex;
-        std::vector<BeginInfo> _currentBeginInfoStack;
+		Ref<VkRenderPass> _currentBeginRenderPass;
+		Ref<VkFramebuffer> _currentBeginFramebuffer;
 		Ref<VkGraphicsPipeline> _currentPipeline;
     };
 }

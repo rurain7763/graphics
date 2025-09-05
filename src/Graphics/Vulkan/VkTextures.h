@@ -17,6 +17,10 @@ namespace flaw {
 		static VkNativeTexture Create(VkContext& context, const vk::ImageCreateInfo& imageCreateInfo, vk::MemoryPropertyFlags memoryProperties);
 	};
 
+	struct VkNativeTextureView : public NativeTextureView {
+		vk::ImageView imageView;
+	};
+
 	class VkTexture2D : public Texture2D {
 	public:
 		VkTexture2D(VkContext& context, const Descriptor& descriptor);
@@ -29,6 +33,7 @@ namespace flaw {
 		void CopyToSub(Ref<Texture2D>& target, const uint32_t x, const uint32_t y, const uint32_t width, const uint32_t height) const override {}
 
 		const NativeTexture& GetNativeTexture() const override { return _nativeTexture; }
+		const NativeTextureView& GetNativeTextureView() const override { return _nativeTextureView; }
 
 		uint32_t GetWidth() const override { return _width; }
 		uint32_t GetHeight() const override { return _height; }
@@ -36,7 +41,6 @@ namespace flaw {
 		TextureUsages GetUsages() const override { return _texUsages; }
 		uint32_t GetSampleCount() const override { return _sampleCount; }
 
-		inline vk::ImageView GetVkImageView() const { return _view; }
 		inline vk::Sampler GetVkSampler() const { return _sampler; }
 
 	private:
@@ -53,8 +57,8 @@ namespace flaw {
 		bool _isExternalImage = false;
 
 		VkNativeTexture _nativeTexture;
+		VkNativeTextureView _nativeTextureView;
 
-		vk::ImageView _view;
 		vk::Sampler _sampler;
 
 		PixelFormat _format;
@@ -77,6 +81,7 @@ namespace flaw {
 		void CopyTo(Ref<Texture2DArray>& target) const override {}
 
 		const NativeTexture& GetNativeTexture() const override { return _nativeTexture; }
+		const NativeTextureView& GetNativeTextureView() const override { return _nativeTextureView; }
 
 		uint32_t GetWidth() const override { return _width; }
 		uint32_t GetHeight() const override { return _height; }
@@ -85,7 +90,6 @@ namespace flaw {
 		uint32_t GetSampleCount() const override { return _sampleCount; }
 		uint32_t GetArraySize() const override { return _arraySize; }
 
-		inline vk::ImageView GetVkImageView() const { return _view; }
 		inline vk::Sampler GetVkSampler() const { return _sampler; }
 
 	private:
@@ -100,8 +104,8 @@ namespace flaw {
 		VkContext& _context;
 
 		VkNativeTexture _nativeTexture;
+		VkNativeTextureView _nativeTextureView;
 
-		vk::ImageView _view;
 		vk::Sampler _sampler;
 
 		PixelFormat _format;
@@ -127,8 +131,8 @@ namespace flaw {
 		uint32_t GetSampleCount() const override { return _sampleCount; }
 
 		const NativeTexture& GetNativeTexture() const override { return _nativeTexture; }
-		
-		inline vk::ImageView GetVkImageView() const { return _view; }
+		const NativeTextureView& GetNativeTextureView() const override { return _nativeTextureView; }
+
 		inline vk::Sampler GetVkSampler() const { return _sampler; }
 
 	private:
@@ -143,8 +147,8 @@ namespace flaw {
 		VkContext& _context;
 
 		VkNativeTexture _nativeTexture;
+		VkNativeTextureView _nativeTextureView;
 
-		vk::ImageView _view;
 		vk::Sampler _sampler;
 
 		PixelFormat _format;

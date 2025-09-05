@@ -11,7 +11,6 @@ namespace flaw {
 	class VkContext;
     class VkVertexInputLayout;
     class VkShaderResourcesLayout;
-    class VkRenderPassLayout;
     class VkRenderPass;
     class VkComputeShader;
 
@@ -42,7 +41,7 @@ namespace flaw {
         void SetShaderResourcesLayouts(const std::vector<Ref<ShaderResourcesLayout>>& shaderResourceLayouts) override;
         void SetShader(const Ref<GraphicsShader>& shader) override;
 
-        void SetRenderPassLayout(const Ref<RenderPassLayout>& renderPassLayout) override;
+        void SetRenderPass(const Ref<RenderPass>& renderPass, uint32_t subpass) override;
 		void EnableBlendMode(uint32_t attachmentIndex, bool enable) override;
 		void SetBlendMode(uint32_t attachmentIndex, BlendMode blendMode) override;
 		void SetAlphaToCoverage(bool enable) override;
@@ -102,8 +101,8 @@ namespace flaw {
         vk::PipelineLayout _pipelineLayout;
         std::vector<vk::PushConstantRange> _pushConstantRanges;
 
-        Ref<VkRenderPassLayout> _renderPassLayout;
         Ref<VkRenderPass> _renderPass;
+		uint32_t _subpass;
 
         uint32_t _behaviorFlags;
 	};

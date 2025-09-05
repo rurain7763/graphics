@@ -111,10 +111,47 @@ namespace flaw {
 	bool DXGraphicsShader::CompileShader(const char* filePath, const char* entryPoint, const char* target, ComPtr<ID3DBlob>& blob) {
 		std::wstring wfilename = std::wstring(filePath, filePath + strlen(filePath));
 
+		static std::unordered_map<std::string, std::string> macroMap;
+		static std::vector<D3D_SHADER_MACRO> defines;
+
+		if (macroMap.empty()) {
+			for (uint32_t i = 0; i < MaxShaderResourceSets; i++) {
+				for (uint32_t j = 0; j < MaxShaderResourceSetBindings; j++) {
+					char nameBuffer[32];
+					sprintf(nameBuffer, 32, "B_SET%d_BINDING%d", i, j);
+
+					char valueBuffer[8];
+					sprintf(valueBuffer, 8, "b%d", i * ShaderResourceSetInterval + j);
+
+					macroMap[nameBuffer] = valueBuffer;
+				}
+			}
+
+			for (uint32_t i = 0; i < MaxShaderResourceSets; i++) {
+				for (uint32_t j = 0; j < MaxShaderResourceSetBindings; j++) {
+					char nameBuffer[128];
+					sprintf(nameBuffer, 128, "T_SET%d_BINDING%d", i, j);
+
+					char valueBuffer[8];
+					sprintf(valueBuffer, 8, "t%d", i * ShaderResourceSetInterval + j);
+
+					macroMap[nameBuffer] = valueBuffer;
+				}
+			}
+
+			for (const auto& [key, value] : macroMap) {
+				D3D_SHADER_MACRO define;
+				define.Name = key.c_str();
+				define.Definition = value.c_str();
+				defines.push_back(define);
+			}
+			defines.push_back({ nullptr, nullptr });
+		}
+
 		ComPtr<ID3DBlob> errorBlob = nullptr;
 		if (FAILED(D3DCompileFromFile(
 			wfilename.c_str(),
-			nullptr,
+			defines.data(),
 			D3D_COMPILE_STANDARD_FILE_INCLUDE,
 			entryPoint,
 			target,

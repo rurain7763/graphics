@@ -1,7 +1,7 @@
 #ifndef SPRITE_FX
 #define SPRITE_FX
 
-Texture2D g_diffuse_texture : register(t0);
+Texture2D g_diffuse_texture : register(T_SET1_BINDING1);
 
 SamplerState g_sampler : register(s0);
 
