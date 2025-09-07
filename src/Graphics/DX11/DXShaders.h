@@ -17,14 +17,14 @@ namespace flaw {
 
 		inline const std::unordered_map<uint32_t, ResourceBinding>& GetTRegistryBindings() const { return _tRegistryBindings; }
 		inline const std::unordered_map<uint32_t, ResourceBinding>& GetURegistryBindings() const { return _uRegistryBindings; }
-		inline const std::unordered_map<uint32_t, ResourceBinding>& GetCRegistryBindings() const { return _cRegistryBindings; }
+		inline const std::unordered_map<uint32_t, ResourceBinding>& GetBRegistryBindings() const { return _bRegistryBindings; }
 
 	private:
 		DXContext& _context;
 
 		std::unordered_map<uint32_t, ResourceBinding> _tRegistryBindings;
 		std::unordered_map<uint32_t, ResourceBinding> _uRegistryBindings;
-		std::unordered_map<uint32_t, ResourceBinding> _cRegistryBindings;
+		std::unordered_map<uint32_t, ResourceBinding> _bRegistryBindings;
 	};
 
 	class DXShaderResources : public ShaderResources {
@@ -47,7 +47,7 @@ namespace flaw {
 		inline Ref<DXShaderResourcesLayout> GetLayout() const { return _layout; }
 		inline std::unordered_map<uint32_t, ComPtr<ID3D11ShaderResourceView>>& GetTRegistryResources() { return _tRegistryResources; }
 		inline std::unordered_map<uint32_t, ComPtr<ID3D11UnorderedAccessView>>& GetURegistryResources() { return _uRegistryResources; }
-		inline std::unordered_map<uint32_t, ComPtr<ID3D11Buffer>>& GetCRegistryResources() { return _cRegistryResources; }
+		inline std::unordered_map<uint32_t, ComPtr<ID3D11Buffer>>& GetBRegistryResources() { return _bRegistryResources; }
 
 	private:
 		DXContext& _context;
@@ -56,7 +56,7 @@ namespace flaw {
 
 		std::unordered_map<uint32_t, ComPtr<ID3D11ShaderResourceView>> _tRegistryResources;
 		std::unordered_map<uint32_t, ComPtr<ID3D11UnorderedAccessView>> _uRegistryResources;
-		std::unordered_map<uint32_t, ComPtr<ID3D11Buffer>> _cRegistryResources;
+		std::unordered_map<uint32_t, ComPtr<ID3D11Buffer>> _bRegistryResources;
 	};
 
 	class DXGraphicsShader : public GraphicsShader {

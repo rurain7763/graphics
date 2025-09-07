@@ -24,6 +24,7 @@ namespace flaw {
         
         inline uint32_t GetWidth() const override { return _width; }
         inline uint32_t GetHeight() const override { return _height; }
+		inline uint32_t GetLayers() const override { return _layers; }
 
         inline vk::Framebuffer& GetNativeVkFramebuffer() { return _framebuffer; }
 
@@ -36,6 +37,7 @@ namespace flaw {
         vk::Framebuffer _framebuffer;
         uint32_t _width;
 		uint32_t _height;
+        uint32_t _layers;
 
         Ref<VkRenderPass> _renderPass;
 

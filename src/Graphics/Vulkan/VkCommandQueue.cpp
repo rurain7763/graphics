@@ -138,6 +138,26 @@ namespace flaw {
         return true;
     }
 
+    void VkCommandQueue::SetPipelineBarrier(Ref<VertexBuffer> buffer, AccessTypes srcAccess, AccessTypes dstAccess, PipelineStages srcStage, PipelineStages dstStage) {
+		const auto& vkNativeBuff = static_cast<const VkNativeBuffer&>(buffer->GetNativeBuffer());
+
+		auto& commandBuffer = _graphicsFrameCommandBuffers[_currentCommandBufferIndex];
+
+		vk::BufferMemoryBarrier barrier;
+		barrier.buffer = vkNativeBuff.buffer;
+		barrier.offset = 0;
+		barrier.size = VK_WHOLE_SIZE;
+		barrier.srcAccessMask = ConvertToVkAccessFlags(srcAccess);
+		barrier.dstAccessMask = ConvertToVkAccessFlags(dstAccess);
+		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+		vk::PipelineStageFlags srcStageFlags = ConvertToVkPipelineStageFlags(srcStage);
+		vk::PipelineStageFlags dstStageFlags = ConvertToVkPipelineStageFlags(dstStage);
+
+		commandBuffer.pipelineBarrier(srcStageFlags, dstStageFlags, vk::DependencyFlags(), nullptr, barrier, nullptr);
+    }
+
     void VkCommandQueue::SetPipelineBarrier(Ref<Texture> texture, TextureLayout oldLayout, TextureLayout newLayout, AccessTypes srcAccess, AccessTypes dstAccess, PipelineStages srcStage, PipelineStages dstStage) {
 		const auto& vkNativeTex = static_cast<const VkNativeTexture&>(texture->GetNativeTexture());
 	

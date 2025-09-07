@@ -23,6 +23,7 @@ namespace flaw {
 
 		inline uint32_t GetWidth() const override { return _width; }
 		inline uint32_t GetHeight() const override { return _height; }
+		inline uint32_t GetLayers() const override { return _layers; }
 
 	private:
 		DXContext& _context;
@@ -30,6 +31,7 @@ namespace flaw {
 		Ref<DXRenderPass> _renderPass;
 
 		uint32_t _width, _height;
+		uint32_t _layers;
 
 		std::vector<Ref<Texture>> _attachments;
 		std::function<void(uint32_t, uint32_t, std::vector<Ref<Texture>>&)> _resizeHandler;

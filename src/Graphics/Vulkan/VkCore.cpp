@@ -292,6 +292,10 @@ namespace flaw {
     vk::AccessFlags ConvertToVkAccessFlags(AccessTypes access) {
         vk::AccessFlags accessFlags = {};
 
+		if (access & AccessType::VertexElementRead) {
+			accessFlags |= vk::AccessFlagBits::eVertexAttributeRead;
+		}
+
         if (access & AccessType::ShaderRead) {
             accessFlags |= vk::AccessFlagBits::eShaderRead;
         }
@@ -316,6 +320,10 @@ namespace flaw {
             accessFlags |= vk::AccessFlagBits::eDepthStencilAttachmentWrite;
         }
 
+		if (access & AccessType::HostWrite) {
+			accessFlags |= vk::AccessFlagBits::eHostWrite;
+		}
+
 		return accessFlags;
     }
 
@@ -325,6 +333,10 @@ namespace flaw {
         if (stages & PipelineStage::TopOfPipe) {
             stageFlags |= vk::PipelineStageFlagBits::eTopOfPipe;
         }
+
+		if (stages & PipelineStage::VertexInput) {
+            stageFlags |= vk::PipelineStageFlagBits::eVertexInput;
+		}
 
         if (stages & PipelineStage::VertexShader) {
             stageFlags |= vk::PipelineStageFlagBits::eVertexShader;
@@ -357,6 +369,10 @@ namespace flaw {
         if (stages & PipelineStage::BottomOfPipe) {
             stageFlags |= vk::PipelineStageFlagBits::eBottomOfPipe;
         }
+
+		if (stages & PipelineStage::Host) {
+			stageFlags |= vk::PipelineStageFlagBits::eHost;
+		}
 
 		return stageFlags;
     }

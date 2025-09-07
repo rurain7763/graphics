@@ -162,6 +162,7 @@ namespace flaw {
 
 	enum class PipelineStage {
 		TopOfPipe = 0x1,
+		VertexInput = 0x400,
 		VertexShader = 0x2,
 		HullShader = 0x4,
 		DomainShader = 0x8,
@@ -170,6 +171,7 @@ namespace flaw {
 		PixelShader = 0x40,
 		ColorAttachmentOutput = 0x80,
 		BottomOfPipe = 0x100,
+		Host = 0x200,
 	};
 
 	using PipelineStages = Flags<PipelineStage>;
@@ -212,13 +214,15 @@ namespace flaw {
 	};
 
 	enum class AccessType {
+		VertexElementRead = 0x80,
 		ShaderRead = 0x1,
 		ShaderWrite = 0x2,
 		ColorAttachmentRead = 0x4,
 		ColorAttachmentWrite = 0x8,
 		DepthStencilAttachmentRead = 0x10,
 		DepthStencilAttachmentWrite = 0x20,
-		None = 0x40,
+		HostWrite = 0x40,
+		None = 0x100,
 	};
 
 	using AccessTypes = Flags<AccessType>;

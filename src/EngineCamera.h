@@ -18,6 +18,7 @@ public:
 	mat4 GetViewMatrix() const;
 	mat4 GetProjectionMatrix() const;
 
+	void SetPosition(const vec3& position);
 	const vec3& GetPosition() const { return _position; }
 	vec3 GetFront() const { return QRotate(_rotation, Forward); }
 

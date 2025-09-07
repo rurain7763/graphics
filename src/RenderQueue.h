@@ -47,33 +47,37 @@ struct InstanceData {
 
 struct InstancingObject {
 	Ref<Mesh> mesh;
-	int32_t segmentIndex = 0;
+	int32_t segmentIndex;
 
 	std::vector<InstanceData> instanceDatas;
-	uint32_t instanceCount = 0;
+	uint32_t instanceCount;
+
+	inline bool HasSegment() const { return segmentIndex != -1; }
 };
 
 struct SkeletalInstancingObject {
 	Ref<Mesh> mesh;
-	int32_t segmentIndex = 0;
+	int32_t segmentIndex;
 
 	std::vector<InstanceData> instanceDatas;
 	Ref<StructuredBuffer> skeletonBoneMatrices;
-	uint32_t instanceCount = 0;
-};
+	uint32_t instanceCount;
 
-struct RenderEntry {
-	Ref<Material> material;
-
-	std::unordered_map<MeshKey, int32_t> instancingIndexMap;
-	std::vector<InstancingObject> instancingObjects;
-
-	std::unordered_map<SkeletalMeshKey, int32_t> skeletalInstancingIndexMap;
-	std::vector<SkeletalInstancingObject> skeletalInstancingObjects;
+	inline bool HasSegment() const { return segmentIndex != -1; }
 };
 
 class RenderQueue {
 public:
+	struct Entry {
+		Ref<Material> material;
+
+		std::unordered_map<MeshKey, int32_t> instancingIndexMap;
+		std::vector<InstancingObject> instancingObjects;
+
+		std::unordered_map<SkeletalMeshKey, int32_t> skeletalInstancingIndexMap;
+		std::vector<SkeletalInstancingObject> skeletalInstancingObjects;
+	};
+
 	RenderQueue() = default;
 
 	void Open();
@@ -81,6 +85,7 @@ public:
 
 	void Push(const Ref<Mesh>& mesh, int segmentIndex, const mat4& worldMat, const Ref<Material>& material);
 	void Push(const Ref<Mesh>& mesh, int segmentIndex, const mat4& worldMat, const Ref<Material>& material, const Ref<StructuredBuffer>& boneMatrices);
+	void Push(const Ref<Mesh>& mesh, const mat4& worldMat);
 	void Push(const Ref<Mesh>& mesh, const mat4& worldMat, const Ref<Material>& material);
 	void Push(const Ref<Mesh>& mesh, const mat4& worldMat, const Ref<Material>& material, const Ref<StructuredBuffer>& boneMatrices);
 	
@@ -91,7 +96,7 @@ public:
 	bool Empty();
 	void Clear();
 
-	RenderEntry& Front();
+	Entry& Front();
 
 	inline const std::vector<InstanceData>& AllInstanceDatas() const { return _allInstanceDatas; }
 
@@ -101,8 +106,8 @@ private:
 private:
 	std::vector<InstanceData> _allInstanceDatas;
 
-	std::unordered_map<Ref<Material>, int32_t> _materialIndexMap;
-	std::vector<RenderEntry> _renderEntries;
+	std::unordered_map<Ref<Material>, int32_t> _entryIndexMap;
+	std::vector<Entry> _entries;
 
 	uint32_t _currentEntryIndex = 0;
 };

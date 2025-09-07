@@ -36,6 +36,7 @@ namespace flaw {
 		PixelFormat GetPixelFormat() const override { return _format; }
 		TextureUsages GetUsages() const override { return _usages; }
 		uint32_t GetSampleCount() const override { return _sampleCount; }
+		uint32_t GetLayers() const override { return 1; }
 
 		const NativeTexture& GetNativeTexture() const override { return _nativeTexture; }
 		const NativeTextureView& GetNativeTextureView() const override { return _nativeTextureView; }
@@ -77,7 +78,7 @@ namespace flaw {
 		PixelFormat GetPixelFormat() const override { return _format; }
 		TextureUsages GetUsages() const override { return _usages; }
 		uint32_t GetSampleCount() const override { return _sampleCount; }
-		uint32_t GetArraySize() const override { return _arraySize; }
+		uint32_t GetLayers() const override { return _layers; }
 
 		const NativeTexture& GetNativeTexture() const override { return _nativeTexture; }
 		const NativeTextureView& GetNativeTextureView() const override { return _nativeTextureView; }
@@ -101,7 +102,7 @@ namespace flaw {
 		TextureUsages _usages;
 		uint32_t _mipLevels;
 		uint32_t _sampleCount;
-		uint32_t _arraySize;
+		uint32_t _layers;
 
 		uint32_t _width;
 		uint32_t _height;
@@ -117,6 +118,7 @@ namespace flaw {
 		PixelFormat GetPixelFormat() const override { return _format; }
 		TextureUsages GetUsages() const override { return _usages; }
 		uint32_t GetSampleCount() const override { return _sampleCount; }
+		uint32_t GetLayers() const override { return 6; }
 
 		const NativeTexture& GetNativeTexture() const override { return _nativeTexture; }
 		const NativeTextureView& GetNativeTextureView() const override { return _nativeTextureView; }

@@ -2,19 +2,17 @@
 #include "RenderQueue.h"
 
 void RenderQueue::Open() {
-	_materialIndexMap.clear();
-	_renderEntries.clear();
+	_entryIndexMap.clear();
+	_entries.clear();
+	_currentEntryIndex = 0;
 }
 
 void RenderQueue::Close() {
 	_currentEntryIndex = 0;
 
 	size_t totalInstanceCount = 0;
-	for (const auto& entry : _renderEntries) {
+	for (const auto& entry : _entries) {
 		for (const auto& instance : entry.instancingObjects) {
-			totalInstanceCount += instance.instanceDatas.size();
-		}
-		for (const auto& instance : entry.skeletalInstancingObjects) {
 			totalInstanceCount += instance.instanceDatas.size();
 		}
 	}
@@ -22,14 +20,8 @@ void RenderQueue::Close() {
 	_allInstanceDatas.resize(totalInstanceCount);
 
 	size_t offset = 0;
-	for (const auto& entry : _renderEntries) {
+	for (const auto& entry : _entries) {
 		for (const auto& instance : entry.instancingObjects) {
-			size_t instanceSize = instance.instanceDatas.size();
-			std::memcpy(_allInstanceDatas.data() + offset, instance.instanceDatas.data(), sizeof(InstanceData) * instanceSize);
-			offset += instanceSize;
-		}
-
-		for (const auto& instance : entry.skeletalInstancingObjects) {
 			size_t instanceSize = instance.instanceDatas.size();
 			std::memcpy(_allInstanceDatas.data() + offset, instance.instanceDatas.data(), sizeof(InstanceData) * instanceSize);
 			offset += instanceSize;
@@ -40,15 +32,15 @@ void RenderQueue::Close() {
 int32_t RenderQueue::GetRenderEntryIndex(const Ref<Material>& material) {
 	int32_t entryIndex = -1;
 
-	auto indexIt = _materialIndexMap.find(material);
-	if (indexIt == _materialIndexMap.end()) {
-		entryIndex = _renderEntries.size();
-		_renderEntries.resize(entryIndex + 1);
+	auto indexIt = _entryIndexMap.find(material);
+	if (indexIt == _entryIndexMap.end()) {
+		entryIndex = _entries.size();
+		_entries.resize(entryIndex + 1);
 
-		auto& entry = _renderEntries.back();
+		auto& entry = _entries.back();
 		entry.material = material;
 
-		_materialIndexMap[material] = entryIndex;
+		_entryIndexMap[material] = entryIndex;
 	}
 	else {
 		entryIndex = indexIt->second;
@@ -60,7 +52,7 @@ int32_t RenderQueue::GetRenderEntryIndex(const Ref<Material>& material) {
 void RenderQueue::Push(const Ref<Mesh>& mesh, int segmentIndex, const mat4& worldMat, const Ref<Material>& material) {
 	int32_t entryIndex = GetRenderEntryIndex(material);
 
-	auto& entry = _renderEntries[entryIndex];
+	auto& entry = _entries[entryIndex];
 
 	MeshKey meshKey{ mesh, segmentIndex };
 	int32_t instanceIndex = -1;
@@ -88,7 +80,7 @@ void RenderQueue::Push(const Ref<Mesh>& mesh, int segmentIndex, const mat4& worl
 void RenderQueue::Push(const Ref<Mesh>& mesh, int segmentIndex, const mat4& worldMat, const Ref<Material>& material, const Ref<StructuredBuffer>& boneMatrices) {
 	int32_t entryIndex = GetRenderEntryIndex(material);
 
-	auto& entry = _renderEntries[entryIndex];
+	auto& entry = _entries[entryIndex];
 
 	SkeletalMeshKey meshKey{ mesh, segmentIndex, boneMatrices };
 	int32_t instanceIndex = -1;
@@ -111,6 +103,10 @@ void RenderQueue::Push(const Ref<Mesh>& mesh, int segmentIndex, const mat4& worl
 	auto& instance = entry.skeletalInstancingObjects[instanceIndex];
 	instance.instanceDatas.emplace_back(InstanceData{ worldMat, inverse(worldMat) });
 	instance.instanceCount++;
+}
+
+void RenderQueue::Push(const Ref<Mesh>& mesh, const mat4& worldMat) {
+	Push(mesh, -1, worldMat, nullptr);
 }
 
 void RenderQueue::Push(const Ref<Mesh>& mesh, const mat4& worldMat, const Ref<Material>& material) {
@@ -138,14 +134,15 @@ void RenderQueue::Reset() {
 }
 
 bool RenderQueue::Empty() {
-	return _currentEntryIndex >= _renderEntries.size();
+	return _currentEntryIndex >= _entries.size();
 }
 
 void RenderQueue::Clear() {
-	_materialIndexMap.clear();
-	_renderEntries.clear();
+	_entryIndexMap.clear();
+	_entries.clear();
 }
 
-RenderEntry& RenderQueue::Front() {
-	return _renderEntries[_currentEntryIndex];
+RenderQueue::Entry& RenderQueue::Front() {
+	return _entries[_currentEntryIndex];
 }
+

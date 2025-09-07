@@ -32,8 +32,14 @@ const uint32_t spotLightSBBinding = 6;
 const uint32_t diffuseTextureBinding = 2;
 const uint32_t specularTextureBinding = 3;
 const uint32_t skyboxTextureBinding = 4;
+const uint32_t shadowMapTextureBinding = 5;
+const uint32_t pointShadowMapTextureBinding = 6;
 
+RenderQueue g_meshOnlyRenderQueue;
 RenderQueue g_renderQueue;
+
+ShadowMap g_globalShadowMap;
+PointLightShadowMap g_pointLightShadowMap;
 
 Ref<FramebufferGroup> g_sceneFramebufferGroup;
 Ref<RenderPass> g_sceneRenderPass;
@@ -95,6 +101,9 @@ void World_Init() {
     g_eventDispatcher.Register<MousePressEvent>([](const MousePressEvent& event) { Input::OnMousePress(event.button); }, 0);
     g_eventDispatcher.Register<MouseReleaseEvent>([](const MouseReleaseEvent& event) { Input::OnMouseRelease(event.button); }, 0);
     g_eventDispatcher.Register<MouseScrollEvent>([](const MouseScrollEvent& event) { Input::OnMouseScroll(event.xOffset, event.yOffset); }, 0);
+
+	g_globalShadowMap.lightSpaceView = ViewMatrix(vec3(-2.0f, 4.0f, -2.0f), vec3(0.0f));
+	g_globalShadowMap.lightSpaceProj = Orthographic(-10.0f, 10.0f, -10.0f, 10.0f, 1.0f, 7.5f);
 
     InitBaseResources();
     InitObjectBuffers();
@@ -365,7 +374,7 @@ void InitObjectShaderResources() {
     ShaderResourcesLayout::Descriptor shaderResourceLayoutDesc;
     shaderResourceLayoutDesc.bindings = {
         { camersConstantsCBBinding, ResourceType::ConstantBuffer, ShaderStage::Vertex | ShaderStage::Pixel, 1 },
-        { lightConstantsCBBinding, ResourceType::ConstantBuffer, ShaderStage::Pixel, 1 },
+        { lightConstantsCBBinding, ResourceType::ConstantBuffer, ShaderStage::Vertex | ShaderStage::Pixel, 1 },
 		{ directionalLightSBBinding, ResourceType::StructuredBuffer, ShaderStage::Pixel, 1 },
 		{ pointLightSBBinding, ResourceType::StructuredBuffer, ShaderStage::Pixel, 1 },
 		{ spotLightSBBinding, ResourceType::StructuredBuffer, ShaderStage::Pixel, 1 },
@@ -387,6 +396,8 @@ void InitObjectShaderResources() {
         { diffuseTextureBinding, ResourceType::Texture2D, ShaderStage::Pixel, 1 },
         { specularTextureBinding, ResourceType::Texture2D, ShaderStage::Pixel, 1 },
 		{ skyboxTextureBinding, ResourceType::TextureCube, ShaderStage::Pixel, 1 },
+		{ pointShadowMapTextureBinding, ResourceType::TextureCube, ShaderStage::Pixel, 1 },
+		{ shadowMapTextureBinding, ResourceType::Texture2D, ShaderStage::Pixel, 1 },
         { materialConstantsCBBinding, ResourceType::ConstantBuffer, ShaderStage::Pixel, 1 },
 	};
 
@@ -428,6 +439,7 @@ void InitObjectGraphicsPipeline() {
 }
 
 void World_Cleanup() {
+	g_meshOnlyRenderQueue.Clear();
 	g_renderQueue.Clear();
     g_objects.clear();
     g_finalizePipeline.reset();
@@ -478,10 +490,10 @@ void World_Update() {
     directionalLight.diffuse = glm::vec3(0.8f);
     directionalLight.specular = glm::vec3(1.0f);
 
-    std::vector<PointLight> pointLights(2);
+    std::vector<PointLight> pointLights(1);
     for (int32_t i = 0; i < pointLights.size(); ++i) {
         if (i == 0) {
-            pointLights[i].position = vec3(cos(Time::GetTime()), sin(Time::GetTime()), 0) * 2.0f;
+            pointLights[i].position = vec3(0.0f);
         }
         else if (i == 1) {
             pointLights[i].position = vec3(cos(Time::GetTime()), 0, sin(Time::GetTime())) * 2.0f;
@@ -494,10 +506,11 @@ void World_Update() {
         pointLights[i].specular = glm::vec3(1.0f);
     }
 
-    std::vector<SpotLight> spotLights(1);
+    //std::vector<SpotLight> spotLights(1);
+    std::vector<SpotLight> spotLights;
     for (int32_t i = 0; i < spotLights.size(); ++i) {
         if (i == 0) {
-            spotLights[i].position = vec3(0, 0, -5);
+            spotLights[i].position = vec3(0, 0, 0);
             spotLights[i].direction = normalize(vec3(sin(Time::GetTime()), 0, abs(cos(Time::GetTime()))));
         }
 
@@ -512,9 +525,13 @@ void World_Update() {
     }
 
 	LightConstants lightConstants;
-    lightConstants.directional_light_count = 1;
+	lightConstants.light_space_view_matrix = g_globalShadowMap.lightSpaceView;
+	lightConstants.light_space_proj_matrix = g_globalShadowMap.lightSpaceProj;
+    //lightConstants.directional_light_count = 1;
+    lightConstants.directional_light_count = 0;
     lightConstants.point_light_count = pointLights.size();
     lightConstants.spot_light_count = spotLights.size();
+	lightConstants.point_light_far_plane = g_pointLightShadowMap.farPlane;
 
     g_directionalLightSB->Update(&directionalLight, sizeof(DirectionalLight) * lightConstants.directional_light_count);
     g_pointLightSB->Update(pointLights.data(), sizeof(PointLight) * lightConstants.point_light_count);
@@ -550,6 +567,7 @@ void World_Update() {
         g_viewNormalObjects.clear();
         g_spriteObjects.clear();
 
+		g_meshOnlyRenderQueue.Open();
         g_renderQueue.Open();
         for (uint32_t i = 0; i < g_objects.size(); i++) {
             const auto& obj = g_objects[i];
@@ -569,8 +587,12 @@ void World_Update() {
                     continue;
                 }
 
+				mat4 modelMatrix = ModelMatrix(obj.position, obj.rotation, obj.scale);
+
+				g_meshOnlyRenderQueue.Push(comp->mesh, modelMatrix);
+
                 for (uint32_t i = 0; i < comp->mesh->segments.size(); i++) {
-                    g_renderQueue.Push(comp->mesh, i, ModelMatrix(obj.position, obj.rotation, obj.scale), comp->mesh->materials[i]);
+                    g_renderQueue.Push(comp->mesh, i, modelMatrix, comp->mesh->materials[i]);
                 }
             }
 
@@ -579,6 +601,7 @@ void World_Update() {
             }
         }
         g_renderQueue.Close();
+		g_meshOnlyRenderQueue.Close();
 
 		initRender = true;
     }
@@ -586,6 +609,10 @@ void World_Update() {
 
 void World_Render() {
     auto& commandQueue = g_graphicsContext->GetCommandQueue();
+	auto shadowMapFramebuffer = g_globalShadowMap.framebufferGroup->Get();
+	auto pointShadowMapFramebuffer = g_pointLightShadowMap.framebufferGroup->Get();
+	auto shadowMapTex = std::static_pointer_cast<Texture2D>(shadowMapFramebuffer->GetAttachment(0));
+	auto pointShadowMapTex = std::static_pointer_cast<TextureCube>(pointShadowMapFramebuffer->GetAttachment(0));
 
     commandQueue.SetPipeline(g_objPipeline);
 
@@ -626,18 +653,14 @@ void World_Render() {
             }
 
             objDynamicResources->BindTextureCube(GetTextureCube("skybox"), skyboxTextureBinding);
+			objDynamicResources->BindTexture2D(shadowMapTex, shadowMapTextureBinding);
+			objDynamicResources->BindTextureCube(pointShadowMapTex, pointShadowMapTextureBinding);
 
             commandQueue.SetVertexBuffers({ instancingObj.mesh->vertexBuffer, objInstanceVB });
             commandQueue.SetShaderResources({ g_objShaderResources, objDynamicResources });
             commandQueue.DrawIndexedInstanced(instancingObj.mesh->indexBuffer, segment.indexCount, instancingObj.instanceCount, segment.indexOffset, segment.vertexOffset, instanceOffset);
 
 			instanceOffset += instancingObj.instanceCount;
-        }
-
-        for (const auto& skeltalObj : entry.skeletalInstancingObjects) {
-			// TODO: Skeletal mesh rendering
-
-			instanceOffset += skeltalObj.instanceCount;
         }
 
 		g_renderQueue.Next();

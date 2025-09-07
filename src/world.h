@@ -13,8 +13,8 @@
 
 using namespace flaw;
 
-#define USE_VULKAN 0
-#define USE_DX11 1
+#define USE_VULKAN 1
+#define USE_DX11 0
 
 #define MAX_DIRECTIONAL_LIGHTS 1
 #define MAX_POINT_LIGHTS 8
@@ -34,7 +34,11 @@ extern std::vector<uint32_t> g_outlineObjects;
 extern std::vector<uint32_t> g_viewNormalObjects;
 extern std::vector<uint32_t> g_spriteObjects;
 
+extern RenderQueue g_meshOnlyRenderQueue;
 extern RenderQueue g_renderQueue;
+
+extern ShadowMap g_globalShadowMap;
+extern PointLightShadowMap g_pointLightShadowMap;
 
 extern Ref<FramebufferGroup> g_sceneFramebufferGroup;
 extern Ref<RenderPass> g_sceneRenderPass;

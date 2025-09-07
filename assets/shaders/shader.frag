@@ -51,11 +51,13 @@ layout(set = 0, binding = 0) uniform CameraConstants {
 } camera_constants;
 
 layout(std140, set = 0, binding = 1) uniform LightConstants {
+    mat4 light_space_view;
+    mat4 light_space_proj;
     uint directional_light_count;
     uint point_light_count;
     uint spot_light_count;
-    uint padding;
-} lightConstants;
+    float point_light_far_plane;
+} light_constants;
 
 layout(std140, set = 1, binding = 1) uniform MaterialConstants {
     vec3 diffuse_color;
@@ -79,12 +81,15 @@ layout(std140, set = 0, binding = 6) readonly buffer SpotLightBuffer {
 layout(set = 1, binding = 2) uniform sampler2D diffuse_texture;
 layout(set = 1, binding = 3) uniform sampler2D specular_texture;
 layout(set = 1, binding = 4) uniform samplerCube skybox_texture;
+layout(set = 1, binding = 5) uniform sampler2D shadow_map_texture;
+layout(set = 1, binding = 6) uniform samplerCube point_light_shadow_map_texture;
 
 in VS_OUT {
     layout(location = 0) vec3 position;
     layout(location = 1) vec4 color;
     layout(location = 2) vec2 tex_coord;
     layout(location = 3) vec3 normal;
+    layout(location = 4) vec4 light_space_position;
 } fs_in;
 
 layout(location = 0) out vec4 fragColor;
@@ -110,7 +115,7 @@ void main() {
     vec3 total_diffuse = vec3(0.0);
     vec3 total_specular = vec3(0.0);
 
-    for (uint i = 0; i < lightConstants.directional_light_count; ++i) {
+    for (uint i = 0; i < light_constants.directional_light_count; ++i) {
         DirectionalLight light = directional_lights.data[i];
 
         vec3 light_direction = light.direction;
@@ -123,7 +128,7 @@ void main() {
         total_specular += specular;
     }
 
-    for (uint i = 0; i < lightConstants.point_light_count; ++i) {
+    for (uint i = 0; i < light_constants.point_light_count; ++i) {
         PointLight light = point_lights.data[i];
 
         vec3 light_direction = fs_in.position - light.position;
@@ -139,7 +144,7 @@ void main() {
         total_specular += specular * attenuation;
     }
 
-    for (uint i = 0; i < lightConstants.spot_light_count; ++i) {
+    for (uint i = 0; i < light_constants.spot_light_count; ++i) {
         SpotLight light = spot_lights.data[i];
 
         vec3 light_direction = fs_in.position - light.position;
@@ -159,7 +164,9 @@ void main() {
         total_specular += specular * attenuation * intensity;
     }
 
-    vec3 object_color = total_ambient + total_diffuse + total_specular;
+    float shadow = calculate_shadow(fs_in.light_space_position, shadow_map_texture);
+    shadow = calculate_shadow(camera_constants.world_position, fs_in.position, vec3(0.0), light_constants.point_light_far_plane, point_light_shadow_map_texture);
+    vec3 object_color = total_ambient + (total_diffuse + total_specular) * (1.0 - shadow);
     vec3 environment_color = texture(skybox_texture, reflect_direction).rgb;
     vec3 refracted_color = texture(skybox_texture, refract_direction).rgb;
 

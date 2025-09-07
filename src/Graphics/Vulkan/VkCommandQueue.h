@@ -21,6 +21,7 @@ namespace flaw {
 
         bool Prepare();
 
+		void SetPipelineBarrier(Ref<VertexBuffer> buffer, AccessTypes srcAccess, AccessTypes dstAccess, PipelineStages srcStage, PipelineStages dstStage) override;
 		void SetPipelineBarrier(Ref<Texture> texture, TextureLayout oldLayout, TextureLayout newLayout, AccessTypes srcAccess, AccessTypes dstAccess, PipelineStages srcStage, PipelineStages dstStage) override;
 
         void SetPipeline(const Ref<GraphicsPipeline>& pipeline) override;

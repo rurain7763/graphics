@@ -200,7 +200,12 @@ namespace flaw {
 	}
 
 	inline mat4 ViewMatrix(const vec3& position, const vec3& rotation) {
-		return LookAt(position, position + QRotate(rotation, Forward), Up);
+		vec3 lookDir = QRotate(rotation, Forward);
+		vec3 up = Up;
+		if (abs(dot(lookDir, Up)) > 0.999f) {
+			up = -Forward; // 앞벡터와 위벡터가 거의 일치할 때 다른 벡터 사용
+		}
+		return LookAt(position, position + lookDir, up);
 	}
 
 	inline mat4 Orthographic(float left, float right, float bottom, float top, float nearClip, float farClip) {

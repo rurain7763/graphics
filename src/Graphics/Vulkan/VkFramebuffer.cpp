@@ -13,6 +13,7 @@ namespace flaw {
         : _context(context)
 		, _width(descriptor.width)
 		, _height(descriptor.height)
+		, _layers(descriptor.layers)
         , _renderPass(std::static_pointer_cast<VkRenderPass>(descriptor.renderPass))
 		, _attachments(descriptor.attachments)
 		, _resizeHandler(descriptor.resizeHandler)
@@ -69,6 +70,11 @@ namespace flaw {
 				return false;
 			}
 
+			if (attachment->GetLayers() != _layers) {
+				LOG_ERROR("Attachment layers does not match framebuffer layers.");
+				return false;
+			}
+
 			const auto& vkNativeTexView = static_cast<const VkNativeTextureView&>(attachment->GetNativeTextureView());
 
 			attachmentViews.push_back(vkNativeTexView.imageView);
@@ -80,7 +86,7 @@ namespace flaw {
         createInfo.pAttachments = attachmentViews.data();
         createInfo.width = _width;
         createInfo.height = _height;
-        createInfo.layers = 1;
+		createInfo.layers = _layers;
         
         auto result = _context.GetVkDevice().createFramebuffer(createInfo, nullptr);
         if (result.result != vk::Result::eSuccess) {

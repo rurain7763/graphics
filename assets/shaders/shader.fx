@@ -56,6 +56,8 @@ cbuffer CameraConstants : register(B_SET0_BINDING0)
 
 cbuffer LightingConstants : register(B_SET0_BINDING1)
 {
+    row_major float4x4 g_light_space_view_matrix;
+    row_major float4x4 g_light_space_proj_matrix;
     uint g_directional_light_count;
     uint g_point_light_count;
     uint g_spot_light_count;
@@ -77,6 +79,7 @@ StructuredBuffer<SpotLight> g_spot_lights : register(T_SET0_BINDING6);
 Texture2D g_diffuse_texture : register(T_SET1_BINDING2);
 Texture2D g_specular_texture : register(T_SET1_BINDING3);
 TextureCube g_skybox_texture : register(T_SET1_BINDING4);
+Texture2D g_shadowmap_texture : register(T_SET1_BINDING5);
 
 SamplerState g_sampler : register(s0);
 
@@ -94,16 +97,16 @@ struct VS_INPUT
     float4 inv_model_matrix1 : INV_MODEL_MATRIX1;
     float4 inv_model_matrix2 : INV_MODEL_MATRIX2;
     float4 inv_model_matrix3 : INV_MODEL_MATRIX3;
-    uint instance_id : SV_InstanceID;
 };
 
 struct VS_OUTPUT
 {
     float4 position : SV_Position;
-    float3 world_position : POSITION;
-    float2 texcoord : TEXCOORD0;
-    float4 color : COLOR;
-    float3 normal : NORMAL;
+    float3 world_position : TEXCOORD0;
+    float2 texcoord : TEXCOORD1;
+    float4 color : TEXCOORD2;
+    float3 normal : TEXCOORD3;
+    float4 light_space_position : TEXCOORD4;
 };
 
 struct PS_OUTPUT
@@ -126,7 +129,8 @@ VS_OUTPUT VSMain(VS_INPUT input)
     output.world_position = world_position.xyz;
     output.texcoord = input.texcoord;
     output.color = input.color;
-    output.normal = normalize(mul((float3x3)transpose(inv_world_matrix), input.normal));
+    output.normal = normalize(mul(input.normal, (float3x3) transpose(inv_world_matrix)));
+    output.light_space_position = mul(mul(world_position, g_light_space_view_matrix), g_light_space_proj_matrix);
     
     return output;
 }
@@ -205,8 +209,9 @@ PS_OUTPUT PSMain(VS_OUTPUT input)
         total_specular += specular * attenuation * intensity;
     }
 
-    output.color = float4(total_ambient + total_diffuse + total_specular, 1.0);
-    
+    float shadow = calculate_shadow(input.light_space_position, g_shadowmap_texture, g_sampler);
+    output.color = float4(total_ambient + (total_diffuse + total_specular) * (1.0 - shadow), 1.0);
+   
     return output;
 }
 

@@ -40,6 +40,7 @@ namespace flaw {
 		PixelFormat GetPixelFormat() const override { return _format; }
 		TextureUsages GetUsages() const override { return _texUsages; }
 		uint32_t GetSampleCount() const override { return _sampleCount; }
+		uint32_t GetLayers() const override { return 1; }
 
 		inline vk::Sampler GetVkSampler() const { return _sampler; }
 
@@ -88,7 +89,7 @@ namespace flaw {
 		PixelFormat GetPixelFormat() const override { return _format; }
 		TextureUsages GetUsages() const override { return _texUsages; }
 		uint32_t GetSampleCount() const override { return _sampleCount; }
-		uint32_t GetArraySize() const override { return _arraySize; }
+		uint32_t GetLayers() const override { return _layers; }
 
 		inline vk::Sampler GetVkSampler() const { return _sampler; }
 
@@ -111,7 +112,7 @@ namespace flaw {
 		PixelFormat _format;
 		MemoryProperty _memProperty;
 		TextureUsages _texUsages;
-		uint32_t _arraySize;
+		uint32_t _layers;
 		uint32_t _mipLevels;
 		uint32_t _sampleCount;
 
@@ -129,6 +130,7 @@ namespace flaw {
 		PixelFormat GetPixelFormat() const override { return _format; }
 		TextureUsages GetUsages() const override { return _texUsages; }
 		uint32_t GetSampleCount() const override { return _sampleCount; }
+		uint32_t GetLayers() const override { return 6; }
 
 		const NativeTexture& GetNativeTexture() const override { return _nativeTexture; }
 		const NativeTextureView& GetNativeTextureView() const override { return _nativeTextureView; }

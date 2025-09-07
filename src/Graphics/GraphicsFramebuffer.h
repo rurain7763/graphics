@@ -14,6 +14,7 @@ namespace flaw {
             Ref<RenderPass> renderPass;
 			uint32_t width = 0;
 			uint32_t height = 0;
+			uint32_t layers = 1;
             std::vector<Ref<Texture>> attachments;
 			std::function<void(uint32_t width, uint32_t height, std::vector<Ref<Texture>>& attachments)> resizeHandler;
         };
@@ -28,5 +29,6 @@ namespace flaw {
         
         virtual uint32_t GetWidth() const = 0;
         virtual uint32_t GetHeight() const = 0;
+		virtual uint32_t GetLayers() const = 0;
 	};
 }

@@ -16,7 +16,7 @@ namespace flaw {
         , _memProperty(descriptor.memProperty)
         , _texUsages(descriptor.texUsages)
         , _mipLevels(descriptor.mipLevels)
-        , _arraySize(descriptor.arraySize)
+        , _layers(descriptor.arraySize)
         , _sampleCount(descriptor.sampleCount)
         , _width(descriptor.width)
         , _height(descriptor.height)
@@ -28,7 +28,7 @@ namespace flaw {
         imageInfo.extent.height = _height;
         imageInfo.extent.depth = 1;
         imageInfo.mipLevels = _mipLevels;
-        imageInfo.arrayLayers = _arraySize;
+        imageInfo.arrayLayers = _layers;
         imageInfo.samples = ConvertToVkSampleCount(_sampleCount);
         imageInfo.tiling = vk::ImageTiling::eOptimal;
         imageInfo.usage = GetVkImageUsageFlags(_texUsages) | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eTransferSrc;
@@ -82,7 +82,7 @@ namespace flaw {
 
     bool VkTexture2DArray::PullMemory(vk::CommandBuffer& commandBuffer, const uint8_t* data) {
         uint32_t bufferSizePerImage = _width * _height * GetSizePerPixel(_format);
-        uint32_t bufferSize = bufferSizePerImage * _arraySize;
+        uint32_t bufferSize = bufferSizePerImage * _layers;
 
 		auto stagingBuffer = VkNativeBuffer::CreateAsStaging(_context, bufferSize, data);
 
@@ -109,7 +109,7 @@ namespace flaw {
         copyRegion.imageSubresource.aspectMask = GetVkImageAspectFlags(_format);
         copyRegion.imageSubresource.mipLevel = 0;
         copyRegion.imageSubresource.baseArrayLayer = 0;
-		copyRegion.imageSubresource.layerCount = _arraySize;
+		copyRegion.imageSubresource.layerCount = _layers;
         copyRegion.imageOffset = vk::Offset3D{ 0, 0, 0 };
         copyRegion.imageExtent = vk::Extent3D{ _width, _height, 1 };
 
@@ -162,7 +162,7 @@ namespace flaw {
         viewInfo.subresourceRange.baseMipLevel = 0;
         viewInfo.subresourceRange.levelCount = _mipLevels;
         viewInfo.subresourceRange.baseArrayLayer = 0;
-        viewInfo.subresourceRange.layerCount = _arraySize;
+        viewInfo.subresourceRange.layerCount = _layers;
 
         auto imageViewWrapper = _context.GetVkDevice().createImageView(viewInfo);
         if (imageViewWrapper.result != vk::Result::eSuccess) {

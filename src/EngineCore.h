@@ -4,6 +4,7 @@
 #include "Math/Math.h"
 #include "Graphics/GraphicsBuffers.h"
 #include "Graphics/GraphicsTextures.h"
+#include "Graphics/GraphicsHelper.h"
 
 using namespace flaw;
 
@@ -20,10 +21,12 @@ struct CameraConstants {
 };
 
 struct LightConstants {
+    mat4 light_space_view_matrix;
+	mat4 light_space_proj_matrix;
     uint32_t directional_light_count;
     uint32_t point_light_count;
     uint32_t spot_light_count;
-    uint32_t padding;
+	float point_light_far_plane;
 };
 
 struct GlobalConstants {
@@ -113,4 +116,18 @@ struct Mesh {
 
     std::vector<MeshSegment> segments;
     std::vector<Ref<Material>> materials;
+};
+
+struct ShadowMap {
+    mat4 lightSpaceView;
+    mat4 lightSpaceProj;
+    Ref<FramebufferGroup> framebufferGroup;
+};
+
+struct PointLightShadowMap {
+	std::array<mat4, 6> lightSpaceViews;
+	mat4 lightSpaceProj;
+	vec3 lightPosition;
+	float farPlane;
+	Ref<FramebufferGroup> framebufferGroup;
 };

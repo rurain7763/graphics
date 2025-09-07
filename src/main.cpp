@@ -34,7 +34,7 @@ int main() {
     LoadModel("assets/models/planet/planet.obj", 1.0f, "planet");
 	LoadModel("assets/models/rock/rock.obj", 1.0f, "rock");
 
-    //Shadow_Init();
+    Shadow_Init();
     Skybox_Init();
     Outliner_Init();
     Sprite_Init();
@@ -42,23 +42,32 @@ int main() {
     Geometry_Init();
 #endif
 
+	g_camera->SetPosition({ 0.0f, 0.0f, -8.0f });
+
     struct ObjectCreateInfo {
         vec3 position;
-		float rotation;
-        float scale;
+		vec3 rotation;
+        vec3 scale;
 		bool drawOutline;
 		bool drawNormal;
 		std::string meshKey;
     };
 
-	std::vector<ObjectCreateInfo> objectCreateInfos = {
-		{ { 0.0f, -120.0f, 0.0f }, 0, 1.0, false, false, "sponza" },
-		{ { 2.0f, 2.0f, 0.0f }, 0, 1.0, true, true, "cube" },
-		{ { -2.0f, 2.0f, 0.0f }, 0, 1.0, true, true, "sphere" },
-		{ { 0.0f, 2.0f, 0.0f }, 0, 1.0, true, false, "cube" },
-		{ { 0.0f, 4.0f, 0.0f }, 0, 1.0, true, false, "sphere" },
-		{ { -4.0f, 0.0f, 0.0f }, 0, 1.0, true, true, "survival_backpack" },
-		{ { 20.0f, 0.0f, 0.0f }, 0, 4.0, false, false, "planet" },
+    std::vector<ObjectCreateInfo> objectCreateInfos = {
+        { { 0.0f, -120.0f, 0.0f }, vec3(0), vec3(1.0), false, false, "sponza" },
+        { { 4.0f, 0.0f, 0.0f }, vec3(0), vec3(1.0), true, true, "cube" },
+        { { -4.0f, 0.0f, 0.0f }, vec3(0), vec3(1.0), true, true, "sphere" },
+        { { 4.0f, 0.0f, 0.0f }, vec3(0), vec3(1.0), true, false, "cube" },
+        { { 0.0f, 0.0f, 4.0f }, vec3(0), vec3(1.0), true, false, "cube" },
+        { { 0.0f, 0.0f, -4.0f }, vec3(0), vec3(1.0), true, false, "cube" },
+        { { 0.0f, 4.0f, 0.0f }, vec3(0), vec3(1.0), true, false, "sphere" },
+        { vec3(0.0f, 0.0f, 10.0f), vec3(glm::half_pi<float>(), 0, 0), vec3(20.0, 0.5, 20.0), false, false, "cube" },
+        { vec3(10.0f, 0.0f, 0.0f), vec3(0, 0, glm::half_pi<float>()), vec3(20.0, 0.5, 20.0), false, false, "cube" },
+        { vec3(-10.0f, 0.0f, 0.0f), vec3(0, 0, glm::half_pi<float>()), vec3(20.0, 0.5, 20.0), false, false, "cube" },
+        { vec3(0.0f, 10.0f, 0.0f), vec3(0, 0, 0), vec3(20.0, 0.5, 20.0), false, false, "cube" },
+        { vec3(0.0f, -10.0f, 0.0f), vec3(0, 0, 0), vec3(20.0, 0.5, 20.0), false, false, "cube" },
+		{ { 0.0f, -4.0f, 0.0f }, vec3(0, glm::pi<float>() / 3.0, 0), vec3(1.0), true, true, "survival_backpack" },
+		{ { 20.0f, 0.0f, 0.0f }, vec3(0), vec3(1.0), false, false, "planet" },
 	};
 
     const uint32_t amount = 5000;
@@ -78,8 +87,8 @@ int main() {
         float z = cos(angle) * radius + displacement;
 
 		info.position = vec3(x, y, z) + vec3(20.f, 0, 0);
-		info.scale = (rand() % 20) / 100.0f + 0.05;
-		info.rotation = glm::radians((float)(rand() % 360));
+		info.scale = vec3((rand() % 20) / 100.0f + 0.05);
+		info.rotation = vec3(glm::radians((float)(rand() % 360)));
         info.meshKey = "rock";
 		info.drawNormal = false;
 		info.drawOutline = false;
@@ -139,7 +148,7 @@ int main() {
         g_camera->OnUpdate();
 
 		World_Update();
-        //Shadow_Update();
+        Shadow_Update();
 
 		if (g_context->GetWindowSizeState() == WindowSizeState::Minimized) {
 			continue; // Skip rendering if the window is minimized
@@ -148,12 +157,12 @@ int main() {
         if (g_graphicsContext->Prepare()) {
 			auto sceneFramebuffer = g_sceneFramebufferGroup->Get();
 
-            //Shadow_Render();
+            Shadow_Render();
             
             commandQueue.BeginRenderPass(g_sceneRenderPass, sceneFramebuffer);
             World_Render();
 #if USE_VULKAN
-			Geometry_Render();
+			//Geometry_Render();
 #endif
             Outliner_Render();
             Skybox_Render();
@@ -177,7 +186,7 @@ int main() {
     Sprite_Cleanup();
     Outliner_Cleanup();
 	Skybox_Cleanup();
-	//Shadow_Cleanup();
+	Shadow_Cleanup();
     Asset_Cleanup();
     World_Cleanup();
 

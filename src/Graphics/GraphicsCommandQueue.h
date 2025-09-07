@@ -13,6 +13,7 @@ namespace flaw {
 		GraphicsCommandQueue() = default;
 		virtual ~GraphicsCommandQueue() = default;
 
+		virtual void SetPipelineBarrier(Ref<VertexBuffer> buffer, AccessTypes srcAccess, AccessTypes dstAccess, PipelineStages srcStage, PipelineStages dstStage) = 0;
 		virtual void SetPipelineBarrier(Ref<Texture> texture, TextureLayout oldLayout, TextureLayout newLayout, AccessTypes srcAccess, AccessTypes dstAccess, PipelineStages srcStage, PipelineStages dstStage) = 0;
 		
 		virtual void SetPipeline(const Ref<GraphicsPipeline>& pipeline) = 0;

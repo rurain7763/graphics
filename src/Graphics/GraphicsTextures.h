@@ -19,6 +19,7 @@ namespace flaw {
 		virtual PixelFormat GetPixelFormat() const = 0;
 		virtual TextureUsages GetUsages() const = 0;
 		virtual uint32_t GetSampleCount() const = 0;
+		virtual uint32_t GetLayers() const = 0;
 	};
 
 	class Texture2D : public Texture {
@@ -63,8 +64,6 @@ namespace flaw {
 		virtual void Fetch(void* outData, const uint32_t size) const = 0;
 
 		virtual void CopyTo(Ref<Texture2DArray>& target) const = 0;
-
-		virtual uint32_t GetArraySize() const = 0;
 	};
 
 	class TextureCube : public Texture {

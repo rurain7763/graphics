@@ -19,6 +19,13 @@ namespace flaw {
 	{
 	}
 
+	void DXCommandQueue::SetPipelineBarrier(Ref<VertexBuffer> buffer, AccessTypes srcAccess, AccessTypes dstAccess, PipelineStages srcStage, PipelineStages dstStage) {
+		// DirectX 11 does not have explicit pipeline barriers like Vulkan or DirectX 12.
+		// Resource state transitions are handled automatically by the driver.
+		// However, we can use resource barriers for certain scenarios if needed.
+		// For now, this function will be a no-op.
+	}
+
 	void DXCommandQueue::SetPipelineBarrier(Ref<Texture> texture, TextureLayout oldLayout, TextureLayout newLayout, AccessTypes srcAccess, AccessTypes dstAccess, PipelineStages srcStage, PipelineStages dstStage) {
 		// DirectX 11 does not have explicit pipeline barriers like Vulkan or DirectX 12.
 		// Resource state transitions are handled automatically by the driver.
@@ -139,8 +146,21 @@ namespace flaw {
 	}
 
 	void DXCommandQueue::SetShaderResources(const std::vector<Ref<ShaderResources>>& shaderResources) {
-		ResetShaderResources();
+		ShaderStages srvsUpdateStages;
+		ID3D11ShaderResourceView* vsSrvs[D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT] = { nullptr };
+		ID3D11ShaderResourceView* psSrvs[D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT] = { nullptr };
+		ID3D11ShaderResourceView* gsSrvs[D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT] = { nullptr };
+		ID3D11ShaderResourceView* hsSrvs[D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT] = { nullptr };
+		ID3D11ShaderResourceView* dsSrvs[D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT] = { nullptr };
 
+		ShaderStages cbsUpdateStages;
+		ID3D11Buffer* vsCBs[D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT] = { nullptr };
+		ID3D11Buffer* psCBs[D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT] = { nullptr };
+		ID3D11Buffer* gsCBs[D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT] = { nullptr };
+		ID3D11Buffer* hsCBs[D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT] = { nullptr };
+		ID3D11Buffer* dsCBs[D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT] = { nullptr };
+
+		_currentShaderResourcesVec.clear();
 		_currentShaderResourcesVec.reserve(shaderResources.size());
 		for (uint32_t i = 0; i < shaderResources.size(); ++i) {
 			const auto& resource = shaderResources[i];
@@ -159,98 +179,109 @@ namespace flaw {
 				uint32_t absoluteSlot = i * ShaderResourceSetInterval + slot;
 
 				if (binding.shaderStages & ShaderStage::Vertex) {
-					_context.DeviceContext()->VSSetShaderResources(absoluteSlot, 1, resource.GetAddressOf());
+					vsSrvs[absoluteSlot] = resource.Get();
+					srvsUpdateStages |= ShaderStage::Vertex;
 				}
 				if (binding.shaderStages & ShaderStage::Pixel) {
-					_context.DeviceContext()->PSSetShaderResources(absoluteSlot, 1, resource.GetAddressOf());
+					psSrvs[absoluteSlot] = resource.Get();
+					srvsUpdateStages |= ShaderStage::Pixel;
 				}
 				if (binding.shaderStages & ShaderStage::Geometry) {
-					_context.DeviceContext()->GSSetShaderResources(absoluteSlot, 1, resource.GetAddressOf());
+					gsSrvs[absoluteSlot] = resource.Get();
+					srvsUpdateStages |= ShaderStage::Geometry;
 				}
 				if (binding.shaderStages & ShaderStage::Hull) {
-					_context.DeviceContext()->HSSetShaderResources(absoluteSlot, 1, resource.GetAddressOf());
+					hsSrvs[absoluteSlot] = resource.Get();
+					srvsUpdateStages |= ShaderStage::Hull;
 				}
 				if (binding.shaderStages & ShaderStage::Domain) {
-					_context.DeviceContext()->DSSetShaderResources(absoluteSlot, 1, resource.GetAddressOf());
+					dsSrvs[absoluteSlot] = resource.Get();
+					srvsUpdateStages |= ShaderStage::Domain;
 				}
 			}
 
-			const auto& cRegistryBindings = dxShaderResourcesLayout->GetCRegistryBindings();
-			const auto& cRegistryResources = dxShaderResources->GetCRegistryResources();
+			const auto& bRegistryBindings = dxShaderResourcesLayout->GetBRegistryBindings();
+			const auto& bRegistryResources = dxShaderResources->GetBRegistryResources();
 
-			for (const auto& [slot, resource] : cRegistryResources) {
-				const auto& binding = cRegistryBindings.at(slot);
+			for (const auto& [slot, resource] : bRegistryResources) {
+				const auto& binding = bRegistryBindings.at(slot);
 
 				uint32_t absoluteSlot = i * ShaderResourceSetInterval + slot;
 
 				if (binding.shaderStages & ShaderStage::Vertex) {
-					_context.DeviceContext()->VSSetConstantBuffers(absoluteSlot, 1, resource.GetAddressOf());
+					vsCBs[absoluteSlot] = resource.Get();
+					cbsUpdateStages |= ShaderStage::Vertex;
 				}
 				if (binding.shaderStages & ShaderStage::Pixel) {
-					_context.DeviceContext()->PSSetConstantBuffers(absoluteSlot, 1, resource.GetAddressOf());
+					psCBs[absoluteSlot] = resource.Get();
+					cbsUpdateStages |= ShaderStage::Pixel;
 				}
 				if (binding.shaderStages & ShaderStage::Geometry) {
-					_context.DeviceContext()->GSSetConstantBuffers(absoluteSlot, 1, resource.GetAddressOf());
+					gsCBs[absoluteSlot] = resource.Get();
+					cbsUpdateStages |= ShaderStage::Geometry;
 				}
 				if (binding.shaderStages & ShaderStage::Hull) {
-					_context.DeviceContext()->HSSetConstantBuffers(absoluteSlot, 1, resource.GetAddressOf());
+					hsCBs[absoluteSlot] = resource.Get();
+					cbsUpdateStages |= ShaderStage::Hull;
 				}
 				if (binding.shaderStages & ShaderStage::Domain) {
-					_context.DeviceContext()->DSSetConstantBuffers(absoluteSlot, 1, resource.GetAddressOf());
+					dsCBs[absoluteSlot] = resource.Get();
+					cbsUpdateStages |= ShaderStage::Domain;
 				}
 			}
 
 			_currentShaderResourcesVec.push_back(dxShaderResources);
 		}
+
+		if (srvsUpdateStages & ShaderStage::Vertex) {
+			_context.DeviceContext()->VSSetShaderResources(0, D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT, vsSrvs);
+		}
+		if (srvsUpdateStages & ShaderStage::Pixel) {
+			_context.DeviceContext()->PSSetShaderResources(0, D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT, psSrvs);
+		}
+		if (srvsUpdateStages & ShaderStage::Geometry) {
+			_context.DeviceContext()->GSSetShaderResources(0, D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT, gsSrvs);
+		}
+		if (srvsUpdateStages & ShaderStage::Hull) {
+			_context.DeviceContext()->HSSetShaderResources(0, D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT, hsSrvs);
+		}
+		if (srvsUpdateStages & ShaderStage::Domain) {
+			_context.DeviceContext()->DSSetShaderResources(0, D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT, dsSrvs);
+		}
+
+		if (cbsUpdateStages & ShaderStage::Vertex) {
+			_context.DeviceContext()->VSSetConstantBuffers(0, D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT, vsCBs);
+		}
+		if (cbsUpdateStages & ShaderStage::Pixel) {
+			_context.DeviceContext()->PSSetConstantBuffers(0, D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT, psCBs);
+		}
+		if (cbsUpdateStages & ShaderStage::Geometry) {
+			_context.DeviceContext()->GSSetConstantBuffers(0, D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT, gsCBs);
+		}
+		if (cbsUpdateStages & ShaderStage::Hull) {
+			_context.DeviceContext()->HSSetConstantBuffers(0, D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT, hsCBs);
+		}
+		if (cbsUpdateStages & ShaderStage::Domain) {
+			_context.DeviceContext()->DSSetConstantBuffers(0, D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT, dsCBs);
+		}
 	}
 
 	void DXCommandQueue::ResetShaderResources() {
-		ID3D11ShaderResourceView* nullSRV[] = { nullptr };
-		ID3D11Buffer* nullCB[] = { nullptr };
+		ID3D11ShaderResourceView* nullSRV[D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT] = { nullptr };
 
-		for (const auto& dxResources : _currentShaderResourcesVec) {
-			auto dxResourcesLayout = dxResources->GetLayout();
+		_context.DeviceContext()->VSSetShaderResources(0, D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT, nullSRV);
+		_context.DeviceContext()->PSSetShaderResources(0, D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT, nullSRV);
+		_context.DeviceContext()->GSSetShaderResources(0, D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT, nullSRV);
+		_context.DeviceContext()->HSSetShaderResources(0, D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT, nullSRV);
+		_context.DeviceContext()->DSSetShaderResources(0, D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT, nullSRV);
 
-			const auto& tRegistryBindings = dxResourcesLayout->GetTRegistryBindings();
+		ID3D11Buffer* nullCB[D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT] = { nullptr };
 
-			for (const auto& [slot, binding] : tRegistryBindings) {
-				if (binding.shaderStages & ShaderStage::Vertex) {
-					_context.DeviceContext()->VSSetShaderResources(slot, 1, nullSRV);
-				}
-				if (binding.shaderStages & ShaderStage::Pixel) {
-					_context.DeviceContext()->PSSetShaderResources(slot, 1, nullSRV);
-				}
-				if (binding.shaderStages & ShaderStage::Geometry) {
-					_context.DeviceContext()->GSSetShaderResources(slot, 1, nullSRV);
-				}
-				if (binding.shaderStages & ShaderStage::Hull) {
-					_context.DeviceContext()->HSSetShaderResources(slot, 1, nullSRV);
-				}
-				if (binding.shaderStages & ShaderStage::Domain) {
-					_context.DeviceContext()->DSSetShaderResources(slot, 1, nullSRV);
-				}
-			}
-
-			const auto& cRegistryBindings = dxResourcesLayout->GetCRegistryBindings();
-
-			for (const auto& [slot, binding] : tRegistryBindings) {
-				if (binding.shaderStages & ShaderStage::Vertex) {
-					_context.DeviceContext()->VSSetConstantBuffers(slot, 1, nullCB);
-				}
-				if (binding.shaderStages & ShaderStage::Pixel) {
-					_context.DeviceContext()->PSSetConstantBuffers(slot, 1, nullCB);
-				}
-				if (binding.shaderStages & ShaderStage::Geometry) {
-					_context.DeviceContext()->GSSetConstantBuffers(slot, 1, nullCB);
-				}
-				if (binding.shaderStages & ShaderStage::Hull) {
-					_context.DeviceContext()->HSSetConstantBuffers(slot, 1, nullCB);
-				}
-				if (binding.shaderStages & ShaderStage::Domain) {
-					_context.DeviceContext()->DSSetConstantBuffers(slot, 1, nullCB);
-				}
-			}
-		}
+		_context.DeviceContext()->VSSetConstantBuffers(0, D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT, nullCB);
+		_context.DeviceContext()->PSSetConstantBuffers(0, D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT, nullCB);
+		_context.DeviceContext()->GSSetConstantBuffers(0, D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT, nullCB);
+		_context.DeviceContext()->HSSetConstantBuffers(0, D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT, nullCB);
+		_context.DeviceContext()->DSSetConstantBuffers(0, D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT, nullCB);
 
 		_currentShaderResourcesVec.clear();
 	}

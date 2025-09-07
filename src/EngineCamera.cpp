@@ -7,7 +7,7 @@ EngineCamera::EngineCamera()
     : _perspective(true)
     , _zoomRate(1.0f)
     , _zoomSpeed(0.1f)
-    , _position(0.0f, 0.0f, -5.0f)
+    , _position(0.0f)
     , _rotation(0.0f)
 {
     _prevMousePos = vec2(Input::GetMouseX(), Input::GetMouseY());
@@ -164,4 +164,14 @@ mat4 EngineCamera::GetProjectionMatrix() const {
     else {
         return _orthographicCamera->GetProjectionMatrix();
     }
+}
+
+void EngineCamera::SetPosition(const vec3& position) {
+	_position = position;
+	if (_perspective) {
+		_perspectiveCamera->UpdateViewMatrix(_position, QRotate(_rotation, Forward));
+	}
+	else {
+		_orthographicCamera->UpdateViewMatrix(_position, Forward);
+	}
 }

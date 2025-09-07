@@ -23,7 +23,7 @@ namespace flaw {
 				_tRegistryBindings[binding.binding] = binding;
 				break;
 			case ResourceType::ConstantBuffer:
-				_cRegistryBindings[binding.binding] = binding;
+				_bRegistryBindings[binding.binding] = binding;
 				break;
 			};
 		}
@@ -94,16 +94,16 @@ namespace flaw {
 		auto dxBuffer = std::static_pointer_cast<DXConstantBuffer>(constantBuffer);
 		FASSERT(dxBuffer, "Invalid ConstantBuffer provided");
 
-		const auto& cRegistryBindings = _layout->GetCRegistryBindings();
+		const auto& bRegistryBindings = _layout->GetBRegistryBindings();
 
-		if (cRegistryBindings.find(binding) == cRegistryBindings.end()) {
+		if (bRegistryBindings.find(binding) == bRegistryBindings.end()) {
 			LOG_ERROR("Binding %d not found in shader resources", binding);
 			return;
 		}
 
 		const auto& dxNativeBuff = static_cast<const DXNativeBuffer&>(dxBuffer->GetNativeBuffer());
 
-		_cRegistryResources[binding] = dxNativeBuff.buffer;
+		_bRegistryResources[binding] = dxNativeBuff.buffer;
 	}
 
 	void DXShaderResources::BindStructuredBuffer(const Ref<StructuredBuffer>& structuredBuffer, uint32_t binding) {
