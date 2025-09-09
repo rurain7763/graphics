@@ -37,6 +37,8 @@ extern std::vector<uint32_t> g_spriteObjects;
 extern RenderQueue g_meshOnlyRenderQueue;
 extern RenderQueue g_renderQueue;
 
+extern std::vector<PointLight> g_pointLights;
+
 extern ShadowMap g_globalShadowMap;
 extern PointLightShadowMap g_pointLightShadowMap;
 

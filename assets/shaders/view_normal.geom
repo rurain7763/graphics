@@ -36,35 +36,35 @@ in VS_OUT {
 const float g_line_length = 0.1;
 
 void main() {
-    vec3 p0 = gl_in[0].gl_Position.xyz;
+    mat4 vp_matrix = camera_constants.projection_matrix * camera_constants.view_matrix;
+
+    vec3 p0 = (object_constants.model_matrix * gl_in[0].gl_Position).xyz;
     vec3 p0_normal = normalize(mat3(transpose(object_constants.inv_model_matrix)) * gs_in[0].normal);
-    vec3 p1 = gl_in[1].gl_Position.xyz;
+    vec3 p1 = (object_constants.model_matrix * gl_in[1].gl_Position).xyz;
     vec3 p1_normal = normalize(mat3(transpose(object_constants.inv_model_matrix)) * gs_in[1].normal);
-    vec3 p2 = gl_in[2].gl_Position.xyz;
+    vec3 p2 = (object_constants.model_matrix * gl_in[2].gl_Position).xyz;
     vec3 p2_normal = normalize(mat3(transpose(object_constants.inv_model_matrix)) * gs_in[2].normal);
 
-    mat4 mvp_matrix = camera_constants.projection_matrix * camera_constants.view_matrix * object_constants.model_matrix;
-
-    gl_Position = mvp_matrix * vec4(p0, 1.0);
+    gl_Position = vp_matrix * vec4(p0, 1.0);
     EmitVertex();
 
-    gl_Position = mvp_matrix * vec4(p0 + p0_normal * g_line_length, 1.0);
-    EmitVertex();
-
-    EndPrimitive();
-
-    gl_Position = mvp_matrix * vec4(p1, 1.0);
-    EmitVertex();
-
-    gl_Position = mvp_matrix * vec4(p1 + p1_normal * g_line_length, 1.0);
+    gl_Position = vp_matrix * vec4(p0 + p0_normal * g_line_length, 1.0);
     EmitVertex();
 
     EndPrimitive();
 
-    gl_Position = mvp_matrix * vec4(p2, 1.0);
+    gl_Position = vp_matrix * vec4(p1, 1.0);
     EmitVertex();
 
-    gl_Position = mvp_matrix * vec4(p2 + p2_normal * g_line_length, 1.0);
+    gl_Position = vp_matrix * vec4(p1 + p1_normal * g_line_length, 1.0);
+    EmitVertex();
+
+    EndPrimitive();
+
+    gl_Position = vp_matrix * vec4(p2, 1.0);
+    EmitVertex();
+
+    gl_Position = vp_matrix * vec4(p2 + p2_normal * g_line_length, 1.0);
     EmitVertex();
 
     EndPrimitive();

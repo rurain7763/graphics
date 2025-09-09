@@ -38,7 +38,9 @@ struct GlobalConstants {
 
 enum TextureBindingFlag {
     Diffuse = (1 << 0),
-    Specular = (1 << 1)
+    Specular = (1 << 1),
+	Normal = (1 << 2),
+	Displacement = (1 << 3)
 };
 
 struct MaterialConstants {
@@ -93,6 +95,7 @@ struct TexturedVertex {
     vec4 color;
     vec2 texCoord;
     vec3 normal;
+	vec3 tangent;
 };
 
 struct Material {
@@ -102,6 +105,8 @@ struct Material {
 
     Ref<Texture2D> diffuseTexture;
     Ref<Texture2D> specularTexture;
+	Ref<Texture2D> normalTexture;
+	Ref<Texture2D> displacementTexture;
 };
 
 struct MeshSegment {

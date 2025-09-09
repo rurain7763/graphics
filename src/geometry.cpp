@@ -35,11 +35,15 @@ void Geometry_Init() {
 
 	ShaderResourcesLayout::Descriptor dynamicSRLDesc;
 	dynamicSRLDesc.bindings = {
-		{ 0, ResourceType::ConstantBuffer, ShaderStage::Geometry, 1 },
+		{ 0, ResourceType::ConstantBuffer, ShaderStage::Geometry | ShaderStage::Pixel, 1 },
 		{ 1, ResourceType::ConstantBuffer, ShaderStage::Pixel, 1 },
 		{ 2, ResourceType::Texture2D, ShaderStage::Pixel, 1 },
 		{ 3, ResourceType::Texture2D, ShaderStage::Pixel, 1 },
 		{ 4, ResourceType::TextureCube, ShaderStage::Pixel, 1 },
+		{ 5, ResourceType::Texture2D, ShaderStage::Pixel, 1 },
+		{ 6, ResourceType::TextureCube, ShaderStage::Pixel, 1 },
+		{ 7, ResourceType::Texture2D, ShaderStage::Pixel, 1 },
+		{ 8, ResourceType::Texture2D, ShaderStage::Pixel, 1 },
 	};
 
 	g_dynamicShaderResourcesLayout = g_graphicsContext->CreateShaderResourcesLayout(dynamicSRLDesc);
@@ -139,6 +143,7 @@ void Geometry_Render() {
 
 	objectConstantsCB->Update(&objConstants, sizeof(ObjectConstants));
 
+#if false
 	for (uint32_t i = 0; i < meshComp->mesh->segments.size(); i++) {
 		auto& subMesh = meshComp->mesh->segments[i];
 		auto material = meshComp->mesh->materials[i];
@@ -167,6 +172,7 @@ void Geometry_Render() {
 		commandQueue.SetShaderResources({ g_staticShaderResources, dynamicShaderResources });
 		commandQueue.DrawIndexed(meshComp->mesh->indexBuffer, subMesh.indexCount, subMesh.indexOffset, subMesh.vertexOffset);
 	}
+#endif
 
 	for (uint32_t index : g_viewNormalObjects) {
 		const auto& object = g_objects[index];
@@ -191,21 +197,13 @@ void Geometry_Render() {
 
 			MaterialConstants materialConstants = GetMaterialConstants(material);
 			materialConstantsCB->Update(&materialConstants, sizeof(MaterialConstants));
-			if (material->diffuseTexture) {
-				dynamicShaderResources->BindTexture2D(material->diffuseTexture, 2);
-			}
-			else {
-				dynamicShaderResources->BindTexture2D(GetTexture2D("dummy"), 2);
-			}
-
-			if (material->specularTexture) {
-				dynamicShaderResources->BindTexture2D(material->specularTexture, 3);
-			}
-			else {
-				dynamicShaderResources->BindTexture2D(GetTexture2D("dummy"), 3);
-			}
-
+			dynamicShaderResources->BindTexture2D(GetTexture2D("dummy"), 2);
+			dynamicShaderResources->BindTexture2D(GetTexture2D("dummy"), 3);
 			dynamicShaderResources->BindTextureCube(GetTextureCube("skybox"), 4);
+			dynamicShaderResources->BindTexture2D(GetTexture2D("dummy"), 5);
+			dynamicShaderResources->BindTextureCube(GetTextureCube("skybox"), 6);
+			dynamicShaderResources->BindTexture2D(GetTexture2D("dummy"), 7);
+			dynamicShaderResources->BindTexture2D(GetTexture2D("dummy"), 8);
 
 			commandQueue.SetVertexBuffers({ meshComp->mesh->vertexBuffer });
 			commandQueue.SetPipeline(g_viewNormalPipeline);

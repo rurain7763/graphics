@@ -25,8 +25,8 @@ void Asset_Init() {
 
     Ref<Material> defaultMaterial = CreateRef<Material>();
     defaultMaterial->diffuseColor = glm::vec3(0.5f, 0.5f, 0.5f);
-    defaultMaterial->specularColor = glm::vec3(1.0f, 1.0f, 1.0f);
-    defaultMaterial->shininess = 32.0f;
+    defaultMaterial->specularColor = glm::vec3(0.1f, 0.1f, 0.1f);
+    defaultMaterial->shininess = 16.0f;
 
     g_materials["default"] = defaultMaterial;
 
@@ -39,13 +39,14 @@ void Asset_Init() {
         vertex.color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
         vertex.texCoord = texCoord;
         vertex.normal = normal;
+		vertex.tangent = tangent;
         quadVertices.push_back(vertex);
         }, quadIndices);
 
     std::vector<TexturedVertex> cubeVertices;
     std::vector<uint32_t> cubeIndices;
     GenerateCube(
-        [&](const glm::vec3& position, const glm::vec2& texCoord, const glm::vec3& normal, const glm::vec3& tangent, const glm::vec3& binormal) {
+        [&](const glm::vec3& position, const glm::vec2& texCoord, const glm::vec3& normal) {
             TexturedVertex vertex;
             vertex.position = position;
             vertex.color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
@@ -56,10 +57,21 @@ void Asset_Init() {
         cubeIndices
     );
 
+	GenerateTangent(
+		[&](uint32_t index, glm::vec3& pos, glm::vec2& uv) {
+			pos = cubeVertices[index].position;
+			uv = cubeVertices[index].texCoord;
+		},
+		cubeIndices,
+		[&](uint32_t index, const glm::vec3& tangent) {
+			cubeVertices[index].tangent = tangent;
+		}
+	);
+
     std::vector<TexturedVertex> sphereVertices;
     std::vector<uint32_t> sphereIndices;
     GenerateSphere(
-        [&](const glm::vec3& position, const glm::vec2& texCoord, const glm::vec3& normal, const glm::vec3& tangent, const glm::vec3& binormal) {
+        [&](const glm::vec3& position, const glm::vec2& texCoord, const glm::vec3& normal) {
             TexturedVertex vertex;
             vertex.position = position;
             vertex.color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
@@ -68,10 +80,21 @@ void Asset_Init() {
             sphereVertices.push_back(vertex);
         },
         sphereIndices,
-        16,
-        16,
+        32,
+        32,
         0.5f
     );
+
+	GenerateTangent(
+		[&](uint32_t index, glm::vec3& pos, glm::vec2& uv) {
+			pos = sphereVertices[index].position;
+			uv = sphereVertices[index].texCoord;
+		},
+		sphereIndices,
+		[&](uint32_t index, const glm::vec3& tangent) {
+			sphereVertices[index].tangent = tangent;
+		}
+	);
 
     LoadPrimitiveModel(quadVertices, quadIndices, "quad");
     LoadPrimitiveModel(cubeVertices, cubeIndices, "cube");
@@ -85,7 +108,7 @@ void Asset_Cleanup() {
     g_materials.clear();
 }
 
-void LoadTexture(const char* filePath, const char* key) {
+void LoadTexture(const char* filePath, PixelFormat pixelFormat, const char* key) {
     Image image(filePath, 4);
 
     if (!image.IsValid()) {
@@ -99,7 +122,7 @@ void LoadTexture(const char* filePath, const char* key) {
     textureDesc.data = image.Data().data();
     textureDesc.memProperty = MemoryProperty::Static;
     textureDesc.texUsages = TextureUsage::ShaderResource;
-    textureDesc.format = PixelFormat::RGBA8Srgb;
+    textureDesc.format = pixelFormat;
     textureDesc.mipLevels = GetMaxMipLevels(textureDesc.width, textureDesc.height);
 	textureDesc.initialLayout = TextureLayout::ShaderReadOnly;
 
@@ -170,6 +193,7 @@ void LoadModel(const char* filePath, float scale, const char* key) {
         texturedVertex.color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
         texturedVertex.texCoord = vertex.texCoord;
         texturedVertex.normal = vertex.normal;
+		texturedVertex.tangent = vertex.tangent;
         vertices.push_back(texturedVertex);
     }
 
@@ -229,6 +253,12 @@ void LoadModel(const char* filePath, float scale, const char* key) {
         if (modelMaterial.specular) {
             material->specularTexture = createTexture(modelMaterial.specular, PixelFormat::RGBA8Unorm);
         }
+		if (modelMaterial.normal) {
+			material->normalTexture = createTexture(modelMaterial.normal, PixelFormat::RGBA8Unorm);
+		}
+		if (modelMaterial.displacement) {
+			material->displacementTexture = createTexture(modelMaterial.displacement, PixelFormat::RGBA8Unorm);
+		}
         material->shininess = 32.0f;
         materialCache[index] = material;
 
@@ -256,6 +286,15 @@ void LoadModel(const char* filePath, float scale, const char* key) {
     g_meshes[key] = mesh;
 }
 
+void LoadMaterial(const char* key) {
+	Ref<Material> material = CreateRef<Material>();
+	material->diffuseColor = glm::vec3(0.5f, 0.5f, 0.5f);
+	material->specularColor = glm::vec3(0.1f, 0.1f, 0.1f);
+	material->shininess = 16.0f;
+
+	g_materials[key] = material;
+}
+
 Ref<Texture2D> GetTexture2D(const char* key) {
 	auto it = g_textures.find(key);
 	if (it != g_textures.end()) {
@@ -280,5 +319,14 @@ Ref<Mesh> GetMesh(const char* key) {
 		return it->second;
 	}
 	Log::Error("Mesh with key '%s' not found.", key);
+	return nullptr;
+}
+
+Ref<Material> GetMaterial(const char* key) {
+	auto it = g_materials.find(key);
+	if (it != g_materials.end()) {
+		return it->second;
+	}
+	Log::Error("Material with key '%s' not found.", key);
 	return nullptr;
 }

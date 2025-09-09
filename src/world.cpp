@@ -34,9 +34,13 @@ const uint32_t specularTextureBinding = 3;
 const uint32_t skyboxTextureBinding = 4;
 const uint32_t shadowMapTextureBinding = 5;
 const uint32_t pointShadowMapTextureBinding = 6;
+const uint32_t normalTextureBinding = 7;
+const uint32_t displacementTextureBinding = 8;
 
 RenderQueue g_meshOnlyRenderQueue;
 RenderQueue g_renderQueue;
+
+std::vector<PointLight> g_pointLights;
 
 ShadowMap g_globalShadowMap;
 PointLightShadowMap g_pointLightShadowMap;
@@ -237,7 +241,8 @@ void InitBaseResources() {
         { "POSITION", ElementType::Float, 3 },
         { "COLOR", ElementType::Float, 4 },
         { "TEXCOORD", ElementType::Float, 2 },
-        { "NORMAL", ElementType::Float, 3 }
+        { "NORMAL", ElementType::Float, 3 },
+		{ "TANGENT", ElementType::Float, 3 }
     };
 
     g_texturedVertexInputLayout = g_graphicsContext->CreateVertexInputLayout(vertexInputLayoutDesc);
@@ -398,6 +403,8 @@ void InitObjectShaderResources() {
 		{ skyboxTextureBinding, ResourceType::TextureCube, ShaderStage::Pixel, 1 },
 		{ pointShadowMapTextureBinding, ResourceType::TextureCube, ShaderStage::Pixel, 1 },
 		{ shadowMapTextureBinding, ResourceType::Texture2D, ShaderStage::Pixel, 1 },
+		{ normalTextureBinding, ResourceType::Texture2D, ShaderStage::Pixel, 1 },
+		{ displacementTextureBinding, ResourceType::Texture2D, ShaderStage::Pixel, 1 },
         { materialConstantsCBBinding, ResourceType::ConstantBuffer, ShaderStage::Pixel, 1 },
 	};
 
@@ -490,23 +497,22 @@ void World_Update() {
     directionalLight.diffuse = glm::vec3(0.8f);
     directionalLight.specular = glm::vec3(1.0f);
 
-    std::vector<PointLight> pointLights(1);
-    for (int32_t i = 0; i < pointLights.size(); ++i) {
+	g_pointLights.resize(1);
+    for (int32_t i = 0; i < g_pointLights.size(); ++i) {
+		PointLight& pointLight = g_pointLights[i];
+
         if (i == 0) {
-            pointLights[i].position = vec3(0.0f);
+            g_pointLights[i].position = vec3(cos(Time::GetTime()), 0, sin(Time::GetTime())) * 2.0f;
         }
-        else if (i == 1) {
-            pointLights[i].position = vec3(cos(Time::GetTime()), 0, sin(Time::GetTime())) * 2.0f;
-        }
-        pointLights[i].constant_attenuation = 1.0f;
-        pointLights[i].linear_attenuation = 0.09f;
-        pointLights[i].quadratic_attenuation = 0.032f;
-        pointLights[i].ambient = glm::vec3(0.2f);
-        pointLights[i].diffuse = glm::vec3(0.8f);
-        pointLights[i].specular = glm::vec3(1.0f);
+        
+        pointLight.constant_attenuation = 1.0f;
+        pointLight.linear_attenuation = 0.09f;
+        pointLight.quadratic_attenuation = 0.032f;
+        pointLight.ambient = glm::vec3(0.2f);
+        pointLight.diffuse = glm::vec3(0.8f);
+        pointLight.specular = glm::vec3(1.0f);
     }
 
-    //std::vector<SpotLight> spotLights(1);
     std::vector<SpotLight> spotLights;
     for (int32_t i = 0; i < spotLights.size(); ++i) {
         if (i == 0) {
@@ -527,14 +533,13 @@ void World_Update() {
 	LightConstants lightConstants;
 	lightConstants.light_space_view_matrix = g_globalShadowMap.lightSpaceView;
 	lightConstants.light_space_proj_matrix = g_globalShadowMap.lightSpaceProj;
-    //lightConstants.directional_light_count = 1;
-    lightConstants.directional_light_count = 0;
-    lightConstants.point_light_count = pointLights.size();
+	lightConstants.directional_light_count = 1;
+    lightConstants.point_light_count = g_pointLights.size();
     lightConstants.spot_light_count = spotLights.size();
 	lightConstants.point_light_far_plane = g_pointLightShadowMap.farPlane;
 
     g_directionalLightSB->Update(&directionalLight, sizeof(DirectionalLight) * lightConstants.directional_light_count);
-    g_pointLightSB->Update(pointLights.data(), sizeof(PointLight) * lightConstants.point_light_count);
+    g_pointLightSB->Update(g_pointLights.data(), sizeof(PointLight) * lightConstants.point_light_count);
     g_spotLightSB->Update(spotLights.data(), sizeof(SpotLight) * lightConstants.spot_light_count);
     g_lightCB->Update(&lightConstants, sizeof(LightConstants));
 
@@ -563,6 +568,8 @@ void World_Update() {
     static bool initRender = false;
 
     if (!initRender) {
+		g_meshOnlyRenderQueue.Clear();
+		g_renderQueue.Clear();
         g_outlineObjects.clear();
         g_viewNormalObjects.clear();
         g_spriteObjects.clear();
@@ -579,7 +586,7 @@ void World_Update() {
                     g_outlineObjects.push_back(i);
                 }
 
-                if (comp->drawOutline) {
+                if (comp->drawNormal) {
                     g_viewNormalObjects.push_back(i);
                 }
 
@@ -652,6 +659,20 @@ void World_Render() {
                 objDynamicResources->BindTexture2D(GetTexture2D("dummy"), specularTextureBinding);
             }
 
+			if (entry.material->normalTexture) {
+				objDynamicResources->BindTexture2D(entry.material->normalTexture, normalTextureBinding);
+			}
+			else {
+				objDynamicResources->BindTexture2D(GetTexture2D("dummy"), normalTextureBinding);
+			}
+
+			if (entry.material->displacementTexture) {
+				objDynamicResources->BindTexture2D(entry.material->displacementTexture, displacementTextureBinding);
+			}
+			else {
+				objDynamicResources->BindTexture2D(GetTexture2D("dummy"), displacementTextureBinding);
+			}
+
             objDynamicResources->BindTextureCube(GetTextureCube("skybox"), skyboxTextureBinding);
 			objDynamicResources->BindTexture2D(shadowMapTex, shadowMapTextureBinding);
 			objDynamicResources->BindTextureCube(pointShadowMapTex, pointShadowMapTextureBinding);
@@ -716,6 +737,12 @@ MaterialConstants GetMaterialConstants(Ref<Material> material) {
 	}
 	if (material->specularTexture) {
 		materialConstants.texture_binding_flags |= static_cast<uint32_t>(TextureBindingFlag::Specular);
+	}
+	if (material->normalTexture) {
+		materialConstants.texture_binding_flags |= static_cast<uint32_t>(TextureBindingFlag::Normal);
+	}
+	if (material->displacementTexture) {
+		materialConstants.texture_binding_flags |= static_cast<uint32_t>(TextureBindingFlag::Displacement);
 	}
 
 	return materialConstants;

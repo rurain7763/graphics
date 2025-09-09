@@ -83,6 +83,8 @@ layout(set = 1, binding = 3) uniform sampler2D specular_texture;
 layout(set = 1, binding = 4) uniform samplerCube skybox_texture;
 layout(set = 1, binding = 5) uniform sampler2D shadow_map_texture;
 layout(set = 1, binding = 6) uniform samplerCube point_light_shadow_map_texture;
+layout(set = 1, binding = 7) uniform sampler2D normal_texture;
+layout(set = 1, binding = 8) uniform sampler2D displacement_texture;
 
 in VS_OUT {
     layout(location = 0) vec3 position;
@@ -90,25 +92,42 @@ in VS_OUT {
     layout(location = 2) vec2 tex_coord;
     layout(location = 3) vec3 normal;
     layout(location = 4) vec4 light_space_position;
+    layout(location = 5) mat3 TBN_matrix;
 } fs_in;
 
 layout(location = 0) out vec4 fragColor;
 
 void main() {
+    vec2 texcoord = fs_in.tex_coord;
+    if (has_texture(materialConstants.texture_binding_flags, DISPLACEMENT_TEX_BINDING_FLAG)) {
+        vec3 frag_to_view_in_TBN = camera_constants.world_position - fs_in.position;
+        frag_to_view_in_TBN = normalize(fs_in.TBN_matrix * frag_to_view_in_TBN);
+
+        float height_scale = 0.1; // TODO: Make configurable
+        texcoord = parallax_mapping(texcoord, frag_to_view_in_TBN, height_scale, displacement_texture);
+    }
+
+    vec3 normal = fs_in.normal;
+    if (has_texture(materialConstants.texture_binding_flags, NORMAL_TEX_BINDING_FLAG)) {
+        normal = texture(normal_texture, texcoord).rgb;
+        normal = normal * 2.0 - 1.0;
+        normal = normalize(fs_in.TBN_matrix * normal);
+    }
+
     vec3 view_direction = normalize(fs_in.position - camera_constants.world_position);
-    vec3 reflect_direction = reflect(view_direction, fs_in.normal);
+    vec3 reflect_direction = reflect(view_direction, normal);
 
     float refraction_ratio = 1.00 / 1.52; // Air to glass
-    vec3 refract_direction = refract(view_direction, fs_in.normal, refraction_ratio);
+    vec3 refract_direction = refract(view_direction, normal, refraction_ratio);
 
     vec3 diffuse_color = materialConstants.diffuse_color;
     if (has_texture(materialConstants.texture_binding_flags, DIFFUSE_TEX_BINDING_FLAG)) {
-        diffuse_color = texture(diffuse_texture, fs_in.tex_coord).rgb;
+        diffuse_color = texture(diffuse_texture, texcoord).rgb;
     }
 
     vec3 specular_color = materialConstants.specular_color;
     if (has_texture(materialConstants.texture_binding_flags, SPECULAR_TEX_BINDING_FLAG)) {
-        specular_color = texture(specular_texture, fs_in.tex_coord).rgb;
+        specular_color = texture(specular_texture, texcoord).rgb;
     }
 
     vec3 total_ambient = vec3(0.0);
@@ -121,11 +140,13 @@ void main() {
         vec3 light_direction = light.direction;
 
         vec3 ambient, diffuse, specular;
-        calculate_blinn_phong_lighting(light.ambient, light.diffuse, light.specular, light_direction, view_direction, fs_in.normal, diffuse_color, specular_color, materialConstants.shininess, ambient, diffuse, specular);
+        calculate_blinn_phong_lighting(light.ambient, light.diffuse, light.specular, light_direction, view_direction, normal, diffuse_color, specular_color, materialConstants.shininess, ambient, diffuse, specular);
+
+        float shadow = 1.0 - calculate_shadow(fs_in.light_space_position, shadow_map_texture);
 
         total_ambient += ambient;
-        total_diffuse += diffuse;
-        total_specular += specular;
+        total_diffuse += diffuse * shadow;
+        total_specular += specular * shadow;
     }
 
     for (uint i = 0; i < light_constants.point_light_count; ++i) {
@@ -137,11 +158,13 @@ void main() {
         float attenuation = 1.0 / (light.constant_attenuation + light.linear_attenuation * distance + light.quadratic_attenuation * (distance * distance));
 
         vec3 ambient, diffuse, specular;
-        calculate_blinn_phong_lighting(light.ambient, light.diffuse, light.specular, light_direction, view_direction, fs_in.normal, diffuse_color, specular_color, materialConstants.shininess, ambient, diffuse, specular);
+        calculate_blinn_phong_lighting(light.ambient, light.diffuse, light.specular, light_direction, view_direction, normal, diffuse_color, specular_color, materialConstants.shininess, ambient, diffuse, specular);
+
+        float shadow = 1.0 - calculate_shadow(camera_constants.world_position, fs_in.position, light.position, light_constants.point_light_far_plane, point_light_shadow_map_texture);
 
         total_ambient += ambient * attenuation;
-        total_diffuse += diffuse * attenuation;
-        total_specular += specular * attenuation;
+        total_diffuse += diffuse * attenuation * shadow;
+        total_specular += specular * attenuation * shadow;
     }
 
     for (uint i = 0; i < light_constants.spot_light_count; ++i) {
@@ -157,16 +180,14 @@ void main() {
         float intensity = clamp((spot_effect - light.cutoff_outer_cosine) / epsilon, 0.0, 1.0);
 
         vec3 ambient, diffuse, specular;
-        calculate_blinn_phong_lighting(light.ambient, light.diffuse, light.specular, light_direction, view_direction, fs_in.normal, diffuse_color, specular_color, materialConstants.shininess, ambient, diffuse, specular);
+        calculate_blinn_phong_lighting(light.ambient, light.diffuse, light.specular, light_direction, view_direction, normal, diffuse_color, specular_color, materialConstants.shininess, ambient, diffuse, specular);
 
         total_ambient += ambient * attenuation * intensity;
         total_diffuse += diffuse * attenuation * intensity;
         total_specular += specular * attenuation * intensity;
     }
 
-    float shadow = calculate_shadow(fs_in.light_space_position, shadow_map_texture);
-    shadow = calculate_shadow(camera_constants.world_position, fs_in.position, vec3(0.0), light_constants.point_light_far_plane, point_light_shadow_map_texture);
-    vec3 object_color = total_ambient + (total_diffuse + total_specular) * (1.0 - shadow);
+    vec3 object_color = total_ambient + total_diffuse + total_specular;
     vec3 environment_color = texture(skybox_texture, reflect_direction).rgb;
     vec3 refracted_color = texture(skybox_texture, refract_direction).rgb;
 

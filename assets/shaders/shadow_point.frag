@@ -9,8 +9,7 @@ layout(set = 0, binding = 0) uniform ShadowConstants {
 } shadow_constants;
 
 in GS_OUT {
-    layout(location = 0) vec3 normal;
-    layout(location = 1) vec3 position;
+    layout(location = 0) vec3 position;
 } fs_in;
 
 void main() {
@@ -18,7 +17,7 @@ void main() {
     float distance_to_frag = length(light_dir);
     light_dir /= distance_to_frag;
 
-    float bias = max(0.05 * (1.0 - dot(fs_in.normal, light_dir)), 0.005);
+    float bias = 0.001;
     
     gl_FragDepth = distance_to_frag / shadow_constants.far_plane;
     gl_FragDepth += gl_FrontFacing ? bias : 0.0;

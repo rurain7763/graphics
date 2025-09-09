@@ -3,6 +3,8 @@
 
 #define DIFFUSE_TEX_BINDING_FLAG (1 << 0)
 #define SPECULAR_TEX_BINDING_FLAG (1 << 1)
+#define NORMAL_TEX_BINDING_FLAG (1 << 2)
+#define DISPLACEMENT_TEX_BINDING_FLAG (1 << 3)
 
 bool has_texture(uint bindingFlags, uint textureFlags) {
     return (bindingFlags & textureFlags) == textureFlags;
@@ -87,5 +89,40 @@ float calculate_shadow(vec3 view_position, vec3 frag_position, vec3 light_positi
     
     return shadow;
 }
+
+vec2 parallax_mapping(vec2 tex_coords, vec3 view_dir, float height_scale, sampler2D displacement_map) {
+    const float min_layers = 8.0;
+    const float max_layers = 32.0;
+
+    float num_layers = mix(max_layers, min_layers, abs(dot(vec3(0.0, 0.0, 1.0), view_dir)));
+    float layer_depth = 1.0 / num_layers;
+
+    float current_layer_depth = 0.0;
+
+    vec2 p = view_dir.xy * height_scale;
+    vec2 delta_tex_coords = p / num_layers;
+    
+    vec2 current_tex_coords = tex_coords;
+    float current_depth_map_value =  1.0 - texture(displacement_map, current_tex_coords).r;
+
+    while(current_layer_depth < current_depth_map_value) {
+        current_tex_coords -= delta_tex_coords;
+        current_depth_map_value =  1.0 - texture(displacement_map, current_tex_coords).r;
+        current_layer_depth += layer_depth;
+    }
+
+    vec2 prev_tex_coords = current_tex_coords + delta_tex_coords;
+
+    float after_depth = current_depth_map_value - current_layer_depth;
+    float before_depth = 1.0 - texture(displacement_map, prev_tex_coords).r - current_layer_depth + layer_depth;
+
+    float weight = after_depth / (after_depth - before_depth);
+    current_tex_coords = prev_tex_coords * weight + current_tex_coords * (1.0 - weight);
+
+    current_tex_coords = clamp(current_tex_coords, 0.0, 1.0);
+
+    return current_tex_coords;
+}
+
 
 #endif

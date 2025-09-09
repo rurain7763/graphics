@@ -167,14 +167,7 @@ void Shadow_Init() {
 		return context.CreateFramebuffer(desc);
 	});
 
-	g_pointLightShadowMap.lightPosition = vec3(0.0f, 0.0f, 0.0f);
 	g_pointLightShadowMap.farPlane = 25.0f;
-	g_pointLightShadowMap.lightSpaceViews[0] = LookAt(g_pointLightShadowMap.lightPosition, g_pointLightShadowMap.lightPosition + Right, Up);
-	g_pointLightShadowMap.lightSpaceViews[1] = LookAt(g_pointLightShadowMap.lightPosition, g_pointLightShadowMap.lightPosition + -Right, Up);
-	g_pointLightShadowMap.lightSpaceViews[2] = LookAt(g_pointLightShadowMap.lightPosition, g_pointLightShadowMap.lightPosition + Up, -Forward);
-	g_pointLightShadowMap.lightSpaceViews[3] = LookAt(g_pointLightShadowMap.lightPosition, g_pointLightShadowMap.lightPosition + -Up, Forward);
-	g_pointLightShadowMap.lightSpaceViews[4] = LookAt(g_pointLightShadowMap.lightPosition, g_pointLightShadowMap.lightPosition + Forward, Up);
-	g_pointLightShadowMap.lightSpaceViews[5] = LookAt(g_pointLightShadowMap.lightPosition, g_pointLightShadowMap.lightPosition + -Forward, Up);
 	g_pointLightShadowMap.lightSpaceProj = Perspective(glm::radians(90.0f), 1.0f, 1.0f, g_pointLightShadowMap.farPlane);
 
 	g_pointLightShadowMap.framebufferGroup = CreateRef<FramebufferGroup>(*g_graphicsContext, [](GraphicsContext& context, uint32_t frameIndex) {
@@ -216,6 +209,14 @@ void Shadow_Update() {
 	g_pointShadowShaderResourcesPool->Reset();
 	g_shadowConstantsCBPool->Reset();
 	g_pointLightShadowConstantsCBPool->Reset();
+
+	g_pointLightShadowMap.lightPosition = g_pointLights[0].position;
+	g_pointLightShadowMap.lightSpaceViews[0] = LookAt(g_pointLightShadowMap.lightPosition, g_pointLightShadowMap.lightPosition + Right, Up);
+	g_pointLightShadowMap.lightSpaceViews[1] = LookAt(g_pointLightShadowMap.lightPosition, g_pointLightShadowMap.lightPosition + -Right, Up);
+	g_pointLightShadowMap.lightSpaceViews[2] = LookAt(g_pointLightShadowMap.lightPosition, g_pointLightShadowMap.lightPosition + Up, -Forward);
+	g_pointLightShadowMap.lightSpaceViews[3] = LookAt(g_pointLightShadowMap.lightPosition, g_pointLightShadowMap.lightPosition + -Up, Forward);
+	g_pointLightShadowMap.lightSpaceViews[4] = LookAt(g_pointLightShadowMap.lightPosition, g_pointLightShadowMap.lightPosition + Forward, Up);
+	g_pointLightShadowMap.lightSpaceViews[5] = LookAt(g_pointLightShadowMap.lightPosition, g_pointLightShadowMap.lightPosition + -Forward, Up);
 }
 
 void Shadow_Render() {

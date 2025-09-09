@@ -1,8 +1,5 @@
 #version 450
 
-#define DIFFUSE_TEX_BINDING_FLAG (1 << 0)
-#define SPECULAR_TEX_BINDING_FLAG (1 << 1)
-
 struct DirectionalLight {
     vec3 direction;
     float padding;
@@ -79,6 +76,9 @@ layout(std140, set = 0, binding = 6) readonly buffer SpotLightBuffer {
 layout(set = 1, binding = 2) uniform sampler2D diffuse_texture;
 layout(set = 1, binding = 3) uniform sampler2D specular_texture;
 layout(set = 1, binding = 4) uniform samplerCube skybox_texture;
+layout(set = 1, binding = 6) uniform samplerCube point_light_shadow_map_texture;
+layout(set = 1, binding = 7) uniform sampler2D normal_texture;
+layout(set = 1, binding = 8) uniform sampler2D displacement_texture;
 
 layout(location = 0) out vec4 fragColor;
 

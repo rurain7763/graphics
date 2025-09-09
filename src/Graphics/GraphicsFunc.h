@@ -167,7 +167,7 @@ namespace flaw {
 		}
 	}
 
-	inline void GenerateCube(std::function<void(vec3, vec2, vec3, vec3, vec3)> vertices, std::vector<uint32_t>& outIndices) {
+	inline void GenerateCube(std::function<void(vec3 pos, vec2 uv, vec3 normal)> vertices, std::vector<uint32_t>& outIndices) {
 		const vec3 positions[6][4] = {
 			// Front (Z-)
 			{ {-0.5f,  0.5f, -0.5f}, {0.5f,  0.5f, -0.5f}, {0.5f, -0.5f, -0.5f}, {-0.5f, -0.5f, -0.5f} },
@@ -192,15 +192,6 @@ namespace flaw {
 			{  0, -1,  0 }  // Bottom
 		};
 
-		const vec3 tangents[6] = {
-			{  1,  0,  0 }, // Front
-			{  0,  0,  1 }, // Right
-			{ -1,  0,  0 }, // Back
-			{  0,  0, -1 }, // Left
-			{  1,  0,  0 }, // Top
-			{  1,  0,  0 }  // Bottom
-		};
-
 		const vec2 uvs[4] = {
 			{ 0.f, 0.f },
 			{ 1.f, 0.f },
@@ -211,12 +202,8 @@ namespace flaw {
 		uint32_t baseIndex = 0;
 		for (int face = 0; face < 6; ++face)
 		{
-			vec3 normal = normals[face];
-			vec3 tangent = tangents[face];
-			vec3 binormal = normalize(cross(normal, tangent));
-
 			for (int i = 0; i < 4; ++i) {
-				vertices(positions[face][i], uvs[i], normal, tangent, binormal);
+				vertices(positions[face][i], uvs[i], normals[face]);
 			}
 
 			// Index order same as GenerateCubeMesh (CW winding)
@@ -231,7 +218,7 @@ namespace flaw {
 		}
 	}
 
-	inline void GenerateSphere(std::function<void(vec3, vec2, vec3, vec3, vec3)> vertices, std::vector<uint32_t>& outIndices, uint32_t sectorCount, uint32_t stackCount, float radius = 1.0f) {
+	inline void GenerateSphere(std::function<void(vec3 pos, vec2 uv, vec3 normal)> vertices, std::vector<uint32_t>& outIndices, uint32_t sectorCount, uint32_t stackCount, float radius = 1.0f) {
 		const float PI = 3.14159265359f;
 
 		for (uint32_t i = 0; i <= stackCount; ++i)
@@ -250,19 +237,12 @@ namespace flaw {
 				vec3 position = { x, y, z };
 				vec3 normal = normalize(position);
 
-				// ź��Ʈ�� �浵(sector) ������ ��ȭ���� ���
-				vec3 tangent = normalize(vec3(-z, 0.0f, x));
-				if (length(tangent) < 0.001f)
-					tangent = vec3(1.0f, 0.0f, 0.0f); // ��(Pole)������ fallback
-
-				vec3 binormal = normalize(cross(normal, tangent));
-
 				vec2 uv = {
 					(float)j / sectorCount, // u: �浵
 					(float)i / stackCount   // v: ����
 				};
 
-				vertices(position, uv, normal, tangent, binormal);
+				vertices(position, uv, normal);
 			}
 		}
 
@@ -290,6 +270,37 @@ namespace flaw {
 		vec3 edge1 = p1 - p0;
 		vec3 edge2 = p2 - p0;
 		return normalize(cross(edge1, edge2));
+	}
+
+	inline void GenerateTangent(const std::function<void(uint32_t index, vec3& pos, vec2& uv)>& getVertex, const std::vector<uint32_t>& indices, const std::function<void(uint32_t index, vec3& tangent)>& result) {
+		for (uint32_t i = 0; i < indices.size(); i += 3) {
+			uint32_t index0 = indices[i];
+			uint32_t index1 = indices[i + 1];
+			uint32_t index2 = indices[i + 2];
+
+			vec3 pos0, pos1, pos2;
+			vec2 uv0, uv1, uv2;
+			getVertex(index0, pos0, uv0);
+			getVertex(index1, pos1, uv1);
+			getVertex(index2, pos2, uv2);
+
+			vec3 edge1 = pos1 - pos0;
+			vec3 edge2 = pos2 - pos0;
+			vec2 deltaUV1 = uv1 - uv0;
+			vec2 deltaUV2 = uv2 - uv0;
+
+			float f = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y);
+
+			vec3 tangent;
+			tangent.x = f * (deltaUV2.y * edge1.x - deltaUV1.y * edge2.x);
+			tangent.y = f * (deltaUV2.y * edge1.y - deltaUV1.y * edge2.y);
+			tangent.z = f * (deltaUV2.y * edge1.z - deltaUV1.y * edge2.z);
+			tangent = normalize(tangent);
+
+			result(index0, tangent);
+			result(index1, tangent);
+			result(index2, tangent);
+		}
 	}
 
 	inline void GenerateCone(std::function<void(vec3 pos, vec2 uv, vec3 normal, vec3 tangent, vec3 binormal)> emitVertex, std::vector<uint32_t>& outIndices, uint32_t sliceCount, float radius, float height) {
