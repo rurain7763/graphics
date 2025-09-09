@@ -62,7 +62,7 @@ float calculate_shadow(vec4 light_space_position, sampler2D shadow_map) {
 
 float calculate_shadow(vec3 view_position, vec3 frag_position, vec3 light_position, float far_plane, samplerCube shadow_map) {
     vec3 frag_to_light_dir = frag_position - light_position;
-    float current_depth = length(frag_to_light_dir);
+    float current_depth = max(length(frag_to_light_dir), 0.00001);
 
     float shadow = 0.0;
     if (current_depth <= far_plane) {
@@ -124,5 +124,17 @@ vec2 parallax_mapping(vec2 tex_coords, vec3 view_dir, float height_scale, sample
     return current_tex_coords;
 }
 
+vec3 reinhard_tone_mapping(vec3 color) {
+    return color / (color + vec3(1.0));
+}
+
+vec3 exposure_tone_mapping(vec3 color, float exposure) {
+    // with high exposure values the darker areas show significantly more detail. In contrast, a low exposure largely removes the dark region details, but allows us to see more detail in the bright areas.
+    return vec3(1.0) - exp(-color * exposure);
+}
+
+float calcurate_attenuation(float constant, float linear, float quadratic, float distance) {
+    return 1.0 / max((constant + linear * distance + quadratic * (distance * distance)), 0.00001);
+}
 
 #endif

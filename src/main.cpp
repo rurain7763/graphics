@@ -235,7 +235,7 @@ int main() {
 #endif
             Outliner_Render();
             Skybox_Render();
-            Sprite_Render();
+            //Sprite_Render();
 
 			commandQueue.NextSubpass();
 

@@ -96,6 +96,7 @@ namespace flaw {
 		RGBA8Unorm,
 		RGBA8Srgb,
 		RGBA32F,
+		RGBA16F,
 		RGB8,
 		BGRX8Unorm,
 		RG8,

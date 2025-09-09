@@ -10,6 +10,7 @@ namespace flaw {
         case PixelFormat::RGBA8Unorm: return vk::Format::eR8G8B8A8Unorm;
 		case PixelFormat::RGBA8Srgb: return vk::Format::eR8G8B8A8Srgb;
         case PixelFormat::RGBA32F: return vk::Format::eR32G32B32A32Sfloat;
+		case PixelFormat::RGBA16F: return vk::Format::eR16G16B16A16Sfloat;
         case PixelFormat::RG8: return vk::Format::eR8G8Unorm;
         case PixelFormat::R8: return vk::Format::eR8Unorm;
         case PixelFormat::R8_UINT: return vk::Format::eR8Uint;
@@ -30,6 +31,7 @@ namespace flaw {
         case vk::Format::eR8G8B8A8Unorm: return PixelFormat::RGBA8Unorm;
 		case vk::Format::eR8G8B8A8Srgb: return PixelFormat::RGBA8Srgb;
         case vk::Format::eR32G32B32A32Sfloat: return PixelFormat::RGBA32F;
+		case vk::Format::eR16G16B16A16Sfloat: return PixelFormat::RGBA16F;
         case vk::Format::eR8G8Unorm: return PixelFormat::RG8;
         case vk::Format::eR8Unorm: return PixelFormat::R8;
         case vk::Format::eR8Uint: return PixelFormat::R8_UINT;

@@ -16,6 +16,9 @@ using namespace flaw;
 #define USE_VULKAN 1
 #define USE_DX11 0
 
+#define ENABLE_MSAA 0
+#define ENABLE_HDR 1
+
 #define MAX_DIRECTIONAL_LIGHTS 1
 #define MAX_POINT_LIGHTS 8
 #define MAX_SPOT_LIGHTS 8

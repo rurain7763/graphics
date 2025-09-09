@@ -154,8 +154,8 @@ void main() {
 
         vec3 light_direction = fs_in.position - light.position;
         float distance = length(light_direction);
-        light_direction = light_direction / distance;
-        float attenuation = 1.0 / (light.constant_attenuation + light.linear_attenuation * distance + light.quadratic_attenuation * (distance * distance));
+        light_direction = light_direction / max(distance, 0.00001);
+        float attenuation = calcurate_attenuation(light.constant_attenuation, light.linear_attenuation, light.quadratic_attenuation, distance);
 
         vec3 ambient, diffuse, specular;
         calculate_blinn_phong_lighting(light.ambient, light.diffuse, light.specular, light_direction, view_direction, normal, diffuse_color, specular_color, materialConstants.shininess, ambient, diffuse, specular);
@@ -172,11 +172,11 @@ void main() {
 
         vec3 light_direction = fs_in.position - light.position;
         float distance = length(light_direction);
-        light_direction = light_direction / distance;
-        float attenuation = 1.0 / (light.constant_attenuation + light.linear_attenuation * distance + light.quadratic_attenuation * (distance * distance));
+        light_direction = light_direction / max(distance, 0.00001);
+        float attenuation = calcurate_attenuation(light.constant_attenuation, light.linear_attenuation, light.quadratic_attenuation, distance);
 
         float spot_effect = dot(light.direction, light_direction);
-        float epsilon = light.cutoff_inner_cosine - light.cutoff_outer_cosine;
+        float epsilon = max(light.cutoff_inner_cosine - light.cutoff_outer_cosine, 0.00001);
         float intensity = clamp((spot_effect - light.cutoff_outer_cosine) / epsilon, 0.0, 1.0);
 
         vec3 ambient, diffuse, specular;
@@ -188,13 +188,6 @@ void main() {
     }
 
     vec3 object_color = total_ambient + total_diffuse + total_specular;
-    vec3 environment_color = texture(skybox_texture, reflect_direction).rgb;
-    vec3 refracted_color = texture(skybox_texture, refract_direction).rgb;
 
-    vec3 final_color = mix(object_color, environment_color, 0.3);
-    final_color = mix(final_color, refracted_color, 0.3);
-
-    final_color = object_color;
-
-    fragColor = vec4(final_color, 1.0);
+    fragColor = vec4(object_color, 1.0);
 }

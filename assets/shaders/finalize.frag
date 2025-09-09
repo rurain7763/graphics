@@ -64,6 +64,8 @@ void main() {
     }
     #endif
 
+    // TODO: hdr exposure and gamma correction should be configurable
+    final_color.rgb = exposure_tone_mapping(final_color.rgb, 1.0);
     final_color.rgb = gamma_correct(final_color.rgb, 2.2);
 
     fragColor = final_color;

@@ -118,8 +118,14 @@ void World_Init() {
 void InitBaseResources() {
     // NOTE: Create render passes
     RenderPass::Attachment gBufferAttachment;
+#if ENABLE_HDR
+	gBufferAttachment.format = PixelFormat::RGBA16F;
+#else
 	gBufferAttachment.format = g_graphicsContext->GetSurfaceFormat();
+#endif
+#if ENABLE_MSAA
 	gBufferAttachment.sampleCount = g_graphicsContext->GetMSAASampleCount();
+#endif
 	gBufferAttachment.loadOp = AttachmentLoadOp::Clear;
 	gBufferAttachment.storeOp = AttachmentStoreOp::DontCare;
 	gBufferAttachment.initialLayout = TextureLayout::Undefined;
@@ -127,7 +133,9 @@ void InitBaseResources() {
 
 	RenderPass::Attachment depthAttachment;
 	depthAttachment.format = g_graphicsContext->GetDepthStencilFormat();
+#if ENABLE_MSAA
 	depthAttachment.sampleCount = g_graphicsContext->GetMSAASampleCount();
+#endif
 	depthAttachment.loadOp = AttachmentLoadOp::Clear;
 	depthAttachment.storeOp = AttachmentStoreOp::DontCare;
 	depthAttachment.stencilLoadOp = AttachmentLoadOp::Clear;
@@ -135,12 +143,18 @@ void InitBaseResources() {
 	depthAttachment.initialLayout = TextureLayout::Undefined;
 	depthAttachment.finalLayout = TextureLayout::DepthStencilAttachment;
 
+#if ENABLE_MSAA
 	RenderPass::Attachment resolveAttachment;
-	resolveAttachment.format = g_graphicsContext->GetSurfaceFormat();
+#if ENABLE_HDR
+	resolveAttachment.format = PixelFormat::RGBA16F;
+#else
+	resolveAttachment.format = g_context->GetSurfaceFormat();
+#endif
 	resolveAttachment.loadOp = AttachmentLoadOp::DontCare;
 	resolveAttachment.storeOp = AttachmentStoreOp::Store;
 	resolveAttachment.initialLayout = TextureLayout::Undefined;
     resolveAttachment.finalLayout = TextureLayout::ColorAttachment;
+#endif
 
 	RenderPass::Attachment presentAttachment;
 	presentAttachment.format = g_graphicsContext->GetSurfaceFormat();
@@ -152,11 +166,18 @@ void InitBaseResources() {
 	RenderPass::SubPass sceneSubPass;
 	sceneSubPass.colorAttachmentRefs = { {0, TextureLayout::ColorAttachment} };
 	sceneSubPass.depthStencilAttachmentRef = { 1, TextureLayout::DepthStencilAttachment };
+#if ENABLE_MSAA
 	sceneSubPass.resolveAttachmentRefs = { {2, TextureLayout::ColorAttachment} };
+#endif
 	
     RenderPass::SubPass finalizeSubPass;
+#if ENABLE_MSAA
 	finalizeSubPass.inputAttachmentRefs = { {2, TextureLayout::ShaderReadOnly} };
 	finalizeSubPass.colorAttachmentRefs = { {3, TextureLayout::ColorAttachment} };
+#else
+	finalizeSubPass.inputAttachmentRefs = { {0, TextureLayout::ShaderReadOnly} };
+	finalizeSubPass.colorAttachmentRefs = { {2, TextureLayout::ColorAttachment} };
+#endif
 
 	RenderPass::SubPassDependency dependency;
 	dependency.srcSubPass = 0;
@@ -167,7 +188,11 @@ void InitBaseResources() {
 	dependency.dstPipeStages = PipelineStage::PixelShader;
 
     RenderPass::Descriptor sceneRenderPassDesc;
+#if ENABLE_MSAA
     sceneRenderPassDesc.attachments = { gBufferAttachment, depthAttachment, resolveAttachment, presentAttachment };
+#else
+	sceneRenderPassDesc.attachments = { gBufferAttachment, depthAttachment, presentAttachment };
+#endif
 	sceneRenderPassDesc.subpasses = { sceneSubPass, finalizeSubPass };
 	sceneRenderPassDesc.dependencies = { dependency };
 
@@ -181,11 +206,19 @@ void InitBaseResources() {
 		Texture2D::Descriptor gBufferDesc;
 		gBufferDesc.width = width;
 		gBufferDesc.height = height;
+#if ENABLE_HDR
+		gBufferDesc.format = PixelFormat::RGBA16F;
+#else
 		gBufferDesc.format = context.GetSurfaceFormat();
+#endif
 		gBufferDesc.memProperty = MemoryProperty::Static;
+#if ENABLE_MSAA
 		gBufferDesc.texUsages = TextureUsage::ColorAttachment;
-		gBufferDesc.initialLayout = TextureLayout::ColorAttachment;
 		gBufferDesc.sampleCount = context.GetMSAASampleCount();
+#else
+		gBufferDesc.texUsages = TextureUsage::ColorAttachment | TextureUsage::InputAttachment;
+#endif
+		gBufferDesc.initialLayout = TextureLayout::ColorAttachment;
 
 		Ref<Texture2D> gBuffer = context.CreateTexture2D(gBufferDesc);
 
@@ -194,26 +227,35 @@ void InitBaseResources() {
 		depthDesc.height = height;
 		depthDesc.format = context.GetDepthStencilFormat();
 		depthDesc.memProperty = MemoryProperty::Static;
+#if ENABLE_MSAA
+		depthDesc.sampleCount = context.GetMSAASampleCount();
+#endif
 		depthDesc.texUsages = TextureUsage::DepthStencilAttachment;
 		depthDesc.initialLayout = TextureLayout::DepthStencilAttachment;
-		depthDesc.sampleCount = context.GetMSAASampleCount();
 
 		Ref<Texture2D> depth = context.CreateTexture2D(depthDesc);
 
+#if ENABLE_MSAA
 		Texture2D::Descriptor resolveDesc;
 		resolveDesc.width = width;
 		resolveDesc.height = height;
+#if ENABLE_HDR
+		resolveDesc.format = PixelFormat::RGBA16F;
+#else
 		resolveDesc.format = context.GetSurfaceFormat();
+#endif
 		resolveDesc.memProperty = MemoryProperty::Static;
 		resolveDesc.texUsages = TextureUsage::ColorAttachment | TextureUsage::InputAttachment;
 		resolveDesc.initialLayout = TextureLayout::ColorAttachment;
 
 		Ref<Texture2D> resolve = context.CreateTexture2D(resolveDesc);
+#endif
 
 		Framebuffer::Descriptor desc;
 		desc.renderPass = g_sceneRenderPass;
 		desc.width = width;
 		desc.height = height;
+#if ENABLE_MSAA
 		desc.attachments = { gBuffer, depth, resolve, context.GetFrameColorAttachment(frameIndex) };
 		desc.resizeHandler = [&context, gBufferDesc, depthDesc, resolveDesc, frameIndex](uint32_t width, uint32_t height, std::vector<Ref<Texture>>& attachments) mutable {
 			gBufferDesc.width = width;
@@ -230,6 +272,20 @@ void InitBaseResources() {
 			attachments[2] = context.CreateTexture2D(resolveDesc);
 			attachments[3] = context.GetFrameColorAttachment(frameIndex);
 		};
+#else
+		desc.attachments = { gBuffer, depth, context.GetFrameColorAttachment(frameIndex) };
+		desc.resizeHandler = [&context, gBufferDesc, depthDesc, frameIndex](uint32_t width, uint32_t height, std::vector<Ref<Texture>>& attachments) mutable {
+			gBufferDesc.width = width;
+			gBufferDesc.height = height;
+
+			depthDesc.width = width;
+			depthDesc.height = height;
+
+			attachments[0] = context.CreateTexture2D(gBufferDesc);
+			attachments[1] = context.CreateTexture2D(depthDesc);
+			attachments[2] = context.GetFrameColorAttachment(frameIndex);
+		};
+#endif
 
 		return context.CreateFramebuffer(desc);
 	});
@@ -497,19 +553,27 @@ void World_Update() {
     directionalLight.diffuse = glm::vec3(0.8f);
     directionalLight.specular = glm::vec3(1.0f);
 
-	g_pointLights.resize(1);
+	g_pointLights.resize(3);
     for (int32_t i = 0; i < g_pointLights.size(); ++i) {
 		PointLight& pointLight = g_pointLights[i];
 
         if (i == 0) {
             g_pointLights[i].position = vec3(cos(Time::GetTime()), 0, sin(Time::GetTime())) * 2.0f;
+			pointLight.diffuse = glm::vec3(200.0f);
         }
+		else if (i == 1) {
+			g_pointLights[i].position = vec3(0.0, sin(Time::GetTime()), cos(Time::GetTime())) * 2.0f;
+			pointLight.diffuse = glm::vec3(0.0f, 0.1f, 0.0f);
+		}
+		else if (i == 2) {
+			g_pointLights[i].position = vec3(cos(Time::GetTime()), sin(Time::GetTime() * 0.5), sin(Time::GetTime())) * 2.0f;
+			pointLight.diffuse = glm::vec3(0.0f, 0.0f, 0.2f);
+		}
         
         pointLight.constant_attenuation = 1.0f;
         pointLight.linear_attenuation = 0.09f;
         pointLight.quadratic_attenuation = 0.032f;
         pointLight.ambient = glm::vec3(0.2f);
-        pointLight.diffuse = glm::vec3(0.8f);
         pointLight.specular = glm::vec3(1.0f);
     }
 
@@ -695,7 +759,11 @@ void World_FinalizeRender() {
 	auto framebuffer = g_sceneFramebufferGroup->Get();
 
 	auto finalizeSR = g_finalizeDynamicShaderResourcesPool->Get();
+#if ENABLE_MSAA
 	finalizeSR->BindInputAttachment(framebuffer->GetAttachment(2), 0);
+#else
+	finalizeSR->BindInputAttachment(framebuffer->GetAttachment(0), 0);
+#endif
 
 	commandQueue.SetPipeline(g_finalizePipeline);
 	commandQueue.SetVertexBuffers({ quad->vertexBuffer });

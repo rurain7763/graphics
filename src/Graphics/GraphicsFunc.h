@@ -24,6 +24,8 @@ namespace flaw {
 			return 4;
 		case PixelFormat::D32F_S8UI:
 			return 5;
+		case PixelFormat::RGBA16F:
+			return 8;
 		case PixelFormat::RGBA32F:
 			return 16;
 		}
