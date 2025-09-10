@@ -268,7 +268,7 @@ void Shadow_Render() {
 	commandQueue.EndRenderPass();
 
 	commandQueue.SetPipelineBarrier(
-		frameBuffer->GetAttachment(0),
+		{ frameBuffer->GetAttachment(0) },
 		TextureLayout::DepthStencilAttachment,
 		TextureLayout::ShaderReadOnly,
 		AccessType::DepthStencilAttachmentWrite,
@@ -324,7 +324,7 @@ void Shadow_Render() {
 	commandQueue.EndRenderPass();
 
 	commandQueue.SetPipelineBarrier(
-		frameBuffer->GetAttachment(0),
+		{ frameBuffer->GetAttachment(0) },
 		TextureLayout::DepthStencilAttachment,
 		TextureLayout::ShaderReadOnly,
 		AccessType::DepthStencilAttachmentWrite,

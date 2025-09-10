@@ -368,6 +368,10 @@ namespace flaw {
             stageFlags |= vk::PipelineStageFlagBits::eColorAttachmentOutput;
         }
 
+		if (stages & PipelineStage::AllGraphics) {
+			stageFlags |= vk::PipelineStageFlagBits::eAllGraphics;
+		}
+
         if (stages & PipelineStage::BottomOfPipe) {
             stageFlags |= vk::PipelineStageFlagBits::eBottomOfPipe;
         }

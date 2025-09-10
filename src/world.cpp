@@ -45,8 +45,12 @@ std::vector<PointLight> g_pointLights;
 ShadowMap g_globalShadowMap;
 PointLightShadowMap g_pointLightShadowMap;
 
-Ref<FramebufferGroup> g_sceneFramebufferGroup;
 Ref<RenderPass> g_sceneRenderPass;
+Ref<FramebufferGroup> g_sceneFramebufferGroup;
+Ref<RenderPass> g_bloomRenderPass;
+Ref<FramebufferGroup> g_bloomFramebufferGroup;
+Ref<RenderPass> g_postProcessRenderPass;
+Ref<FramebufferGroup> g_postProcessFramebufferGroup;
 
 Ref<VertexInputLayout> g_texturedVertexInputLayout;
 Ref<VertexInputLayout> g_instanceVertexInputLayout;
@@ -118,14 +122,8 @@ void World_Init() {
 void InitBaseResources() {
     // NOTE: Create render passes
     RenderPass::Attachment gBufferAttachment;
-#if ENABLE_HDR
 	gBufferAttachment.format = PixelFormat::RGBA16F;
-#else
-	gBufferAttachment.format = g_graphicsContext->GetSurfaceFormat();
-#endif
-#if ENABLE_MSAA
 	gBufferAttachment.sampleCount = g_graphicsContext->GetMSAASampleCount();
-#endif
 	gBufferAttachment.loadOp = AttachmentLoadOp::Clear;
 	gBufferAttachment.storeOp = AttachmentStoreOp::DontCare;
 	gBufferAttachment.initialLayout = TextureLayout::Undefined;
@@ -133,70 +131,63 @@ void InitBaseResources() {
 
 	RenderPass::Attachment depthAttachment;
 	depthAttachment.format = g_graphicsContext->GetDepthStencilFormat();
-#if ENABLE_MSAA
 	depthAttachment.sampleCount = g_graphicsContext->GetMSAASampleCount();
-#endif
 	depthAttachment.loadOp = AttachmentLoadOp::Clear;
-	depthAttachment.storeOp = AttachmentStoreOp::DontCare;
+	depthAttachment.storeOp = AttachmentStoreOp::Store;
 	depthAttachment.stencilLoadOp = AttachmentLoadOp::Clear;
 	depthAttachment.stencilStoreOp = AttachmentStoreOp::DontCare;
 	depthAttachment.initialLayout = TextureLayout::Undefined;
 	depthAttachment.finalLayout = TextureLayout::DepthStencilAttachment;
 
-#if ENABLE_MSAA
 	RenderPass::Attachment resolveAttachment;
-#if ENABLE_HDR
 	resolveAttachment.format = PixelFormat::RGBA16F;
-#else
-	resolveAttachment.format = g_context->GetSurfaceFormat();
-#endif
 	resolveAttachment.loadOp = AttachmentLoadOp::DontCare;
 	resolveAttachment.storeOp = AttachmentStoreOp::Store;
 	resolveAttachment.initialLayout = TextureLayout::Undefined;
-    resolveAttachment.finalLayout = TextureLayout::ColorAttachment;
-#endif
-
-	RenderPass::Attachment presentAttachment;
-	presentAttachment.format = g_graphicsContext->GetSurfaceFormat();
-	presentAttachment.loadOp = AttachmentLoadOp::DontCare;
-	presentAttachment.storeOp = AttachmentStoreOp::Store;
-	presentAttachment.initialLayout = TextureLayout::Undefined;
-    presentAttachment.finalLayout = TextureLayout::PresentSource;
+	resolveAttachment.finalLayout = TextureLayout::ColorAttachment;
 
 	RenderPass::SubPass sceneSubPass;
 	sceneSubPass.colorAttachmentRefs = { {0, TextureLayout::ColorAttachment} };
 	sceneSubPass.depthStencilAttachmentRef = { 1, TextureLayout::DepthStencilAttachment };
-#if ENABLE_MSAA
 	sceneSubPass.resolveAttachmentRefs = { {2, TextureLayout::ColorAttachment} };
-#endif
-	
-    RenderPass::SubPass finalizeSubPass;
-#if ENABLE_MSAA
-	finalizeSubPass.inputAttachmentRefs = { {2, TextureLayout::ShaderReadOnly} };
-	finalizeSubPass.colorAttachmentRefs = { {3, TextureLayout::ColorAttachment} };
-#else
-	finalizeSubPass.inputAttachmentRefs = { {0, TextureLayout::ShaderReadOnly} };
-	finalizeSubPass.colorAttachmentRefs = { {2, TextureLayout::ColorAttachment} };
-#endif
 
-	RenderPass::SubPassDependency dependency;
-	dependency.srcSubPass = 0;
-	dependency.dstSubPass = 1;
-	dependency.srcAccessTypes = AccessType::ColorAttachmentWrite | AccessType::DepthStencilAttachmentWrite;
-	dependency.dstAccessTypes = AccessType::ShaderRead;
-	dependency.srcPipeStages = PipelineStage::ColorAttachmentOutput | PipelineStage::EarlyPixelTests;
-	dependency.dstPipeStages = PipelineStage::PixelShader;
-
-    RenderPass::Descriptor sceneRenderPassDesc;
-#if ENABLE_MSAA
-    sceneRenderPassDesc.attachments = { gBufferAttachment, depthAttachment, resolveAttachment, presentAttachment };
-#else
-	sceneRenderPassDesc.attachments = { gBufferAttachment, depthAttachment, presentAttachment };
-#endif
-	sceneRenderPassDesc.subpasses = { sceneSubPass, finalizeSubPass };
-	sceneRenderPassDesc.dependencies = { dependency };
+	RenderPass::Descriptor sceneRenderPassDesc;
+	sceneRenderPassDesc.attachments = { gBufferAttachment, depthAttachment, resolveAttachment };
+	sceneRenderPassDesc.subpasses = { sceneSubPass };
 
 	g_sceneRenderPass = g_graphicsContext->CreateRenderPass(sceneRenderPassDesc);
+
+	RenderPass::Attachment bloomAttachment;
+	bloomAttachment.format = PixelFormat::RGBA16F;
+	bloomAttachment.loadOp = AttachmentLoadOp::Clear;
+	bloomAttachment.storeOp = AttachmentStoreOp::Store;
+	bloomAttachment.initialLayout = TextureLayout::Undefined;
+	bloomAttachment.finalLayout = TextureLayout::ColorAttachment;
+
+	RenderPass::SubPass bloomSubPass;
+	bloomSubPass.colorAttachmentRefs = { {0, TextureLayout::ColorAttachment} };
+
+	RenderPass::Descriptor bloomRenderPassDesc;
+	bloomRenderPassDesc.attachments = { bloomAttachment };
+	bloomRenderPassDesc.subpasses = { bloomSubPass };
+
+	g_bloomRenderPass = g_graphicsContext->CreateRenderPass(bloomRenderPassDesc);
+
+	RenderPass::Attachment postProcessAttachment;
+	postProcessAttachment.format = g_graphicsContext->GetSurfaceFormat();
+	postProcessAttachment.loadOp = AttachmentLoadOp::Clear;
+	postProcessAttachment.storeOp = AttachmentStoreOp::Store;
+	postProcessAttachment.initialLayout = TextureLayout::Undefined;
+	postProcessAttachment.finalLayout = TextureLayout::PresentSource;
+
+	RenderPass::SubPass postProcessSubPass;
+	postProcessSubPass.colorAttachmentRefs = { {0, TextureLayout::ColorAttachment} };
+
+	RenderPass::Descriptor postProcessRenderPassDesc;
+	postProcessRenderPassDesc.attachments = { postProcessAttachment };
+	postProcessRenderPassDesc.subpasses = { postProcessSubPass };
+
+	g_postProcessRenderPass = g_graphicsContext->CreateRenderPass(postProcessRenderPassDesc);
 
 	// NOTE: Create framebuffers
     g_sceneFramebufferGroup = CreateRef<FramebufferGroup>(*g_graphicsContext, [](GraphicsContext& context, uint32_t frameIndex) {
@@ -206,18 +197,10 @@ void InitBaseResources() {
 		Texture2D::Descriptor gBufferDesc;
 		gBufferDesc.width = width;
 		gBufferDesc.height = height;
-#if ENABLE_HDR
 		gBufferDesc.format = PixelFormat::RGBA16F;
-#else
-		gBufferDesc.format = context.GetSurfaceFormat();
-#endif
-		gBufferDesc.memProperty = MemoryProperty::Static;
-#if ENABLE_MSAA
-		gBufferDesc.texUsages = TextureUsage::ColorAttachment;
 		gBufferDesc.sampleCount = context.GetMSAASampleCount();
-#else
-		gBufferDesc.texUsages = TextureUsage::ColorAttachment | TextureUsage::InputAttachment;
-#endif
+		gBufferDesc.memProperty = MemoryProperty::Static;
+		gBufferDesc.texUsages = TextureUsage::ColorAttachment;
 		gBufferDesc.initialLayout = TextureLayout::ColorAttachment;
 
 		Ref<Texture2D> gBuffer = context.CreateTexture2D(gBufferDesc);
@@ -226,38 +209,30 @@ void InitBaseResources() {
 		depthDesc.width = width;
 		depthDesc.height = height;
 		depthDesc.format = context.GetDepthStencilFormat();
-		depthDesc.memProperty = MemoryProperty::Static;
-#if ENABLE_MSAA
 		depthDesc.sampleCount = context.GetMSAASampleCount();
-#endif
+		depthDesc.memProperty = MemoryProperty::Static;
 		depthDesc.texUsages = TextureUsage::DepthStencilAttachment;
 		depthDesc.initialLayout = TextureLayout::DepthStencilAttachment;
 
 		Ref<Texture2D> depth = context.CreateTexture2D(depthDesc);
 
-#if ENABLE_MSAA
 		Texture2D::Descriptor resolveDesc;
 		resolveDesc.width = width;
 		resolveDesc.height = height;
-#if ENABLE_HDR
 		resolveDesc.format = PixelFormat::RGBA16F;
-#else
-		resolveDesc.format = context.GetSurfaceFormat();
-#endif
 		resolveDesc.memProperty = MemoryProperty::Static;
-		resolveDesc.texUsages = TextureUsage::ColorAttachment | TextureUsage::InputAttachment;
+		resolveDesc.texUsages = TextureUsage::ColorAttachment | TextureUsage::ShaderResource;
 		resolveDesc.initialLayout = TextureLayout::ColorAttachment;
 
 		Ref<Texture2D> resolve = context.CreateTexture2D(resolveDesc);
-#endif
 
 		Framebuffer::Descriptor desc;
 		desc.renderPass = g_sceneRenderPass;
 		desc.width = width;
 		desc.height = height;
-#if ENABLE_MSAA
-		desc.attachments = { gBuffer, depth, resolve, context.GetFrameColorAttachment(frameIndex) };
-		desc.resizeHandler = [&context, gBufferDesc, depthDesc, resolveDesc, frameIndex](uint32_t width, uint32_t height, std::vector<Ref<Texture>>& attachments) mutable {
+
+		desc.attachments = { gBuffer, depth, resolve };
+		desc.resizeHandler = [&context, gBufferDesc, depthDesc, resolveDesc](uint32_t width, uint32_t height, std::vector<Ref<Texture>>& attachments) mutable {
 			gBufferDesc.width = width;
 			gBufferDesc.height = height;
 
@@ -270,22 +245,52 @@ void InitBaseResources() {
 			attachments[0] = context.CreateTexture2D(gBufferDesc);
 			attachments[1] = context.CreateTexture2D(depthDesc);
 			attachments[2] = context.CreateTexture2D(resolveDesc);
-			attachments[3] = context.GetFrameColorAttachment(frameIndex);
 		};
-#else
-		desc.attachments = { gBuffer, depth, context.GetFrameColorAttachment(frameIndex) };
-		desc.resizeHandler = [&context, gBufferDesc, depthDesc, frameIndex](uint32_t width, uint32_t height, std::vector<Ref<Texture>>& attachments) mutable {
-			gBufferDesc.width = width;
-			gBufferDesc.height = height;
 
-			depthDesc.width = width;
-			depthDesc.height = height;
+		return context.CreateFramebuffer(desc);
+	});
 
-			attachments[0] = context.CreateTexture2D(gBufferDesc);
-			attachments[1] = context.CreateTexture2D(depthDesc);
-			attachments[2] = context.GetFrameColorAttachment(frameIndex);
+	g_bloomFramebufferGroup = CreateRef<FramebufferGroup>(*g_graphicsContext, [](GraphicsContext& context, uint32_t frameIndex) {
+		int32_t width, height;
+		context.GetSize(width, height);
+
+		Texture2D::Descriptor bloomDesc;
+		bloomDesc.width = width * 0.5;
+		bloomDesc.height = height * 0.5;
+		bloomDesc.format = PixelFormat::RGBA16F;
+		bloomDesc.memProperty = MemoryProperty::Static;
+		bloomDesc.texUsages = TextureUsage::ColorAttachment | TextureUsage::ShaderResource;
+		bloomDesc.initialLayout = TextureLayout::ColorAttachment;
+
+		Ref<Texture2D> bloom = context.CreateTexture2D(bloomDesc);
+
+		Framebuffer::Descriptor desc;
+		desc.renderPass = g_bloomRenderPass;
+		desc.width = width * 0.5;
+		desc.height = height * 0.5;
+		desc.attachments = { bloom };
+		desc.resizeHandler = [&context, bloomDesc](uint32_t width, uint32_t height, std::vector<Ref<Texture>>& attachments) mutable {
+			bloomDesc.width = width * 0.5;
+			bloomDesc.height = height * 0.5;
+			
+			attachments[0] = context.CreateTexture2D(bloomDesc);
 		};
-#endif
+
+		return context.CreateFramebuffer(desc);
+	});
+
+	g_postProcessFramebufferGroup = CreateRef<FramebufferGroup>(*g_graphicsContext, [](GraphicsContext& context, uint32_t frameIndex) {
+		int32_t width, height;
+		context.GetSize(width, height);
+
+		Framebuffer::Descriptor desc;
+		desc.renderPass = g_postProcessRenderPass;
+		desc.width = width;
+		desc.height = height;
+		desc.attachments = { context.GetFrameColorAttachment(frameIndex) };
+		desc.resizeHandler = [&context, frameIndex](uint32_t width, uint32_t height, std::vector<Ref<Texture>>& attachments) {
+			attachments[0] = context.GetFrameColorAttachment(frameIndex);
+		};
 
 		return context.CreateFramebuffer(desc);
 	});
@@ -374,7 +379,8 @@ void InitBaseResources() {
 	// NOTE: Create finalize shader resources
 	ShaderResourcesLayout::Descriptor finalizeShaderResourceLayoutDesc;
 	finalizeShaderResourceLayoutDesc.bindings = {
-		{ 0, ResourceType::InputAttachment, ShaderStage::Pixel, 1 },
+		{ 0, ResourceType::Texture2D, ShaderStage::Pixel, 1 },
+		{ 1, ResourceType::Texture2D, ShaderStage::Pixel, 1 },
 	};
 
 	g_finalizeShaderResourcesLayout = g_graphicsContext->CreateShaderResourcesLayout(finalizeShaderResourceLayoutDesc);
@@ -405,7 +411,7 @@ void InitBaseResources() {
 	g_finalizePipeline = g_graphicsContext->CreateGraphicsPipeline();
 	g_finalizePipeline->SetShader(finalizeShader);
 	g_finalizePipeline->SetVertexInputLayouts({ g_texturedVertexInputLayout });
-	g_finalizePipeline->SetRenderPass(g_sceneRenderPass, 1);
+	g_finalizePipeline->SetRenderPass(g_postProcessRenderPass, 0);
 	g_finalizePipeline->EnableBlendMode(0, true);
 	g_finalizePipeline->SetBlendMode(0, BlendMode::Default);
 	g_finalizePipeline->SetShaderResourcesLayouts({ g_finalizeShaderResourcesLayout });
@@ -526,6 +532,10 @@ void World_Cleanup() {
 	g_globalCB.reset();
 	g_instanceVertexInputLayout.reset();
     g_texturedVertexInputLayout.reset();
+	g_postProcessFramebufferGroup.reset();
+	g_postProcessRenderPass.reset();
+	g_bloomFramebufferGroup.reset();
+	g_bloomRenderPass.reset();
 	g_sceneRenderPass.reset();
 	g_sceneFramebufferGroup.reset();
     g_graphicsContext.reset();
@@ -553,22 +563,14 @@ void World_Update() {
     directionalLight.diffuse = glm::vec3(0.8f);
     directionalLight.specular = glm::vec3(1.0f);
 
-	g_pointLights.resize(3);
+	g_pointLights.resize(1);
     for (int32_t i = 0; i < g_pointLights.size(); ++i) {
 		PointLight& pointLight = g_pointLights[i];
 
         if (i == 0) {
             g_pointLights[i].position = vec3(cos(Time::GetTime()), 0, sin(Time::GetTime())) * 2.0f;
-			pointLight.diffuse = glm::vec3(200.0f);
+			pointLight.diffuse = glm::vec3(10.0, 0.0, 0.0);
         }
-		else if (i == 1) {
-			g_pointLights[i].position = vec3(0.0, sin(Time::GetTime()), cos(Time::GetTime())) * 2.0f;
-			pointLight.diffuse = glm::vec3(0.0f, 0.1f, 0.0f);
-		}
-		else if (i == 2) {
-			g_pointLights[i].position = vec3(cos(Time::GetTime()), sin(Time::GetTime() * 0.5), sin(Time::GetTime())) * 2.0f;
-			pointLight.diffuse = glm::vec3(0.0f, 0.0f, 0.2f);
-		}
         
         pointLight.constant_attenuation = 1.0f;
         pointLight.linear_attenuation = 0.09f;
@@ -756,14 +758,15 @@ void World_FinalizeRender() {
     auto& commandQueue = g_graphicsContext->GetCommandQueue();
 
     auto quad = GetMesh("quad");
-	auto framebuffer = g_sceneFramebufferGroup->Get();
+	auto sceneFramebuffer = g_sceneFramebufferGroup->Get();
+	auto bloomFramebuffer = g_bloomFramebufferGroup->Get();
+
+	auto finalTex = std::static_pointer_cast<Texture2D>(sceneFramebuffer->GetAttachment(2));
+	auto bloomTex = std::static_pointer_cast<Texture2D>(bloomFramebuffer->GetAttachment(0));
 
 	auto finalizeSR = g_finalizeDynamicShaderResourcesPool->Get();
-#if ENABLE_MSAA
-	finalizeSR->BindInputAttachment(framebuffer->GetAttachment(2), 0);
-#else
-	finalizeSR->BindInputAttachment(framebuffer->GetAttachment(0), 0);
-#endif
+	finalizeSR->BindTexture2D(finalTex, 0);
+	finalizeSR->BindTexture2D(bloomTex, 1);
 
 	commandQueue.SetPipeline(g_finalizePipeline);
 	commandQueue.SetVertexBuffers({ quad->vertexBuffer });

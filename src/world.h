@@ -16,7 +16,6 @@ using namespace flaw;
 #define USE_VULKAN 1
 #define USE_DX11 0
 
-#define ENABLE_MSAA 0
 #define ENABLE_HDR 1
 
 #define MAX_DIRECTIONAL_LIGHTS 1
@@ -45,8 +44,12 @@ extern std::vector<PointLight> g_pointLights;
 extern ShadowMap g_globalShadowMap;
 extern PointLightShadowMap g_pointLightShadowMap;
 
-extern Ref<FramebufferGroup> g_sceneFramebufferGroup;
 extern Ref<RenderPass> g_sceneRenderPass;
+extern Ref<FramebufferGroup> g_sceneFramebufferGroup;
+extern Ref<RenderPass> g_bloomRenderPass;
+extern Ref<FramebufferGroup> g_bloomFramebufferGroup;
+extern Ref<RenderPass> g_postProcessRenderPass;
+extern Ref<FramebufferGroup> g_postProcessFramebufferGroup;
 extern Ref<VertexInputLayout> g_texturedVertexInputLayout;
 extern Ref<VertexInputLayout> g_instanceVertexInputLayout;
 extern Ref<ConstantBuffer> g_cameraCB;
@@ -70,6 +73,10 @@ void Shadow_Init();
 void Shadow_Cleanup();
 void Shadow_Update();
 void Shadow_Render();
+
+void Bloom_Init();
+void Bloom_Cleanup();
+void Bloom_Render();
 
 void Skybox_Init();
 void Skybox_Cleanup();

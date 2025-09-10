@@ -236,6 +236,7 @@ namespace flaw {
         deviceFeatures.sampleRateShading = VK_TRUE;
         deviceFeatures.tessellationShader = VK_TRUE;
 		deviceFeatures.geometryShader = VK_TRUE;
+		deviceFeatures.independentBlend = VK_TRUE;
 
         std::vector<const char*> requiredExtensions = {
             VK_KHR_SWAPCHAIN_EXTENSION_NAME

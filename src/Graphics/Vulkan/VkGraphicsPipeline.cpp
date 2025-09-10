@@ -35,13 +35,6 @@ namespace flaw {
         _rasterizationInfo.depthBiasClamp = 0.0f;
         _rasterizationInfo.depthBiasSlopeFactor = 0.0f;
 
-        _multisampleInfo.rasterizationSamples = vk::SampleCountFlagBits::e1;
-        _multisampleInfo.sampleShadingEnable = VK_FALSE;
-        _multisampleInfo.minSampleShading = 1.0f;
-        _multisampleInfo.pSampleMask = nullptr;
-        _multisampleInfo.alphaToCoverageEnable = VK_FALSE;
-        _multisampleInfo.alphaToOneEnable = VK_FALSE;
-
         _colorBlendStateInfo.logicOpEnable = VK_FALSE;
         _colorBlendStateInfo.logicOp = vk::LogicOp::eCopy;
         _colorBlendStateInfo.blendConstants[0] = 0.0f;
@@ -296,6 +289,16 @@ namespace flaw {
 		}
 
 		_multisampleInfo.rasterizationSamples = ConvertToVkSampleCount(maxSamples);
+		if (_multisampleInfo.rasterizationSamples == vk::SampleCountFlagBits::e1) {
+			_multisampleInfo.sampleShadingEnable = VK_FALSE;
+			_multisampleInfo.minSampleShading = 1.0f;
+			_multisampleInfo.pSampleMask = nullptr;
+		}
+		else {
+			_multisampleInfo.sampleShadingEnable = VK_TRUE;
+			_multisampleInfo.minSampleShading = 0.2f; // Min fraction for sample shading; closer to one is smoother
+			_multisampleInfo.pSampleMask = nullptr; // Optional
+		}
     }
 
 	void VkGraphicsPipeline::EnableBlendMode(uint32_t attachmentIndex, bool enable) {

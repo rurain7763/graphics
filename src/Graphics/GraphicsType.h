@@ -171,6 +171,7 @@ namespace flaw {
 		EarlyPixelTests = 0x20,
 		PixelShader = 0x40,
 		ColorAttachmentOutput = 0x80,
+		AllGraphics = 0x800,
 		BottomOfPipe = 0x100,
 		Host = 0x200,
 	};

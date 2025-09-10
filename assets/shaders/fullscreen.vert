@@ -7,7 +7,9 @@ layout(location = 2) in vec2 in_tex_coord;
 layout(location = 3) in vec3 in_normal;
 layout(location = 4) in vec3 in_tangent;
 
-layout(location = 0) out vec2 out_tex_coord;
+out VS_OUT {
+    layout(location = 0) vec2 tex_coord;
+} vs_out;
 
 void main() {
     vec2 fullscreen;
@@ -16,5 +18,5 @@ void main() {
     fullscreen.y *= -1.0;
 
     gl_Position = vec4(fullscreen, 0.0, 1.0);
-    out_tex_coord = in_tex_coord;
+    vs_out.tex_coord = in_tex_coord;
 }

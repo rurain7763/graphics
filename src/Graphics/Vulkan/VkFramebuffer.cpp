@@ -48,10 +48,10 @@ namespace flaw {
             return;
         }
 
-        _width = width;
-        _height = height;
-
 		_resizeHandler(width, height, _attachments);
+
+		_width = _attachments[0]->GetWidth();
+		_height = _attachments[0]->GetHeight();
 
         _context.AddDelayedDeletionTasks([&context = _context, framebuffer = _framebuffer]() {
             context.GetVkDevice().destroyFramebuffer(framebuffer, nullptr);

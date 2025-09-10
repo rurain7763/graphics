@@ -102,6 +102,7 @@ int main() {
 	pavingMesh = nullptr;
 
     Shadow_Init();
+    Bloom_Init();
     Skybox_Init();
     Outliner_Init();
     Sprite_Init();
@@ -138,7 +139,7 @@ int main() {
 		{ "", { 20.0f, 0.0f, 0.0f }, vec3(0), vec3(1.0), false, false, "planet" },
 	};
 
-    const uint32_t amount = 1;
+    const uint32_t amount = 5000;
     float radius = 50.0;
     float offset = 2.5f;
     for (uint32_t i = 0; i < amount; i++) {
@@ -225,6 +226,8 @@ int main() {
 
         if (g_graphicsContext->Prepare()) {
 			auto sceneFramebuffer = g_sceneFramebufferGroup->Get();
+			auto bloomFramebuffer = g_bloomFramebufferGroup->Get();
+			auto postProcessFramebuffer = g_postProcessFramebufferGroup->Get();
 
             Shadow_Render();
             
@@ -237,7 +240,35 @@ int main() {
             Skybox_Render();
             //Sprite_Render();
 
-			commandQueue.NextSubpass();
+            commandQueue.EndRenderPass();
+
+            commandQueue.SetPipelineBarrier(
+				{ sceneFramebuffer->GetAttachment(2) },
+				TextureLayout::ColorAttachment,
+				TextureLayout::ShaderReadOnly,
+                AccessType::ColorAttachmentWrite,
+				AccessType::ShaderRead,
+				PipelineStage::ColorAttachmentOutput,
+				PipelineStage::PixelShader
+			);
+
+			commandQueue.BeginRenderPass(g_bloomRenderPass, bloomFramebuffer);
+
+			Bloom_Render();
+
+            commandQueue.EndRenderPass();
+
+            commandQueue.SetPipelineBarrier(
+                { bloomFramebuffer->GetAttachment(0) },
+                TextureLayout::ColorAttachment,
+                TextureLayout::ShaderReadOnly,
+                AccessType::ColorAttachmentWrite,
+                AccessType::ShaderRead,
+                PipelineStage::ColorAttachmentOutput,
+                PipelineStage::PixelShader
+            );
+
+            commandQueue.BeginRenderPass(g_postProcessRenderPass, postProcessFramebuffer);
 
             World_FinalizeRender();
 
@@ -255,6 +286,7 @@ int main() {
     Sprite_Cleanup();
     Outliner_Cleanup();
 	Skybox_Cleanup();
+	Bloom_Cleanup();
 	Shadow_Cleanup();
     Asset_Cleanup();
     World_Cleanup();

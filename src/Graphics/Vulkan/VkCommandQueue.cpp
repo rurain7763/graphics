@@ -158,29 +158,39 @@ namespace flaw {
 		commandBuffer.pipelineBarrier(srcStageFlags, dstStageFlags, vk::DependencyFlags(), nullptr, barrier, nullptr);
     }
 
-    void VkCommandQueue::SetPipelineBarrier(Ref<Texture> texture, TextureLayout oldLayout, TextureLayout newLayout, AccessTypes srcAccess, AccessTypes dstAccess, PipelineStages srcStage, PipelineStages dstStage) {
-		const auto& vkNativeTex = static_cast<const VkNativeTexture&>(texture->GetNativeTexture());
-	
+    void VkCommandQueue::SetPipelineBarrier(const std::vector<Ref<Texture>>& textures, TextureLayout oldLayout, TextureLayout newLayout, AccessTypes srcAccess, AccessTypes dstAccess, PipelineStages srcStage, PipelineStages dstStage) {
 		auto& commandBuffer = _graphicsFrameCommandBuffers[_currentCommandBufferIndex];
 
-		vk::ImageMemoryBarrier barrier;
-		barrier.image = vkNativeTex.image;
-		barrier.oldLayout = ConvertToVkImageLayout(oldLayout);
-		barrier.newLayout = ConvertToVkImageLayout(newLayout);
-		barrier.srcAccessMask = ConvertToVkAccessFlags(srcAccess);
-		barrier.dstAccessMask = ConvertToVkAccessFlags(dstAccess);
-		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		barrier.subresourceRange.aspectMask = GetVkImageAspectFlags(texture->GetPixelFormat());
-		barrier.subresourceRange.baseMipLevel = 0;
-		barrier.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
-		barrier.subresourceRange.baseArrayLayer = 0;
-		barrier.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+		std::vector<vk::ImageMemoryBarrier> barriers(textures.size());
+
+		vk::ImageLayout oldVkLayout = ConvertToVkImageLayout(oldLayout);
+		vk::ImageLayout newVkLayout = ConvertToVkImageLayout(newLayout);
+		vk::AccessFlags srcAccessMask = ConvertToVkAccessFlags(srcAccess);
+		vk::AccessFlags dstAccessMask = ConvertToVkAccessFlags(dstAccess);
+
+        for (uint32_t i = 0; i < textures.size(); i++) {
+            const auto texture = textures[i];
+            const auto& vkNativeTex = static_cast<const VkNativeTexture&>(texture->GetNativeTexture());
+
+			vk::ImageMemoryBarrier& barrier = barriers[i];
+            barrier.image = vkNativeTex.image;
+			barrier.oldLayout = oldVkLayout;
+			barrier.newLayout = newVkLayout;
+			barrier.srcAccessMask = srcAccessMask;
+			barrier.dstAccessMask = dstAccessMask;
+            barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrier.subresourceRange.aspectMask = GetVkImageAspectFlags(texture->GetPixelFormat());
+            barrier.subresourceRange.baseMipLevel = 0;
+            barrier.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
+            barrier.subresourceRange.baseArrayLayer = 0;
+            barrier.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+        }
 
 		vk::PipelineStageFlags srcStageFlags = ConvertToVkPipelineStageFlags(srcStage);
 		vk::PipelineStageFlags dstStageFlags = ConvertToVkPipelineStageFlags(dstStage);
 
-		commandBuffer.pipelineBarrier(srcStageFlags, dstStageFlags, vk::DependencyFlags(), nullptr, nullptr, barrier);
+		commandBuffer.pipelineBarrier(srcStageFlags, dstStageFlags, vk::DependencyFlags(), nullptr, nullptr, barriers);
     }
 
     void VkCommandQueue::SetPipeline(const Ref<GraphicsPipeline>& pipeline) {

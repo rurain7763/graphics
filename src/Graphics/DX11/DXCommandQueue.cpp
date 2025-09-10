@@ -26,7 +26,7 @@ namespace flaw {
 		// For now, this function will be a no-op.
 	}
 
-	void DXCommandQueue::SetPipelineBarrier(Ref<Texture> texture, TextureLayout oldLayout, TextureLayout newLayout, AccessTypes srcAccess, AccessTypes dstAccess, PipelineStages srcStage, PipelineStages dstStage) {
+	void DXCommandQueue::SetPipelineBarrier(const std::vector<Ref<Texture>>& textures, TextureLayout oldLayout, TextureLayout newLayout, AccessTypes srcAccess, AccessTypes dstAccess, PipelineStages srcStage, PipelineStages dstStage) {
 		// DirectX 11 does not have explicit pipeline barriers like Vulkan or DirectX 12.
 		// Resource state transitions are handled automatically by the driver.
 		// However, we can use resource barriers for certain scenarios if needed.

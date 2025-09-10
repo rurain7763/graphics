@@ -137,4 +137,8 @@ float calcurate_attenuation(float constant, float linear, float quadratic, float
     return 1.0 / max((constant + linear * distance + quadratic * (distance * distance)), 0.00001);
 }
 
+float calc_brightness(vec3 color) {
+    return dot(color, vec3(0.2126, 0.7152, 0.0722));
+}
+
 #endif

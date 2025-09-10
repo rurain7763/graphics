@@ -115,10 +115,6 @@ void main() {
     }
 
     vec3 view_direction = normalize(fs_in.position - camera_constants.world_position);
-    vec3 reflect_direction = reflect(view_direction, normal);
-
-    float refraction_ratio = 1.00 / 1.52; // Air to glass
-    vec3 refract_direction = refract(view_direction, normal, refraction_ratio);
 
     vec3 diffuse_color = materialConstants.diffuse_color;
     if (has_texture(materialConstants.texture_binding_flags, DIFFUSE_TEX_BINDING_FLAG)) {
@@ -162,7 +158,7 @@ void main() {
 
         float shadow = 1.0 - calculate_shadow(camera_constants.world_position, fs_in.position, light.position, light_constants.point_light_far_plane, point_light_shadow_map_texture);
 
-        total_ambient += ambient * attenuation;
+        total_ambient += ambient;
         total_diffuse += diffuse * attenuation * shadow;
         total_specular += specular * attenuation * shadow;
     }
@@ -182,7 +178,7 @@ void main() {
         vec3 ambient, diffuse, specular;
         calculate_blinn_phong_lighting(light.ambient, light.diffuse, light.specular, light_direction, view_direction, normal, diffuse_color, specular_color, materialConstants.shininess, ambient, diffuse, specular);
 
-        total_ambient += ambient * attenuation * intensity;
+        total_ambient += ambient;
         total_diffuse += diffuse * attenuation * intensity;
         total_specular += specular * attenuation * intensity;
     }
