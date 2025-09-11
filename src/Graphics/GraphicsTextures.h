@@ -52,10 +52,10 @@ namespace flaw {
 			uint32_t width = 0, height = 0;
 			MemoryProperty memProperty = MemoryProperty::Static;
 			TextureUsages texUsages = 0;
-			uint32_t arraySize = 0;
 			uint32_t mipLevels = 1;
 			uint32_t sampleCount = 1;
 			TextureLayout initialLayout = TextureLayout::Undefined;
+			uint32_t arraySize = 0;
 		};
 
 		Texture2DArray() = default;
@@ -81,6 +81,24 @@ namespace flaw {
 
 		TextureCube() = default;
 		virtual ~TextureCube() = default;
+	};
+
+	class TextureCubeArray : public Texture {
+	public:
+		struct Descriptor {
+			const uint8_t* data = nullptr;
+			PixelFormat format = PixelFormat::Undefined;
+			uint32_t width = 0, height = 0;
+			MemoryProperty memProperty = MemoryProperty::Static;
+			TextureUsages texUsages = 0;
+			uint32_t mipLevels = 1;
+			uint32_t sampleCount = 1;
+			TextureLayout initialLayout = TextureLayout::Undefined;
+			uint32_t arraySize = 0;
+		};
+
+		TextureCubeArray() = default;
+		virtual ~TextureCubeArray() = default;
 	};
 }
 

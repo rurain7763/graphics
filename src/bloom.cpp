@@ -61,10 +61,9 @@ void Bloom_Render() {
 	auto quad = GetMesh("quad");
 
 	auto sceneFramebuffer = g_sceneFramebufferGroup->Get();
-	auto brightTex = std::static_pointer_cast<Texture2D>(sceneFramebuffer->GetAttachment(2));
 
 	auto shaderResources = g_bloomSRPool->Get();
-	shaderResources->BindTexture2D(brightTex, 0);
+	shaderResources->BindTexture2D(GetSceneColorAttachment(), 0);
 
 	commandQueue.SetPipeline(g_bloomPipeline);
 	commandQueue.SetVertexBuffers({ quad->vertexBuffer });

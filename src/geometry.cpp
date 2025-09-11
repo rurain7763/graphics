@@ -16,7 +16,6 @@ void Geometry_Init() {
 		{ 0, ResourceType::ConstantBuffer, ShaderStage::Geometry | ShaderStage::Pixel, 1 },
 		{ 1, ResourceType::ConstantBuffer, ShaderStage::Pixel, 1 },
 		{ 2, ResourceType::ConstantBuffer, ShaderStage::Geometry, 1 },
-		{ 4, ResourceType::StructuredBuffer, ShaderStage::Pixel, 1 },
 		{ 5, ResourceType::StructuredBuffer, ShaderStage::Pixel, 1 },
 		{ 6, ResourceType::StructuredBuffer, ShaderStage::Pixel, 1 },
 	};
@@ -29,7 +28,6 @@ void Geometry_Init() {
 	g_staticShaderResources->BindConstantBuffer(g_cameraCB, 0);
 	g_staticShaderResources->BindConstantBuffer(g_lightCB, 1);
 	g_staticShaderResources->BindConstantBuffer(g_globalCB, 2);
-	g_staticShaderResources->BindStructuredBuffer(g_directionalLightSB, 4);
 	g_staticShaderResources->BindStructuredBuffer(g_pointLightSB, 5);
 	g_staticShaderResources->BindStructuredBuffer(g_spotLightSB, 6);
 

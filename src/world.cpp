@@ -25,21 +25,22 @@ std::vector<uint32_t> g_spriteObjects;
 
 const uint32_t camersConstantsCBBinding = 0;
 const uint32_t lightConstantsCBBinding = 1;
-const uint32_t materialConstantsCBBinding = 1;
+const uint32_t materialConstantsCBBinding = 0;
 const uint32_t directionalLightSBBinding = 4;
 const uint32_t pointLightSBBinding = 5;
 const uint32_t spotLightSBBinding = 6;
-const uint32_t diffuseTextureBinding = 2;
-const uint32_t specularTextureBinding = 3;
+const uint32_t diffuseTextureBinding = 1;
+const uint32_t specularTextureBinding = 2;
+const uint32_t normalTextureBinding = 3;
+const uint32_t displacementTextureBinding = 4;
 const uint32_t skyboxTextureBinding = 4;
 const uint32_t shadowMapTextureBinding = 5;
 const uint32_t pointShadowMapTextureBinding = 6;
-const uint32_t normalTextureBinding = 7;
-const uint32_t displacementTextureBinding = 8;
 
 RenderQueue g_meshOnlyRenderQueue;
 RenderQueue g_renderQueue;
 
+DirectionalLight g_directionalLight;
 std::vector<PointLight> g_pointLights;
 
 ShadowMap g_globalShadowMap;
@@ -58,7 +59,6 @@ Ref<VertexInputLayout> g_instanceVertexInputLayout;
 Ref<ConstantBuffer> g_cameraCB;
 Ref<ConstantBuffer> g_lightCB;
 Ref<ConstantBuffer> g_globalCB;
-Ref<StructuredBuffer> g_directionalLightSB;
 Ref<StructuredBuffer> g_pointLightSB;
 Ref<StructuredBuffer> g_spotLightSB;
 Ref<GraphicsPipeline> g_objPipeline;
@@ -121,17 +121,29 @@ void World_Init() {
 
 void InitBaseResources() {
     // NOTE: Create render passes
-    RenderPass::Attachment gBufferAttachment;
-	gBufferAttachment.format = PixelFormat::RGBA16F;
-	gBufferAttachment.sampleCount = g_graphicsContext->GetMSAASampleCount();
-	gBufferAttachment.loadOp = AttachmentLoadOp::Clear;
-	gBufferAttachment.storeOp = AttachmentStoreOp::DontCare;
-	gBufferAttachment.initialLayout = TextureLayout::Undefined;
-	gBufferAttachment.finalLayout = TextureLayout::ColorAttachment;
+	RenderPass::Attachment gBufferPositionAtt;
+	gBufferPositionAtt.format = PixelFormat::RGBA32F;
+	gBufferPositionAtt.loadOp = AttachmentLoadOp::Clear;
+	gBufferPositionAtt.storeOp = AttachmentStoreOp::DontCare;
+	gBufferPositionAtt.initialLayout = TextureLayout::Undefined;
+	gBufferPositionAtt.finalLayout = TextureLayout::ColorAttachment;
+
+	RenderPass::Attachment gBufferNormalAtt;
+	gBufferNormalAtt.format = PixelFormat::RGBA16F;
+	gBufferNormalAtt.loadOp = AttachmentLoadOp::Clear;
+	gBufferNormalAtt.storeOp = AttachmentStoreOp::DontCare;
+	gBufferNormalAtt.initialLayout = TextureLayout::Undefined;
+	gBufferNormalAtt.finalLayout = TextureLayout::ColorAttachment;
+
+	RenderPass::Attachment gBufferAlbedoAtt;
+	gBufferAlbedoAtt.format = PixelFormat::RGBA8Unorm;
+	gBufferAlbedoAtt.loadOp = AttachmentLoadOp::Clear;
+	gBufferAlbedoAtt.storeOp = AttachmentStoreOp::DontCare;
+	gBufferAlbedoAtt.initialLayout = TextureLayout::Undefined;
+	gBufferAlbedoAtt.finalLayout = TextureLayout::ColorAttachment;
 
 	RenderPass::Attachment depthAttachment;
 	depthAttachment.format = g_graphicsContext->GetDepthStencilFormat();
-	depthAttachment.sampleCount = g_graphicsContext->GetMSAASampleCount();
 	depthAttachment.loadOp = AttachmentLoadOp::Clear;
 	depthAttachment.storeOp = AttachmentStoreOp::Store;
 	depthAttachment.stencilLoadOp = AttachmentLoadOp::Clear;
@@ -139,21 +151,38 @@ void InitBaseResources() {
 	depthAttachment.initialLayout = TextureLayout::Undefined;
 	depthAttachment.finalLayout = TextureLayout::DepthStencilAttachment;
 
-	RenderPass::Attachment resolveAttachment;
-	resolveAttachment.format = PixelFormat::RGBA16F;
-	resolveAttachment.loadOp = AttachmentLoadOp::DontCare;
-	resolveAttachment.storeOp = AttachmentStoreOp::Store;
-	resolveAttachment.initialLayout = TextureLayout::Undefined;
-	resolveAttachment.finalLayout = TextureLayout::ColorAttachment;
+	RenderPass::Attachment outputAtt;
+	outputAtt.format = PixelFormat::RGBA16F;
+	outputAtt.loadOp = AttachmentLoadOp::Clear;
+	outputAtt.storeOp = AttachmentStoreOp::Store;
+	outputAtt.initialLayout = TextureLayout::Undefined;
+	outputAtt.finalLayout = TextureLayout::ColorAttachment;
 
-	RenderPass::SubPass sceneSubPass;
-	sceneSubPass.colorAttachmentRefs = { {0, TextureLayout::ColorAttachment} };
-	sceneSubPass.depthStencilAttachmentRef = { 1, TextureLayout::DepthStencilAttachment };
-	sceneSubPass.resolveAttachmentRefs = { {2, TextureLayout::ColorAttachment} };
+	RenderPass::SubPass geometrySubPass;
+	geometrySubPass.colorAttachmentRefs = { {0, TextureLayout::ColorAttachment}, {1, TextureLayout::ColorAttachment}, {2, TextureLayout::ColorAttachment} };
+	geometrySubPass.depthStencilAttachmentRef = { 3, TextureLayout::DepthStencilAttachment };
+
+	RenderPass::SubPass mainSubPass;
+	mainSubPass.colorAttachmentRefs = { {4, TextureLayout::ColorAttachment} };
+	mainSubPass.depthStencilAttachmentRef = { 3, TextureLayout::DepthStencilAttachment };
+	mainSubPass.inputAttachmentRefs = {
+		{ 0, TextureLayout::ShaderReadOnly },
+		{ 1, TextureLayout::ShaderReadOnly },
+		{ 2, TextureLayout::ShaderReadOnly }
+	};
+
+	RenderPass::SubPassDependency geometryToLightingDep;
+	geometryToLightingDep.srcSubPass = 0;
+	geometryToLightingDep.dstSubPass = 1;
+	geometryToLightingDep.srcAccessTypes = AccessType::ColorAttachmentWrite | AccessType::DepthStencilAttachmentWrite;
+	geometryToLightingDep.dstAccessTypes = AccessType::InputAttachmentRead;
+	geometryToLightingDep.srcPipeStages = PipelineStage::ColorAttachmentOutput | PipelineStage::EarlyPixelTests;
+	geometryToLightingDep.dstPipeStages = PipelineStage::PixelShader;
 
 	RenderPass::Descriptor sceneRenderPassDesc;
-	sceneRenderPassDesc.attachments = { gBufferAttachment, depthAttachment, resolveAttachment };
-	sceneRenderPassDesc.subpasses = { sceneSubPass };
+	sceneRenderPassDesc.attachments = { gBufferPositionAtt, gBufferNormalAtt, gBufferAlbedoAtt, depthAttachment, outputAtt };
+	sceneRenderPassDesc.subpasses = { geometrySubPass, mainSubPass };
+	sceneRenderPassDesc.dependencies = { geometryToLightingDep };
 
 	g_sceneRenderPass = g_graphicsContext->CreateRenderPass(sceneRenderPassDesc);
 
@@ -194,57 +223,78 @@ void InitBaseResources() {
 		int32_t width, height;
 		context.GetSize(width, height);
 		
-		Texture2D::Descriptor gBufferDesc;
-		gBufferDesc.width = width;
-		gBufferDesc.height = height;
-		gBufferDesc.format = PixelFormat::RGBA16F;
-		gBufferDesc.sampleCount = context.GetMSAASampleCount();
-		gBufferDesc.memProperty = MemoryProperty::Static;
-		gBufferDesc.texUsages = TextureUsage::ColorAttachment;
-		gBufferDesc.initialLayout = TextureLayout::ColorAttachment;
+		Texture2D::Descriptor gBufferPosDesc;
+		gBufferPosDesc.width = width;
+		gBufferPosDesc.height = height;
+		gBufferPosDesc.format = PixelFormat::RGBA32F;
+		gBufferPosDesc.memProperty = MemoryProperty::Static;
+		gBufferPosDesc.texUsages = TextureUsage::ColorAttachment | TextureUsage::InputAttachment;
+		gBufferPosDesc.initialLayout = TextureLayout::ColorAttachment;
 
-		Ref<Texture2D> gBuffer = context.CreateTexture2D(gBufferDesc);
+		Texture2D::Descriptor gBufferNormalDesc;
+		gBufferNormalDesc.width = width;
+		gBufferNormalDesc.height = height;
+		gBufferNormalDesc.format = PixelFormat::RGBA16F;
+		gBufferNormalDesc.memProperty = MemoryProperty::Static;
+		gBufferNormalDesc.texUsages = TextureUsage::ColorAttachment | TextureUsage::InputAttachment;
+		gBufferNormalDesc.initialLayout = TextureLayout::ColorAttachment;
+
+		Texture2D::Descriptor gBufferAlbedoDesc;
+		gBufferAlbedoDesc.width = width;
+		gBufferAlbedoDesc.height = height;
+		gBufferAlbedoDesc.format = PixelFormat::RGBA8Unorm;
+		gBufferAlbedoDesc.memProperty = MemoryProperty::Static;
+		gBufferAlbedoDesc.texUsages = TextureUsage::ColorAttachment | TextureUsage::InputAttachment;
+		gBufferAlbedoDesc.initialLayout = TextureLayout::ColorAttachment;
 
 		Texture2D::Descriptor depthDesc;
 		depthDesc.width = width;
 		depthDesc.height = height;
 		depthDesc.format = context.GetDepthStencilFormat();
-		depthDesc.sampleCount = context.GetMSAASampleCount();
 		depthDesc.memProperty = MemoryProperty::Static;
 		depthDesc.texUsages = TextureUsage::DepthStencilAttachment;
 		depthDesc.initialLayout = TextureLayout::DepthStencilAttachment;
 
-		Ref<Texture2D> depth = context.CreateTexture2D(depthDesc);
-
-		Texture2D::Descriptor resolveDesc;
-		resolveDesc.width = width;
-		resolveDesc.height = height;
-		resolveDesc.format = PixelFormat::RGBA16F;
-		resolveDesc.memProperty = MemoryProperty::Static;
-		resolveDesc.texUsages = TextureUsage::ColorAttachment | TextureUsage::ShaderResource;
-		resolveDesc.initialLayout = TextureLayout::ColorAttachment;
-
-		Ref<Texture2D> resolve = context.CreateTexture2D(resolveDesc);
+		Texture2D::Descriptor outputDesc;
+		outputDesc.width = width;
+		outputDesc.height = height;
+		outputDesc.format = PixelFormat::RGBA16F;
+		outputDesc.memProperty = MemoryProperty::Static;
+		outputDesc.texUsages = TextureUsage::ColorAttachment | TextureUsage::ShaderResource;
+		outputDesc.initialLayout = TextureLayout::ColorAttachment;
 
 		Framebuffer::Descriptor desc;
 		desc.renderPass = g_sceneRenderPass;
 		desc.width = width;
 		desc.height = height;
+		desc.attachments = { 
+			context.CreateTexture2D(gBufferPosDesc), 
+			context.CreateTexture2D(gBufferNormalDesc), 
+			context.CreateTexture2D(gBufferAlbedoDesc),
+			context.CreateTexture2D(depthDesc),
+			context.CreateTexture2D(outputDesc)
+		};
+		desc.resizeHandler = [&context, gBufferPosDesc, gBufferNormalDesc, gBufferAlbedoDesc, depthDesc, outputDesc](uint32_t width, uint32_t height, std::vector<Ref<Texture>>& attachments) mutable {
+			gBufferPosDesc.width = width;
+			gBufferPosDesc.height = height;
 
-		desc.attachments = { gBuffer, depth, resolve };
-		desc.resizeHandler = [&context, gBufferDesc, depthDesc, resolveDesc](uint32_t width, uint32_t height, std::vector<Ref<Texture>>& attachments) mutable {
-			gBufferDesc.width = width;
-			gBufferDesc.height = height;
+			gBufferNormalDesc.width = width;
+			gBufferNormalDesc.height = height;
+
+			gBufferAlbedoDesc.width = width;
+			gBufferAlbedoDesc.height = height;
 
 			depthDesc.width = width;
 			depthDesc.height = height;
 
-			resolveDesc.width = width;
-			resolveDesc.height = height;
+			outputDesc.width = width;
+			outputDesc.height = height;
 
-			attachments[0] = context.CreateTexture2D(gBufferDesc);
-			attachments[1] = context.CreateTexture2D(depthDesc);
-			attachments[2] = context.CreateTexture2D(resolveDesc);
+			attachments[0] = context.CreateTexture2D(gBufferPosDesc);
+			attachments[1] = context.CreateTexture2D(gBufferNormalDesc);
+			attachments[2] = context.CreateTexture2D(gBufferAlbedoDesc);
+			attachments[3] = context.CreateTexture2D(depthDesc);
+			attachments[4] = context.CreateTexture2D(outputDesc);
 		};
 
 		return context.CreateFramebuffer(desc);
@@ -352,14 +402,6 @@ void InitBaseResources() {
 
 	g_globalCB = g_graphicsContext->CreateConstantBuffer(globalConstantsDesc);
 
-	StructuredBuffer::Descriptor directionalLightDesc;
-	directionalLightDesc.memProperty = MemoryProperty::Dynamic;
-	directionalLightDesc.elmSize = sizeof(DirectionalLight);
-	directionalLightDesc.bufferSize = sizeof(DirectionalLight) * MAX_DIRECTIONAL_LIGHTS;
-	directionalLightDesc.bufferUsages = BufferUsage::ShaderResource;    
-
-	g_directionalLightSB = g_graphicsContext->CreateStructuredBuffer(directionalLightDesc);
-
 	StructuredBuffer::Descriptor pointLightDesc;
 	pointLightDesc.memProperty = MemoryProperty::Dynamic;
 	pointLightDesc.elmSize = sizeof(PointLight);
@@ -441,10 +483,6 @@ void InitObjectShaderResources() {
     ShaderResourcesLayout::Descriptor shaderResourceLayoutDesc;
     shaderResourceLayoutDesc.bindings = {
         { camersConstantsCBBinding, ResourceType::ConstantBuffer, ShaderStage::Vertex | ShaderStage::Pixel, 1 },
-        { lightConstantsCBBinding, ResourceType::ConstantBuffer, ShaderStage::Vertex | ShaderStage::Pixel, 1 },
-		{ directionalLightSBBinding, ResourceType::StructuredBuffer, ShaderStage::Pixel, 1 },
-		{ pointLightSBBinding, ResourceType::StructuredBuffer, ShaderStage::Pixel, 1 },
-		{ spotLightSBBinding, ResourceType::StructuredBuffer, ShaderStage::Pixel, 1 },
     };
 
     g_objShaderResourcesLayout = g_graphicsContext->CreateShaderResourcesLayout(shaderResourceLayoutDesc);
@@ -454,20 +492,13 @@ void InitObjectShaderResources() {
 
 	g_objShaderResources = g_graphicsContext->CreateShaderResources(shaderResourcesDesc);
     g_objShaderResources->BindConstantBuffer(g_cameraCB, camersConstantsCBBinding);
-    g_objShaderResources->BindConstantBuffer(g_lightCB, lightConstantsCBBinding);
-	g_objShaderResources->BindStructuredBuffer(g_directionalLightSB, directionalLightSBBinding);
-	g_objShaderResources->BindStructuredBuffer(g_pointLightSB, pointLightSBBinding);
-	g_objShaderResources->BindStructuredBuffer(g_spotLightSB, spotLightSBBinding);
 
 	shaderResourceLayoutDesc.bindings = {
+        { materialConstantsCBBinding, ResourceType::ConstantBuffer, ShaderStage::Pixel, 1 },
         { diffuseTextureBinding, ResourceType::Texture2D, ShaderStage::Pixel, 1 },
         { specularTextureBinding, ResourceType::Texture2D, ShaderStage::Pixel, 1 },
-		{ skyboxTextureBinding, ResourceType::TextureCube, ShaderStage::Pixel, 1 },
-		{ pointShadowMapTextureBinding, ResourceType::TextureCube, ShaderStage::Pixel, 1 },
-		{ shadowMapTextureBinding, ResourceType::Texture2D, ShaderStage::Pixel, 1 },
 		{ normalTextureBinding, ResourceType::Texture2D, ShaderStage::Pixel, 1 },
 		{ displacementTextureBinding, ResourceType::Texture2D, ShaderStage::Pixel, 1 },
-        { materialConstantsCBBinding, ResourceType::ConstantBuffer, ShaderStage::Pixel, 1 },
 	};
 
     g_objDynamicShaderResourcesLayout = g_graphicsContext->CreateShaderResourcesLayout(shaderResourceLayoutDesc);
@@ -485,7 +516,7 @@ void InitObjectGraphicsPipeline() {
 #if USE_VULKAN
     shaderDesc.vertexShaderFile = "./assets/shaders/shader.vert.spv";
     shaderDesc.vertexShaderEntry = "main";
-    shaderDesc.pixelShaderFile = "./assets/shaders/shader.frag.spv";
+    shaderDesc.pixelShaderFile = "./assets/shaders/object_deffered.frag.spv";
     shaderDesc.pixelShaderEntry = "main";
 #elif USE_DX11
 	shaderDesc.vertexShaderFile = "./assets/shaders/shader.fx";
@@ -503,7 +534,11 @@ void InitObjectGraphicsPipeline() {
     g_objPipeline->SetVertexInputLayouts({ g_texturedVertexInputLayout, g_instanceVertexInputLayout });
 	g_objPipeline->SetRenderPass(g_sceneRenderPass, 0);
 	g_objPipeline->EnableBlendMode(0, true);
+	g_objPipeline->EnableBlendMode(1, true);
+	g_objPipeline->EnableBlendMode(2, true);	
 	g_objPipeline->SetBlendMode(0, BlendMode::Default);
+	g_objPipeline->SetBlendMode(1, BlendMode::Default);
+	g_objPipeline->SetBlendMode(2, BlendMode::Default);
     g_objPipeline->SetBehaviorStates(GraphicsPipeline::Behavior::AutoResizeViewport | GraphicsPipeline::Behavior::AutoResizeScissor);
 }
 
@@ -524,7 +559,6 @@ void World_Cleanup() {
     g_objShaderResourcesLayout.reset();
 	g_objConstantsCBPool.reset();
     g_objMaterialCBPool.reset();
-    g_directionalLightSB.reset();
     g_pointLightSB.reset();
     g_spotLightSB.reset();
     g_lightCB.reset();
@@ -557,11 +591,8 @@ void World_Update() {
     g_context->GetFrameBufferSize(width, height);
 
     // NOTE: Gather light datas
-    DirectionalLight directionalLight;
-    directionalLight.direction = Forward;
-    directionalLight.ambient = glm::vec3(0.2f);
-    directionalLight.diffuse = glm::vec3(0.8f);
-    directionalLight.specular = glm::vec3(1.0f);
+    g_directionalLight.direction = Forward;
+	g_directionalLight.color = glm::vec3(1.0f, 1.0f, 1.0f);
 
 	g_pointLights.resize(1);
     for (int32_t i = 0; i < g_pointLights.size(); ++i) {
@@ -569,14 +600,11 @@ void World_Update() {
 
         if (i == 0) {
             g_pointLights[i].position = vec3(cos(Time::GetTime()), 0, sin(Time::GetTime())) * 2.0f;
-			pointLight.diffuse = glm::vec3(10.0, 0.0, 0.0);
+			pointLight.color = glm::vec3(30.0, 0.0, 0.0);
         }
         
-        pointLight.constant_attenuation = 1.0f;
-        pointLight.linear_attenuation = 0.09f;
-        pointLight.quadratic_attenuation = 0.032f;
-        pointLight.ambient = glm::vec3(0.2f);
-        pointLight.specular = glm::vec3(1.0f);
+		pointLight.linear = 0.7f;
+		pointLight.quadratic = 1.8f;
     }
 
     std::vector<SpotLight> spotLights;
@@ -604,7 +632,6 @@ void World_Update() {
     lightConstants.spot_light_count = spotLights.size();
 	lightConstants.point_light_far_plane = g_pointLightShadowMap.farPlane;
 
-    g_directionalLightSB->Update(&directionalLight, sizeof(DirectionalLight) * lightConstants.directional_light_count);
     g_pointLightSB->Update(g_pointLights.data(), sizeof(PointLight) * lightConstants.point_light_count);
     g_spotLightSB->Update(spotLights.data(), sizeof(SpotLight) * lightConstants.spot_light_count);
     g_lightCB->Update(&lightConstants, sizeof(LightConstants));
@@ -680,20 +707,14 @@ void World_Update() {
     }
 }
 
-void World_Render() {
+void World_Geometry_Render() {
     auto& commandQueue = g_graphicsContext->GetCommandQueue();
-	auto shadowMapFramebuffer = g_globalShadowMap.framebufferGroup->Get();
-	auto pointShadowMapFramebuffer = g_pointLightShadowMap.framebufferGroup->Get();
-	auto shadowMapTex = std::static_pointer_cast<Texture2D>(shadowMapFramebuffer->GetAttachment(0));
-	auto pointShadowMapTex = std::static_pointer_cast<TextureCube>(pointShadowMapFramebuffer->GetAttachment(0));
-
-    commandQueue.SetPipeline(g_objPipeline);
-
-	uint32_t instanceOffset = 0;
 
 	auto objInstanceVB = g_instanceVBPool->Get();
-
 	objInstanceVB->Update(g_renderQueue.AllInstanceDatas().data(), sizeof(InstanceData) * g_renderQueue.AllInstanceDatas().size());
+
+	uint32_t instanceOffset = 0;
+    commandQueue.SetPipeline(g_objPipeline);
 
     g_renderQueue.Reset();
 	while (!g_renderQueue.Empty()) {
@@ -701,7 +722,6 @@ void World_Render() {
         auto objMaterialCB = g_objMaterialCBPool->Get();
 
         MaterialConstants materialConstants = GetMaterialConstants(entry.material);
-
         objMaterialCB->Update(&materialConstants, sizeof(MaterialConstants));
 
         for (const auto& instancingObj : entry.instancingObjects) {
@@ -739,10 +759,6 @@ void World_Render() {
 				objDynamicResources->BindTexture2D(GetTexture2D("dummy"), displacementTextureBinding);
 			}
 
-            objDynamicResources->BindTextureCube(GetTextureCube("skybox"), skyboxTextureBinding);
-			objDynamicResources->BindTexture2D(shadowMapTex, shadowMapTextureBinding);
-			objDynamicResources->BindTextureCube(pointShadowMapTex, pointShadowMapTextureBinding);
-
             commandQueue.SetVertexBuffers({ instancingObj.mesh->vertexBuffer, objInstanceVB });
             commandQueue.SetShaderResources({ g_objShaderResources, objDynamicResources });
             commandQueue.DrawIndexedInstanced(instancingObj.mesh->indexBuffer, segment.indexCount, instancingObj.instanceCount, segment.indexOffset, segment.vertexOffset, instanceOffset);
@@ -761,11 +777,10 @@ void World_FinalizeRender() {
 	auto sceneFramebuffer = g_sceneFramebufferGroup->Get();
 	auto bloomFramebuffer = g_bloomFramebufferGroup->Get();
 
-	auto finalTex = std::static_pointer_cast<Texture2D>(sceneFramebuffer->GetAttachment(2));
 	auto bloomTex = std::static_pointer_cast<Texture2D>(bloomFramebuffer->GetAttachment(0));
 
 	auto finalizeSR = g_finalizeDynamicShaderResourcesPool->Get();
-	finalizeSR->BindTexture2D(finalTex, 0);
+	finalizeSR->BindTexture2D(GetSceneColorAttachment(), 0);
 	finalizeSR->BindTexture2D(bloomTex, 1);
 
 	commandQueue.SetPipeline(g_finalizePipeline);
@@ -774,6 +789,27 @@ void World_FinalizeRender() {
 	commandQueue.DrawIndexed(quad->indexBuffer, quad->indexBuffer->IndexCount());
 
 	commandQueue.ResetShaderResources();
+}
+
+GBuffer GetGBuffer() {
+	auto sceneFramebuffer = g_sceneFramebufferGroup->Get();
+
+	GBuffer gBuffer;
+	gBuffer.position = std::static_pointer_cast<Texture2D>(sceneFramebuffer->GetAttachment(0));
+	gBuffer.normal = std::static_pointer_cast<Texture2D>(sceneFramebuffer->GetAttachment(1));
+	gBuffer.albedoSpec = std::static_pointer_cast<Texture2D>(sceneFramebuffer->GetAttachment(2));
+
+	return gBuffer;
+}
+
+Ref<Texture2D> GetSceneColorAttachment() {
+	auto sceneFramebuffer = g_sceneFramebufferGroup->Get();
+	return std::static_pointer_cast<Texture2D>(sceneFramebuffer->GetAttachment(4));
+}
+
+Ref<Texture2D> GetSceneDepthAttachment() {
+	auto sceneFramebuffer = g_sceneFramebufferGroup->Get();
+	return std::static_pointer_cast<Texture2D>(sceneFramebuffer->GetAttachment(3));
 }
 
 Object& AddObject() {
@@ -800,7 +836,7 @@ MaterialConstants GetMaterialConstants(Ref<Material> material) {
 	MaterialConstants materialConstants;
 	materialConstants.texture_binding_flags = 0;
 	materialConstants.diffuseColor = material->diffuseColor;
-	materialConstants.specularColor = material->specularColor;
+	materialConstants.specular = material->specular;
 	materialConstants.shininess = material->shininess;
 
 	if (material->diffuseTexture) {

@@ -25,7 +25,7 @@ void Asset_Init() {
 
     Ref<Material> defaultMaterial = CreateRef<Material>();
     defaultMaterial->diffuseColor = glm::vec3(0.5f, 0.5f, 0.5f);
-    defaultMaterial->specularColor = glm::vec3(0.1f, 0.1f, 0.1f);
+    defaultMaterial->specular = 0.3f;
     defaultMaterial->shininess = 16.0f;
 
     g_materials["default"] = defaultMaterial;
@@ -249,7 +249,7 @@ void LoadModel(const char* filePath, float scale, const char* key) {
         if (modelMaterial.diffuse) {
             material->diffuseTexture = createTexture(modelMaterial.diffuse, PixelFormat::RGBA8Srgb);
         }
-        material->specularColor = glm::vec3(1.0f, 1.0f, 1.0f);
+        material->specular = 0.3f;
         if (modelMaterial.specular) {
             material->specularTexture = createTexture(modelMaterial.specular, PixelFormat::RGBA8Unorm);
         }
@@ -289,7 +289,7 @@ void LoadModel(const char* filePath, float scale, const char* key) {
 void LoadMaterial(const char* key) {
 	Ref<Material> material = CreateRef<Material>();
 	material->diffuseColor = glm::vec3(0.5f, 0.5f, 0.5f);
-	material->specularColor = glm::vec3(0.1f, 0.1f, 0.1f);
+    material->specular = 0.3f;
 	material->shininess = 16.0f;
 
 	g_materials[key] = material;

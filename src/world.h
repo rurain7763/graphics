@@ -39,6 +39,7 @@ extern std::vector<uint32_t> g_spriteObjects;
 extern RenderQueue g_meshOnlyRenderQueue;
 extern RenderQueue g_renderQueue;
 
+extern DirectionalLight g_directionalLight;
 extern std::vector<PointLight> g_pointLights;
 
 extern ShadowMap g_globalShadowMap;
@@ -55,7 +56,6 @@ extern Ref<VertexInputLayout> g_instanceVertexInputLayout;
 extern Ref<ConstantBuffer> g_cameraCB;
 extern Ref<ConstantBuffer> g_globalCB;
 extern Ref<ConstantBuffer> g_lightCB;
-extern Ref<StructuredBuffer> g_directionalLightSB;
 extern Ref<StructuredBuffer> g_pointLightSB;
 extern Ref<StructuredBuffer> g_spotLightSB;
 
@@ -66,8 +66,17 @@ extern Ref<GraphicsResourcesPool<ConstantBuffer>> g_objConstantsCBPool;
 void World_Init();
 void World_Cleanup();
 void World_Update();
-void World_Render();
+void World_Geometry_Render();
 void World_FinalizeRender();
+
+void Lighting_Init();
+void Lighting_Cleanup();
+void Lighting_Update();
+void Lighting_Render();
+
+GBuffer GetGBuffer();
+Ref<Texture2D> GetSceneColorAttachment();
+Ref<Texture2D> GetSceneDepthAttachment();
 
 void Shadow_Init();
 void Shadow_Cleanup();

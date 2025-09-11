@@ -46,8 +46,9 @@ enum TextureBindingFlag {
 struct MaterialConstants {
     glm::vec3 diffuseColor;
     float shininess;
-    glm::vec3 specularColor;
+    float specular;
     uint32_t texture_binding_flags;
+    uint32_t padding[2];
 };
 
 struct ObjectConstants {
@@ -57,24 +58,20 @@ struct ObjectConstants {
 
 struct DirectionalLight {
     vec3 direction;
-    float padding;
-    vec3 ambient;
-    float padding1;
-    vec3 diffuse;
-    float padding2;
-    vec3 specular;
-    float padding3;
+    vec3 color;
 };
 
 struct PointLight {
     vec3 position;
-    float constant_attenuation;
-    vec3 ambient;
-    float linear_attenuation;
-    vec3 diffuse;
-    float quadratic_attenuation;
-    vec3 specular;
-    float padding;
+    vec3 color;
+    float linear;
+    float quadratic;
+
+    float GetDistance() const {
+		const float threshold = 0.01f; // 원하는 최종 밝기 임계값
+		float maxChannel = fmaxf(fmaxf(color.x, color.y), color.z);
+		return (-linear + sqrtf(linear * linear - 4 * quadratic * (1.0f - maxChannel / threshold))) / (2.0f * quadratic);
+    }
 };
 
 struct SpotLight {
@@ -100,7 +97,7 @@ struct TexturedVertex {
 
 struct Material {
     vec3 diffuseColor;
-    vec3 specularColor;
+    float specular;
     float shininess;
 
     Ref<Texture2D> diffuseTexture;
@@ -135,4 +132,10 @@ struct PointLightShadowMap {
 	vec3 lightPosition;
 	float farPlane;
 	Ref<FramebufferGroup> framebufferGroup;
+};
+
+struct GBuffer {
+	Ref<Texture2D> position;
+	Ref<Texture2D> normal;
+	Ref<Texture2D> albedoSpec;
 };

@@ -108,6 +108,7 @@ namespace flaw {
 			vkDependency.dstAccessMask = ConvertToVkAccessFlags(dependency.dstAccessTypes);
 			vkDependency.srcStageMask = ConvertToVkPipelineStageFlags(dependency.srcPipeStages);
 			vkDependency.dstStageMask = ConvertToVkPipelineStageFlags(dependency.dstPipeStages);
+			vkDependency.dependencyFlags = vk::DependencyFlagBits::eByRegion;
         }
 
 		vk::RenderPassCreateInfo renderPassInfo;

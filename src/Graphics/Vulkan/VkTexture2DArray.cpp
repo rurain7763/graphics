@@ -130,8 +130,6 @@ namespace flaw {
     }
 
     bool VkTexture2DArray::TransitionFinalImageLayout(vk::CommandBuffer& commandBuffer, TextureLayout layout) {
-        auto& vkCmdQueue = static_cast<VkCommandQueue&>(_context.GetCommandQueue());
-
         vk::ImageLayout finalLayout = ConvertToVkImageLayout(layout);
 
         vk::ImageMemoryBarrier barrier;

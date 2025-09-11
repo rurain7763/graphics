@@ -221,6 +221,7 @@ namespace flaw {
 		ShaderWrite = 0x2,
 		ColorAttachmentRead = 0x4,
 		ColorAttachmentWrite = 0x8,
+		InputAttachmentRead = 0x200,
 		DepthStencilAttachmentRead = 0x10,
 		DepthStencilAttachmentWrite = 0x20,
 		HostWrite = 0x40,

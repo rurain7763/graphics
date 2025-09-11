@@ -201,6 +201,27 @@ namespace flaw {
         return usageFlags;
     }
 
+    vk::ColorComponentFlags GetVkColorComponentFlags(PixelFormat format) {
+        switch (format) {
+		case PixelFormat::BGRX8Unorm:
+			return vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB;
+        case PixelFormat::RGBA8Unorm:
+		case PixelFormat::RGBA8Srgb:
+		case PixelFormat::RGBA16F:
+		case PixelFormat::RGBA32F:
+			return vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
+		case PixelFormat::RG8:
+			return vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG;
+		case PixelFormat::R8:
+		case PixelFormat::R8_UINT:
+		case PixelFormat::R32F:
+		case PixelFormat::R32_UINT:
+			return vk::ColorComponentFlagBits::eR;
+		default:
+            throw std::runtime_error("Unknown pixel format or invalid format for color");
+        }
+    }
+
     vk::Format ConvertToVkFormat(ElementType type, uint32_t count) {
         switch (type) {
         case ElementType::Float:
@@ -305,6 +326,10 @@ namespace flaw {
         if (access & AccessType::ShaderWrite) {
             accessFlags |= vk::AccessFlagBits::eShaderWrite;
         }
+
+		if (access & AccessType::InputAttachmentRead) {
+			accessFlags |= vk::AccessFlagBits::eInputAttachmentRead;
+		}
 
         if (access & AccessType::ColorAttachmentRead) {
             accessFlags |= vk::AccessFlagBits::eColorAttachmentRead;

@@ -184,6 +184,11 @@ namespace flaw {
 		return CreateRef<DXTextureCube>(*this, descriptor);
 	}
 
+	Ref<TextureCubeArray> DXContext::CreateTextureCubeArray(const TextureCubeArray::Descriptor& descriptor) {
+		// TODO: Implement DXTextureCubeArray
+		return nullptr;
+	}
+
 	Ref<RenderPass> DXContext::CreateRenderPass(const RenderPass::Descriptor& desc) {
 		return CreateRef<DXRenderPass>(*this, desc);
 	}

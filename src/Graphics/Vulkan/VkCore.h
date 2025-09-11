@@ -57,6 +57,7 @@ namespace flaw {
 	vk::ImageAspectFlags GetVkImageAspectFlags(PixelFormat format);
 	vk::ImageAspectFlags GetVkImageAspectFlags(vk::Format format);
     vk::ImageUsageFlags GetVkImageUsageFlags(TextureUsages texUsages);
+    vk::ColorComponentFlags GetVkColorComponentFlags(PixelFormat format);
     void GetRequiredVkBufferUsageFlags(MemoryProperty usage, vk::BufferUsageFlags& usageFlags);
     void GetRequiredVkMemoryPropertyFlags(MemoryProperty flags, vk::MemoryPropertyFlags& memoryFlags);
     bool CheckSupportedInstanceExtensions(const std::vector<const char*>& requiredExtensions);

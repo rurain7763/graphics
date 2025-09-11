@@ -92,7 +92,7 @@ int main() {
 	pavingMaterial->specularTexture = GetTexture2D("paving_spec");
 	pavingMaterial->normalTexture = GetTexture2D("paving_norm");
 	pavingMaterial->diffuseColor = vec3(1.0f);
-	pavingMaterial->specularColor = vec3(1.0f);
+	pavingMaterial->specular = 1.0f;
 	pavingMaterial->shininess = 32.0f;
 
 	auto pavingMesh = GetMesh("paving");
@@ -101,6 +101,7 @@ int main() {
 	pavingMaterial = nullptr;
 	pavingMesh = nullptr;
 
+    Lighting_Init();
     Shadow_Init();
     Bloom_Init();
     Skybox_Init();
@@ -218,6 +219,7 @@ int main() {
         g_camera->OnUpdate();
 
 		World_Update();
+        Lighting_Update();
         Shadow_Update();
 
 		if (g_context->GetWindowSizeState() == WindowSizeState::Minimized) {
@@ -232,18 +234,24 @@ int main() {
             Shadow_Render();
             
             commandQueue.BeginRenderPass(g_sceneRenderPass, sceneFramebuffer);
-            World_Render();
+            
+            World_Geometry_Render();
+            
+			commandQueue.NextSubpass();
+
+			Lighting_Render();
+
 #if USE_VULKAN
 			//Geometry_Render();
 #endif
             Outliner_Render();
             Skybox_Render();
-            //Sprite_Render();
+            Sprite_Render();
 
             commandQueue.EndRenderPass();
 
             commandQueue.SetPipelineBarrier(
-				{ sceneFramebuffer->GetAttachment(2) },
+				{ GetSceneColorAttachment() },
 				TextureLayout::ColorAttachment,
 				TextureLayout::ShaderReadOnly,
                 AccessType::ColorAttachmentWrite,
@@ -254,7 +262,7 @@ int main() {
 
 			commandQueue.BeginRenderPass(g_bloomRenderPass, bloomFramebuffer);
 
-			Bloom_Render();
+			//Bloom_Render();
 
             commandQueue.EndRenderPass();
 
@@ -288,6 +296,7 @@ int main() {
 	Skybox_Cleanup();
 	Bloom_Cleanup();
 	Shadow_Cleanup();
+	Lighting_Cleanup();
     Asset_Cleanup();
     World_Cleanup();
 

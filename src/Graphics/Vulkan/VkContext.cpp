@@ -407,6 +407,10 @@ namespace flaw {
 		return CreateRef<VkTextureCube>(*this, descriptor);
 	}
 
+    Ref<TextureCubeArray> VkContext::CreateTextureCubeArray(const TextureCubeArray::Descriptor& descriptor) {
+		return CreateRef<VkTextureCubeArray>(*this, descriptor);
+    }
+
     uint32_t VkContext::GetFrameCount() const {
         return _frameCount;
     }

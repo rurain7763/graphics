@@ -17,4 +17,9 @@ glslangValidator -V shadow_point.vert -o shadow_point.vert.spv
 glslangValidator -V shadow_point.geom -o shadow_point.geom.spv
 glslangValidator -V shadow_point.frag -o shadow_point.frag.spv
 glslangValidator -V bloom.frag -o bloom.frag.spv
+glslangValidator -V object_deffered.frag -o object_deffered.frag.spv
+glslangValidator -V lighting_directional.vert -o lighting_directional.vert.spv
+glslangValidator -V lighting_directional.frag -o lighting_directional.frag.spv
+glslangValidator -V lighting_point.vert -o lighting_point.vert.spv
+glslangValidator -V lighting_point.frag -o lighting_point.frag.spv
 PAUSE

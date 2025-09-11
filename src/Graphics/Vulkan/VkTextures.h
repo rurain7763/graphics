@@ -112,9 +112,9 @@ namespace flaw {
 		PixelFormat _format;
 		MemoryProperty _memProperty;
 		TextureUsages _texUsages;
-		uint32_t _layers;
 		uint32_t _mipLevels;
 		uint32_t _sampleCount;
+		uint32_t _layers;
 
 		uint32_t _width;
 		uint32_t _height;
@@ -158,6 +158,49 @@ namespace flaw {
 		TextureUsages _texUsages;
 		uint32_t _mipLevels;
 		uint32_t _sampleCount;
+
+		uint32_t _width;
+		uint32_t _height;
+	};
+
+	class VkTextureCubeArray : public TextureCubeArray {
+	public:
+		VkTextureCubeArray(VkContext& context, const Descriptor& descriptor);
+		~VkTextureCubeArray();
+
+		uint32_t GetWidth() const override { return _width; }
+		uint32_t GetHeight() const override { return _height; }
+		PixelFormat GetPixelFormat() const override { return _format; }
+		TextureUsages GetUsages() const override { return _texUsages; }
+		uint32_t GetSampleCount() const override { return _sampleCount; }
+		uint32_t GetLayers() const override { return _layers; }
+
+		const NativeTexture& GetNativeTexture() const override { return _nativeTexture; }
+		const NativeTextureView& GetNativeTextureView() const override { return _nativeTextureView; }
+		inline vk::Sampler GetVkSampler() const { return _sampler; }
+
+	private:
+		bool PullMemory(vk::CommandBuffer& commandBuffer, const uint8_t* data);
+		bool GenerateMipmaps(vk::CommandBuffer& commandBuffer);
+		bool TransitionFinalImageLayout(vk::CommandBuffer& commandBuffer, TextureLayout layout);
+
+		bool CreateImageView();
+		bool CreateSampler();
+
+	private:
+		VkContext& _context;
+
+		VkNativeTexture _nativeTexture;
+		VkNativeTextureView _nativeTextureView;
+
+		vk::Sampler _sampler;
+
+		PixelFormat _format;
+		MemoryProperty _memProperty;
+		TextureUsages _texUsages;
+		uint32_t _mipLevels;
+		uint32_t _sampleCount;
+		uint32_t _layers;
 
 		uint32_t _width;
 		uint32_t _height;

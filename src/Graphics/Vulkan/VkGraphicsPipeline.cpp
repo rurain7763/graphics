@@ -275,6 +275,10 @@ namespace flaw {
         _renderPass = vkRenderPassLayout;
 		_subpass = subpass;
 
+        for (auto& blendAtt : _colorBlendAttachments) {
+			blendAtt.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
+        }
+
 		_colorBlendAttachments.resize(renderPass->GetColorAttachmentRefsCount(subpass));
         _colorBlendStateInfo.attachmentCount = _colorBlendAttachments.size();
         _colorBlendStateInfo.pAttachments = _colorBlendAttachments.data();
@@ -283,11 +287,15 @@ namespace flaw {
 		for (uint32_t i = 0; i < renderPass->GetColorAttachmentRefsCount(subpass); i++) {
 			const auto& attachmentRef = renderPass->GetColorAttachmentRef(subpass, i);
 			const auto& attachment = renderPass->GetAttachment(attachmentRef.attachmentIndex);
+
 			if (attachment.sampleCount > maxSamples) {
 				maxSamples = attachment.sampleCount;
 			}
-		}
 
+			auto& blendAttachment = _colorBlendAttachments[i];
+			blendAttachment.colorWriteMask = GetVkColorComponentFlags(attachment.format);
+		}
+        
 		_multisampleInfo.rasterizationSamples = ConvertToVkSampleCount(maxSamples);
 		if (_multisampleInfo.rasterizationSamples == vk::SampleCountFlagBits::e1) {
 			_multisampleInfo.sampleShadingEnable = VK_FALSE;
@@ -315,12 +323,6 @@ namespace flaw {
 		_needRecreatePipeline = true;
 
 		blendAttachment.blendEnable = enable;
-        if (enable) {
-		    blendAttachment.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
-        }
-        else {
-            blendAttachment.colorWriteMask = {};
-        }
 	}
 
 	void VkGraphicsPipeline::SetBlendMode(uint32_t attachmentIndex, BlendMode blendMode) {
