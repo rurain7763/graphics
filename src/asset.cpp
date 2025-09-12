@@ -259,6 +259,9 @@ void LoadModel(const char* filePath, float scale, const char* key) {
 		if (modelMaterial.displacement) {
 			material->displacementTexture = createTexture(modelMaterial.displacement, PixelFormat::RGBA8Unorm);
 		}
+		if (modelMaterial.ambientOcclusion) {
+			material->ambientOcclusionTexture = createTexture(modelMaterial.ambientOcclusion, PixelFormat::R8Unorm);
+		}
         material->shininess = 32.0f;
         materialCache[index] = material;
 

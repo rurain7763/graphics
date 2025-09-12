@@ -20,6 +20,10 @@ namespace flaw {
         , _sampleCount(descriptor.sampleCount)
         , _width(descriptor.width)
         , _height(descriptor.height)
+		, _minFilter(descriptor.minFilter)
+		, _magFilter(descriptor.magFilter)
+		, _wrapModeU(descriptor.wrapModeU)
+		, _wrapModeV(descriptor.wrapModeV)
     {
         vk::ImageCreateInfo imageInfo;
         imageInfo.imageType = vk::ImageType::e2D;
@@ -81,6 +85,10 @@ namespace flaw {
         , _texUsages(bindFlags)
         , _sampleCount(sampleCount)
         , _mipLevels(mipLevels)
+		, _minFilter(FilterMode::Nearest)
+		, _magFilter(FilterMode::Linear)
+		, _wrapModeU(WrapMode::Repeat)
+		, _wrapModeV(WrapMode::Repeat)
     {
 		_nativeTexture.image = image;
 
@@ -261,11 +269,10 @@ namespace flaw {
 
     bool VkTexture2D::CreateSampler() {
         vk::SamplerCreateInfo samplerInfo;
-        samplerInfo.minFilter = vk::Filter::eNearest;
-        samplerInfo.magFilter = vk::Filter::eLinear;
-        samplerInfo.addressModeU = vk::SamplerAddressMode::eRepeat;
-        samplerInfo.addressModeV = vk::SamplerAddressMode::eRepeat;
-        samplerInfo.addressModeW = vk::SamplerAddressMode::eRepeat;
+		samplerInfo.minFilter = ConvertToVkFilter(_minFilter);
+		samplerInfo.magFilter = ConvertToVkFilter(_magFilter);
+		samplerInfo.addressModeU = ConvertToVkSamplerAddressMode(_wrapModeU);
+		samplerInfo.addressModeV = ConvertToVkSamplerAddressMode(_wrapModeV);
         samplerInfo.anisotropyEnable = VK_FALSE;
         samplerInfo.maxAnisotropy = 1.0f;
         samplerInfo.borderColor = vk::BorderColor::eIntOpaqueBlack;

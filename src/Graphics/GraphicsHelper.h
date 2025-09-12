@@ -53,6 +53,10 @@ namespace flaw {
 			return _framebuffersPerFrame[frameIndex];
 		}
 
+		Ref<Framebuffer> Get(uint32_t frameIndex) {
+			return _framebuffersPerFrame[frameIndex];
+		}
+
 	private:
 		GraphicsContext& _context;
 

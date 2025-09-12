@@ -10,9 +10,11 @@ namespace flaw {
         case PixelFormat::RGBA8Unorm: return vk::Format::eR8G8B8A8Unorm;
 		case PixelFormat::RGBA8Srgb: return vk::Format::eR8G8B8A8Srgb;
         case PixelFormat::RGBA32F: return vk::Format::eR32G32B32A32Sfloat;
+		case PixelFormat::RGB32F: return vk::Format::eR32G32B32Sfloat;
 		case PixelFormat::RGBA16F: return vk::Format::eR16G16B16A16Sfloat;
+        case PixelFormat::RGB16F: return vk::Format::eR64G64B64Sfloat;
         case PixelFormat::RG8: return vk::Format::eR8G8Unorm;
-        case PixelFormat::R8: return vk::Format::eR8Unorm;
+        case PixelFormat::R8Unorm: return vk::Format::eR8Unorm;
         case PixelFormat::R8_UINT: return vk::Format::eR8Uint;
         case PixelFormat::R32F: return vk::Format::eR32Sfloat;
         case PixelFormat::R32_UINT: return vk::Format::eR32Uint;
@@ -31,9 +33,11 @@ namespace flaw {
         case vk::Format::eR8G8B8A8Unorm: return PixelFormat::RGBA8Unorm;
 		case vk::Format::eR8G8B8A8Srgb: return PixelFormat::RGBA8Srgb;
         case vk::Format::eR32G32B32A32Sfloat: return PixelFormat::RGBA32F;
+		case vk::Format::eR32G32B32Sfloat: return PixelFormat::RGB32F;
 		case vk::Format::eR16G16B16A16Sfloat: return PixelFormat::RGBA16F;
+		case vk::Format::eR64G64B64Sfloat: return PixelFormat::RGB16F;
         case vk::Format::eR8G8Unorm: return PixelFormat::RG8;
-        case vk::Format::eR8Unorm: return PixelFormat::R8;
+        case vk::Format::eR8Unorm: return PixelFormat::R8Unorm;
         case vk::Format::eR8Uint: return PixelFormat::R8_UINT;
         case vk::Format::eR32Sfloat: return PixelFormat::R32F;
         case vk::Format::eR32Uint: return PixelFormat::R32_UINT;
@@ -204,6 +208,8 @@ namespace flaw {
     vk::ColorComponentFlags GetVkColorComponentFlags(PixelFormat format) {
         switch (format) {
 		case PixelFormat::BGRX8Unorm:
+		case PixelFormat::RGB32F:
+		case PixelFormat::RGB16F:
 			return vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB;
         case PixelFormat::RGBA8Unorm:
 		case PixelFormat::RGBA8Srgb:
@@ -212,7 +218,7 @@ namespace flaw {
 			return vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
 		case PixelFormat::RG8:
 			return vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG;
-		case PixelFormat::R8:
+		case PixelFormat::R8Unorm:
 		case PixelFormat::R8_UINT:
 		case PixelFormat::R32F:
 		case PixelFormat::R32_UINT:
@@ -407,6 +413,26 @@ namespace flaw {
 
 		return stageFlags;
     }
+
+    vk::Filter ConvertToVkFilter(FilterMode filterMode) {
+        switch (filterMode) {
+        case FilterMode::Nearest: return vk::Filter::eNearest;
+        case FilterMode::Linear: return vk::Filter::eLinear;
+        default:
+            throw std::runtime_error("Unknown filter mode");
+        }
+    }
+
+	vk::SamplerAddressMode ConvertToVkSamplerAddressMode(WrapMode wrapMode) {
+		switch (wrapMode) {
+		case WrapMode::Repeat: return vk::SamplerAddressMode::eRepeat;
+		case WrapMode::MirroredRepeat: return vk::SamplerAddressMode::eMirroredRepeat;
+		case WrapMode::ClampToEdge: return vk::SamplerAddressMode::eClampToEdge;
+		case WrapMode::ClampToBorder: return vk::SamplerAddressMode::eClampToBorder;
+		default:
+			throw std::runtime_error("Unknown wrap mode");
+		}
+	}
 
     void GetRequiredVkBufferUsageFlags(MemoryProperty usage, vk::BufferUsageFlags& usageFlags) {
         if (usage == MemoryProperty::Static) {

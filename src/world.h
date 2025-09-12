@@ -45,6 +45,8 @@ extern std::vector<PointLight> g_pointLights;
 extern ShadowMap g_globalShadowMap;
 extern PointLightShadowMap g_pointLightShadowMap;
 
+extern Ref<RenderPass> g_geometryRenderPass;
+extern Ref<FramebufferGroup> g_geometryFramebufferGroup;
 extern Ref<RenderPass> g_sceneRenderPass;
 extern Ref<FramebufferGroup> g_sceneFramebufferGroup;
 extern Ref<RenderPass> g_bloomRenderPass;
@@ -68,6 +70,11 @@ void World_Cleanup();
 void World_Update();
 void World_Geometry_Render();
 void World_FinalizeRender();
+
+void SSAO_Init();
+void SSAO_Cleanup();
+void SSAO_Render();
+Ref<Texture2D> GetSSAOTexture();
 
 void Lighting_Init();
 void Lighting_Cleanup();
@@ -101,3 +108,6 @@ Object& GetObjectWithName(const char* name);
 MaterialConstants GetMaterialConstants(Ref<Material> material);
 
 std::vector<uint8_t> GenerateTextureCubeData(Image& left, Image& right, Image& top, Image& bottom, Image& front, Image& back);
+
+std::vector<vec4> CalcSSAOKernel(uint32_t kernelCount);
+std::vector<vec4> CalcSSAONoise(uint32_t noiseCount);

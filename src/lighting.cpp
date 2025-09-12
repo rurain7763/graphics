@@ -46,9 +46,11 @@ void Lighting_Init() {
 
 	ShaderResourcesLayout::Descriptor lightingDynamicSRLDesc;
 	lightingDynamicSRLDesc.bindings = {
-		{ 0, ResourceType::InputAttachment, ShaderStage::Pixel, 1 },
-		{ 1, ResourceType::InputAttachment, ShaderStage::Pixel, 1 },
-		{ 2, ResourceType::InputAttachment, ShaderStage::Pixel, 1 },
+		{ 0, ResourceType::Texture2D, ShaderStage::Pixel, 1 },
+		{ 1, ResourceType::Texture2D, ShaderStage::Pixel, 1 },
+		{ 2, ResourceType::Texture2D, ShaderStage::Pixel, 1 },
+		{ 3, ResourceType::Texture2D, ShaderStage::Pixel, 1 },
+		{ 4, ResourceType::Texture2D, ShaderStage::Pixel, 1 },
 	};
 
 	g_lightingDynamicSRL = g_graphicsContext->CreateShaderResourcesLayout(lightingDynamicSRLDesc);
@@ -112,7 +114,7 @@ void Lighting_Init() {
 	g_directionalLightingPipeline->SetShader(directionalLightingShader);
 	g_directionalLightingPipeline->SetShaderResourcesLayouts({ g_lightingStaticSRL, g_lightingDynamicSRL });
 	g_directionalLightingPipeline->SetVertexInputLayouts({ g_texturedVertexInputLayout, g_directLightInstanceInputLayout });
-	g_directionalLightingPipeline->SetRenderPass(g_sceneRenderPass, 1);
+	g_directionalLightingPipeline->SetRenderPass(g_sceneRenderPass, 0);
 	g_directionalLightingPipeline->EnableBlendMode(0, true);
 	g_directionalLightingPipeline->SetBlendMode(0, BlendMode::Additive);
 	g_directionalLightingPipeline->EnableDepthTest(false);
@@ -131,7 +133,7 @@ void Lighting_Init() {
 	g_pointLightingPipeline->SetShader(pointLightingShader);
 	g_pointLightingPipeline->SetShaderResourcesLayouts({ g_lightingStaticSRL, g_lightingDynamicSRL });
 	g_pointLightingPipeline->SetVertexInputLayouts({ g_texturedVertexInputLayout, g_pointLightInstanceInputLayout });
-	g_pointLightingPipeline->SetRenderPass(g_sceneRenderPass, 1);
+	g_pointLightingPipeline->SetRenderPass(g_sceneRenderPass, 0);
 	g_pointLightingPipeline->EnableBlendMode(0, true);
 	g_pointLightingPipeline->SetBlendMode(0, BlendMode::Additive);
 	g_pointLightingPipeline->EnableDepthTest(false);
@@ -181,9 +183,11 @@ void Lighting_Render() {
 	auto gBuffer = GetGBuffer();
 	auto dynamicSR = g_lightingDynamicSRPool->Get();
 
-	dynamicSR->BindInputAttachment(gBuffer.position, 0);
-	dynamicSR->BindInputAttachment(gBuffer.normal, 1);
-	dynamicSR->BindInputAttachment(gBuffer.albedoSpec, 2);
+	dynamicSR->BindTexture2D(gBuffer.position, 0);
+	dynamicSR->BindTexture2D(gBuffer.normal, 1);
+	dynamicSR->BindTexture2D(gBuffer.albedoSpec, 2);
+	dynamicSR->BindTexture2D(gBuffer.ambientOcclusion, 3);
+	dynamicSR->BindTexture2D(GetSSAOTexture(), 4);
 
 	auto quadMesh = GetMesh("quad");
 

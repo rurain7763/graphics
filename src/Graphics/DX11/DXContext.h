@@ -87,7 +87,8 @@ namespace flaw {
 
 		Ref<GraphicsCommandQueue> _commandQueue;
 
-		std::unordered_map<uint32_t, std::function<void(int32_t, int32_t)>> _onResizeHandlers;
+		std::unordered_map<uint32_t, std::list<std::function<void(int32_t, int32_t)>>::iterator> _onResizeHandlerIters;
+		std::list<std::function<void(int32_t, int32_t)>> _onResizeHandlers;
 	};
 }
 

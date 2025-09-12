@@ -16,7 +16,7 @@ namespace flaw {
 		, _sampleCount(descriptor.sampleCount)
 		, _width(descriptor.width)
 		, _height(descriptor.height)
-		, _layers(descriptor.arraySize)
+		, _layers(descriptor.layers)
 	{
 		if (!CreateTexture(descriptor.data)) {
 			return;

@@ -453,7 +453,7 @@ namespace flaw {
         _swapchain->Resize(static_cast<uint32_t>(width), static_cast<uint32_t>(height));
 
 		for (const auto& handler : _onResizeHandlers) {
-			handler.second(width, height);
+			handler(width, height);
 		}
 	}
 
@@ -483,11 +483,16 @@ namespace flaw {
 	}
 
 	void VkContext::AddOnResizeHandler(uint32_t id, const std::function<void(int32_t, int32_t)>& handler) {
-		_onResizeHandlers[id] = handler;
+		_onResizeHandlers.push_back(handler);
+        _onResizeHandlerIters[id] = --_onResizeHandlers.end();
 	}
 
 	void VkContext::RemoveOnResizeHandler(uint32_t id) {
-		_onResizeHandlers.erase(id);
+		auto iter = _onResizeHandlerIters.find(id);
+		if (iter != _onResizeHandlerIters.end()) {
+			_onResizeHandlers.erase(iter->second);
+			_onResizeHandlerIters.erase(iter);
+		}
 	}
 
     void VkContext::AddDelayedDeletionTasks(const std::function<void()>& task) {

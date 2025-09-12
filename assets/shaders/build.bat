@@ -22,4 +22,6 @@ glslangValidator -V lighting_directional.vert -o lighting_directional.vert.spv
 glslangValidator -V lighting_directional.frag -o lighting_directional.frag.spv
 glslangValidator -V lighting_point.vert -o lighting_point.vert.spv
 glslangValidator -V lighting_point.frag -o lighting_point.frag.spv
+glslangValidator -V ssao.frag -o ssao.frag.spv
+glslangValidator -V ssao_blur.frag -o ssao_blur.frag.spv
 PAUSE

@@ -68,6 +68,11 @@ namespace flaw {
 		uint32_t _mipLevels;
 		uint32_t _sampleCount;
 
+		FilterMode _minFilter;
+		FilterMode _magFilter;
+		WrapMode _wrapModeU;
+		WrapMode _wrapModeV;
+
 		uint32_t _width;
 		uint32_t _height;
 	};
@@ -116,6 +121,11 @@ namespace flaw {
 		uint32_t _sampleCount;
 		uint32_t _layers;
 
+		FilterMode _minFilter;
+		FilterMode _magFilter;
+		WrapMode _wrapModeU;
+		WrapMode _wrapModeV;
+
 		uint32_t _width;
 		uint32_t _height;
 	};
@@ -159,6 +169,12 @@ namespace flaw {
 		uint32_t _mipLevels;
 		uint32_t _sampleCount;
 
+		FilterMode _minFilter;
+		FilterMode _magFilter;
+		WrapMode _wrapModeU;
+		WrapMode _wrapModeV;
+		WrapMode _wrapModeW;
+
 		uint32_t _width;
 		uint32_t _height;
 	};
@@ -201,6 +217,12 @@ namespace flaw {
 		uint32_t _mipLevels;
 		uint32_t _sampleCount;
 		uint32_t _layers;
+
+		FilterMode _minFilter;
+		FilterMode _magFilter;
+		WrapMode _wrapModeU;
+		WrapMode _wrapModeV;
+		WrapMode _wrapModeW;
 
 		uint32_t _width;
 		uint32_t _height;

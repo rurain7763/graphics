@@ -5,6 +5,7 @@
 #define SPECULAR_TEX_BINDING_FLAG (1 << 1)
 #define NORMAL_TEX_BINDING_FLAG (1 << 2)
 #define DISPLACEMENT_TEX_BINDING_FLAG (1 << 3)
+#define AO_TEX_BINDING_FLAG (1 << 4)
 
 bool has_texture(uint bindingFlags, uint textureFlags) {
     return (bindingFlags & textureFlags) == textureFlags;

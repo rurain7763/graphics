@@ -262,11 +262,16 @@ namespace flaw {
 	}
 
 	void DXContext::AddOnResizeHandler(uint32_t id, const std::function<void(int32_t, int32_t)>& handler) {
-		_onResizeHandlers[id] = handler;
+		_onResizeHandlers.push_back(handler);
+		_onResizeHandlerIters[id] = --_onResizeHandlers.end();
 	}
 
 	void DXContext::RemoveOnResizeHandler(uint32_t id) {
-		_onResizeHandlers.erase(id);
+		auto iter = _onResizeHandlerIters.find(id);
+		if (iter != _onResizeHandlerIters.end()) {
+			_onResizeHandlers.erase(iter->second);
+			_onResizeHandlerIters.erase(iter);
+		}
 	}
 }
 

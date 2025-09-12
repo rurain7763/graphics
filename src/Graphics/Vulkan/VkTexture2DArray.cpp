@@ -16,10 +16,14 @@ namespace flaw {
         , _memProperty(descriptor.memProperty)
         , _texUsages(descriptor.texUsages)
         , _mipLevels(descriptor.mipLevels)
-        , _layers(descriptor.arraySize)
+        , _layers(descriptor.layers)
         , _sampleCount(descriptor.sampleCount)
         , _width(descriptor.width)
         , _height(descriptor.height)
+		, _minFilter(descriptor.minFilter)
+		, _magFilter(descriptor.magFilter)
+		, _wrapModeU(descriptor.wrapModeU)
+		, _wrapModeV(descriptor.wrapModeV)
     {
         vk::ImageCreateInfo imageInfo;
         imageInfo.imageType = vk::ImageType::e2D;
@@ -175,12 +179,11 @@ namespace flaw {
 
     bool VkTexture2DArray::CreateSampler() {
         vk::SamplerCreateInfo samplerInfo;
-        samplerInfo.magFilter = vk::Filter::eLinear;
-        samplerInfo.minFilter = vk::Filter::eLinear;
+		samplerInfo.minFilter = ConvertToVkFilter(_minFilter);
+		samplerInfo.magFilter = ConvertToVkFilter(_magFilter);
         samplerInfo.mipmapMode = vk::SamplerMipmapMode::eLinear;
-        samplerInfo.addressModeU = vk::SamplerAddressMode::eClampToEdge;
-        samplerInfo.addressModeV = vk::SamplerAddressMode::eClampToEdge;
-        samplerInfo.addressModeW = vk::SamplerAddressMode::eClampToEdge;
+		samplerInfo.addressModeU = ConvertToVkSamplerAddressMode(_wrapModeU);
+		samplerInfo.addressModeV = ConvertToVkSamplerAddressMode(_wrapModeV);
         samplerInfo.mipLodBias = 0.0f;
         samplerInfo.maxAnisotropy = 1.0f; // No anisotropy
         samplerInfo.compareOp = vk::CompareOp::eNever; // No comparison

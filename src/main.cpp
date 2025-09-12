@@ -101,6 +101,7 @@ int main() {
 	pavingMaterial = nullptr;
 	pavingMesh = nullptr;
 
+    SSAO_Init();
     Lighting_Init();
     Shadow_Init();
     Bloom_Init();
@@ -227,17 +228,34 @@ int main() {
 		}
 
         if (g_graphicsContext->Prepare()) {
+			auto geometryFramebuffer = g_geometryFramebufferGroup->Get();
 			auto sceneFramebuffer = g_sceneFramebufferGroup->Get();
 			auto bloomFramebuffer = g_bloomFramebufferGroup->Get();
 			auto postProcessFramebuffer = g_postProcessFramebufferGroup->Get();
 
             Shadow_Render();
             
-            commandQueue.BeginRenderPass(g_sceneRenderPass, sceneFramebuffer);
+            commandQueue.BeginRenderPass(g_geometryRenderPass, geometryFramebuffer);
             
             World_Geometry_Render();
+
+			commandQueue.EndRenderPass();
+
+			auto gBuffer = GetGBuffer();
+
+			commandQueue.SetPipelineBarrier(
+				{ gBuffer.position, gBuffer.normal, gBuffer.albedoSpec, gBuffer.ambientOcclusion },
+				TextureLayout::ColorAttachment,
+				TextureLayout::ShaderReadOnly,
+				AccessType::ColorAttachmentWrite,
+				AccessType::ShaderRead,
+				PipelineStage::ColorAttachmentOutput,
+				PipelineStage::PixelShader
+			);
+
+			SSAO_Render();
             
-			commandQueue.NextSubpass();
+			commandQueue.BeginRenderPass(g_sceneRenderPass, sceneFramebuffer);
 
 			Lighting_Render();
 
@@ -262,7 +280,7 @@ int main() {
 
 			commandQueue.BeginRenderPass(g_bloomRenderPass, bloomFramebuffer);
 
-			//Bloom_Render();
+			Bloom_Render();
 
             commandQueue.EndRenderPass();
 
@@ -297,6 +315,7 @@ int main() {
 	Bloom_Cleanup();
 	Shadow_Cleanup();
 	Lighting_Cleanup();
+	SSAO_Cleanup();
     Asset_Cleanup();
     World_Cleanup();
 

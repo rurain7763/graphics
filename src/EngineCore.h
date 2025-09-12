@@ -40,11 +40,12 @@ enum TextureBindingFlag {
     Diffuse = (1 << 0),
     Specular = (1 << 1),
 	Normal = (1 << 2),
-	Displacement = (1 << 3)
+	Displacement = (1 << 3),
+	AmbientOcclusion = (1 << 4)
 };
 
 struct MaterialConstants {
-    glm::vec3 diffuseColor;
+    vec3 diffuseColor;
     float shininess;
     float specular;
     uint32_t texture_binding_flags;
@@ -104,6 +105,7 @@ struct Material {
     Ref<Texture2D> specularTexture;
 	Ref<Texture2D> normalTexture;
 	Ref<Texture2D> displacementTexture;
+	Ref<Texture2D> ambientOcclusionTexture;
 };
 
 struct MeshSegment {
@@ -138,4 +140,5 @@ struct GBuffer {
 	Ref<Texture2D> position;
 	Ref<Texture2D> normal;
 	Ref<Texture2D> albedoSpec;
+	Ref<Texture2D> ambientOcclusion;
 };

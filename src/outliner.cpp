@@ -64,7 +64,7 @@ void Outliner_Init() {
 
 	g_writeStencilPipeline = g_graphicsContext->CreateGraphicsPipeline();
 	g_writeStencilPipeline->SetShader(objectShader);
-	g_writeStencilPipeline->SetRenderPass(g_sceneRenderPass, 1);
+	g_writeStencilPipeline->SetRenderPass(g_sceneRenderPass, 0);
 	g_writeStencilPipeline->EnableDepthTest(false);
 	g_writeStencilPipeline->EnableStencilTest(true);
 	g_writeStencilPipeline->SetStencilTest(stencilOp, stencilOp);
@@ -96,7 +96,7 @@ void Outliner_Init() {
 
 	g_outlinePipeline = g_graphicsContext->CreateGraphicsPipeline();
 	g_outlinePipeline->SetShader(outlineShader);
-	g_outlinePipeline->SetRenderPass(g_sceneRenderPass, 1);
+	g_outlinePipeline->SetRenderPass(g_sceneRenderPass, 0);
 	g_outlinePipeline->EnableBlendMode(0, true);
 	g_outlinePipeline->SetBlendMode(0, BlendMode::Default);
 	g_outlinePipeline->EnableStencilTest(true);
@@ -113,7 +113,7 @@ void Outliner_Init() {
 
 	g_cleareStencilPipeline = g_graphicsContext->CreateGraphicsPipeline();
 	g_cleareStencilPipeline->SetShader(objectShader);
-	g_cleareStencilPipeline->SetRenderPass(g_sceneRenderPass, 1);
+	g_cleareStencilPipeline->SetRenderPass(g_sceneRenderPass, 0);
 	g_cleareStencilPipeline->EnableDepthTest(false);
 	g_cleareStencilPipeline->EnableStencilTest(true);
 	g_cleareStencilPipeline->SetStencilTest(stencilOp, stencilOp);

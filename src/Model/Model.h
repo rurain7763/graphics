@@ -64,7 +64,6 @@ namespace flaw {
 		Ref<Image> diffuse;
 		Ref<Image> normal;
 		Ref<Image> specular;
-		Ref<Image> ambient;
 		Ref<Image> emissive;
 		Ref<Image> height;
 		Ref<Image> shininess;

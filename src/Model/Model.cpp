@@ -190,8 +190,8 @@ namespace flaw {
 			material.reflection = GetImageOrCreate(scene, basePath / path.C_Str());
 		}
 
-		if (aiMaterial->GetTexture(aiTextureType_AMBIENT, 0, &path) == AI_SUCCESS) {
-			material.ambient = GetImageOrCreate(scene, basePath / path.C_Str());
+		if (aiMaterial->GetTexture(aiTextureType_AMBIENT, 0, &path) == AI_SUCCESS || aiMaterial->GetTexture(aiTextureType_AMBIENT_OCCLUSION, 0, &path) == AI_SUCCESS) {
+			material.ambientOcclusion = GetImageOrCreate(scene, basePath / path.C_Str());
 		}
 
 		if (aiMaterial->GetTexture(aiTextureType_DISPLACEMENT, 0, &path) == AI_SUCCESS) {
@@ -200,10 +200,6 @@ namespace flaw {
 
 		if (aiMaterial->GetTexture(aiTextureType_LIGHTMAP, 0, &path) == AI_SUCCESS) {
 			material.lightmap = GetImageOrCreate(scene, basePath / path.C_Str());
-		}
-
-		if (aiMaterial->GetTexture(aiTextureType_AMBIENT_OCCLUSION, 0, &path) == AI_SUCCESS) {
-			material.ambientOcclusion = GetImageOrCreate(scene, basePath / path.C_Str());
 		}
 
 		if (aiMaterial->GetTexture(aiTextureType_METALNESS, 0, &path) == AI_SUCCESS) {

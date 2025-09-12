@@ -65,7 +65,7 @@ void Sprite_Init() {
 	g_spritePipeline = g_graphicsContext->CreateGraphicsPipeline();
 	g_spritePipeline->SetShader(spriteShader);
     g_spritePipeline->SetCullMode(CullMode::None);
-	g_spritePipeline->SetRenderPass(g_sceneRenderPass, 1);
+	g_spritePipeline->SetRenderPass(g_sceneRenderPass, 0);
     g_spritePipeline->EnableBlendMode(0, true);
     g_spritePipeline->SetBlendMode(0, BlendMode::Alpha);
 	g_spritePipeline->SetShaderResourcesLayouts({ g_staticShaderResourcesLayout, g_dynamicShaderResourcesLayout });

@@ -33,6 +33,10 @@ namespace flaw {
 			uint32_t mipLevels = 1;
 			uint32_t sampleCount = 1;
 			TextureLayout initialLayout = TextureLayout::Undefined;
+			FilterMode minFilter = FilterMode::Nearest;
+			FilterMode magFilter = FilterMode::Linear;
+			WrapMode wrapModeU = WrapMode::Repeat;
+			WrapMode wrapModeV = WrapMode::Repeat;
 		};
 
 		Texture2D() = default;
@@ -55,7 +59,11 @@ namespace flaw {
 			uint32_t mipLevels = 1;
 			uint32_t sampleCount = 1;
 			TextureLayout initialLayout = TextureLayout::Undefined;
-			uint32_t arraySize = 0;
+			uint32_t layers = 0;
+			FilterMode minFilter = FilterMode::Nearest;
+			FilterMode magFilter = FilterMode::Linear;
+			WrapMode wrapModeU = WrapMode::Repeat;
+			WrapMode wrapModeV = WrapMode::Repeat;
 		};
 
 		Texture2DArray() = default;
@@ -77,6 +85,11 @@ namespace flaw {
 			uint32_t mipLevels = 1;
 			uint32_t sampleCount = 1;
 			TextureLayout initialLayout = TextureLayout::Undefined;
+			FilterMode minFilter = FilterMode::Nearest;
+			FilterMode magFilter = FilterMode::Linear;
+			WrapMode wrapModeU = WrapMode::ClampToEdge;
+			WrapMode wrapModeV = WrapMode::ClampToEdge;
+			WrapMode wrapModeW = WrapMode::ClampToEdge;
 		};
 
 		TextureCube() = default;
@@ -95,6 +108,11 @@ namespace flaw {
 			uint32_t sampleCount = 1;
 			TextureLayout initialLayout = TextureLayout::Undefined;
 			uint32_t arraySize = 0;
+			FilterMode minFilter = FilterMode::Nearest;
+			FilterMode magFilter = FilterMode::Linear;
+			WrapMode wrapModeU = WrapMode::ClampToEdge;
+			WrapMode wrapModeV = WrapMode::ClampToEdge;
+			WrapMode wrapModeW = WrapMode::ClampToEdge;
 		};
 
 		TextureCubeArray() = default;

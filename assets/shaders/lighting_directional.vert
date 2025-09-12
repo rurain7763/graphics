@@ -24,6 +24,7 @@ layout(location = 6) in vec3 in_light_color;
 out VS_OUT {
     layout(location = 0) flat vec3 light_direction;
     layout(location = 1) flat vec3 light_color;
+    layout(location = 2) vec2 tex_coord;
 } vs_out;
 
 void main() {
@@ -35,4 +36,5 @@ void main() {
     gl_Position = vec4(fullscreen, 0.0, 1.0);
     vs_out.light_direction = in_light_direction;
     vs_out.light_color = in_light_color;
+    vs_out.tex_coord = in_tex_coord;
 }

@@ -104,10 +104,20 @@ namespace flaw {
 	}
 
 	template <typename T>
+	constexpr Ref<T> As(const Ref<void>& base) {
+		return std::static_pointer_cast<T>(base);
+	}
+
+	template <typename T>
 	using Scope = std::unique_ptr<T>;
 
 	template <typename T, typename... Args>
 	constexpr Scope<T> CreateScope(Args&&... args) {
 		return std::make_unique<T>(std::forward<Args>(args)...);
+	}
+
+	template <typename T>
+	constexpr Scope<T> As(const Scope<void>& base) {
+		return std::static_pointer_cast<T>(base);
 	}
 }

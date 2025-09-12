@@ -96,11 +96,13 @@ namespace flaw {
 		RGBA8Unorm,
 		RGBA8Srgb,
 		RGBA32F,
+		RGB32F,
 		RGBA16F,
+		RGB16F,
 		RGB8,
 		BGRX8Unorm,
 		RG8,
-		R8,
+		R8Unorm,
 		R8_UINT,
 		R32F,
 		R32_UINT,
@@ -233,6 +235,18 @@ namespace flaw {
 	inline AccessTypes operator|(AccessType a, AccessType b) {
 		return AccessTypes(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
 	}
+
+	enum class FilterMode {
+		Nearest,
+		Linear,
+	};
+
+	enum class WrapMode {
+		Repeat,
+		MirroredRepeat,
+		ClampToEdge,
+		ClampToBorder,
+	};
 }
 
 
